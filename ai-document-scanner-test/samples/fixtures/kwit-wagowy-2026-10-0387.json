@@ -1,0 +1,166 @@
+{
+ "_opis": "Fixture providera MOCK — wynik symulowany dla przykładowego obrazu (dokument fikcyjny). Pewności są przykładowe; ramki = rzeczywiste położenie tekstu.",
+ "file": "kwit-wagowy-2026-10-0387.png",
+ "sha256": "53dd5c0827f02000dceae95945c60d32b1d68949984ddc5d17f11605031704ae",
+ "raw": {
+  "docType": {
+   "value": "KWIT_WAGOWY",
+   "confidence": 0.97,
+   "evidence": "Wydruk z wagi: brutto / tara / netto."
+  },
+  "fields": {
+   "docNumber": {
+    "value": "2026/10/0387",
+    "confidence": 0.98,
+    "bbox": [
+     0.393,
+     0.156,
+     0.5394,
+     0.177
+    ]
+   },
+   "docDate": {
+    "value": "2026-10-02",
+    "confidence": 0.98,
+    "bbox": [
+     0.3466,
+     0.1781,
+     0.4697,
+     0.1991
+    ]
+   },
+   "time": {
+    "value": "14:12",
+    "confidence": 0.97,
+    "bbox": [
+     0.5796,
+     0.1775,
+     0.6445,
+     0.1982
+    ]
+   },
+   "supplier": {
+    "value": "ResInvest Commodities",
+    "confidence": 0.9,
+    "bbox": [
+     0.3934,
+     0.1993,
+     0.6446,
+     0.2208
+    ]
+   },
+   "recipient": {
+    "value": "Elektrociepłownia Zabrze S.A.",
+    "confidence": 0.94,
+    "bbox": [
+     0.2772,
+     0.2211,
+     0.6798,
+     0.265
+    ]
+   },
+   "warehouse": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "product": {
+    "value": "Zrębka drzewna",
+    "confidence": 0.93,
+    "bbox": [
+     0.3589,
+     0.2654,
+     0.5286,
+     0.2866
+    ]
+   },
+   "quantity": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "grossWeight": {
+    "value": "39 860 kg",
+    "confidence": 0.98,
+    "bbox": [
+     0.3828,
+     0.3529,
+     0.4943,
+     0.3738
+    ]
+   },
+   "tareWeight": {
+    "value": "15 420 kg",
+    "confidence": 0.98,
+    "bbox": [
+     0.383,
+     0.3748,
+     0.4944,
+     0.3957
+    ]
+   },
+   "netWeight": {
+    "value": "24 440 kg",
+    "confidence": 0.98,
+    "bbox": [
+     0.3832,
+     0.3967,
+     0.4946,
+     0.4176
+    ]
+   },
+   "vehicleReg": {
+    "value": "SZA 12345",
+    "confidence": 0.96,
+    "bbox": [
+     0.3707,
+     0.2875,
+     0.4821,
+     0.3084
+    ]
+   },
+   "trailerReg": {
+    "value": "SZA 5521N",
+    "confidence": 0.9,
+    "bbox": [
+     0.3825,
+     0.3093,
+     0.494,
+     0.3302
+    ]
+   },
+   "driver": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "carrier": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "loadingPlace": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "deliveryPlace": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "forestDistrict": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "forestRange": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   }
+  },
+  "rawText": "KWIT WAGOWY\nElektrociepłownia Zabrze S.A. — waga samochodowa nr 2\nNr kwitu: 2026/10/0387\nData: 2026-10-02   Godz.: 14:12\nDostawca: ResInvest Commodities\nOdbiorca: Elektrociepłownia Zabrze S.A.\nTowar: Zrębka drzewna\nPojazd: SZA 12345\nNaczepa: SZA 5521N\nBRUTTO:  39 860 kg\nTARA:    15 420 kg\nNETTO:   24 440 kg\nWażący: ......................",
+  "notes": null
+ }
+}

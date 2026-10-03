@@ -1,0 +1,225 @@
+{
+ "_opis": "Kartoteki przykładowe ResInvest ERP 3.5.0 (z data/sample_data.json) — tylko produkty, kontrahenci, przewoźnicy, flota (pojazdy, kierowcy) i magazyny. Bez kont użytkowników, operacji i księgi. Moduł testowy czyta ten plik wyłącznie do podpowiedzi dopasowania.",
+ "version": "3.5.0",
+ "schema": 9,
+ "products": [
+  {
+   "id": "pr_drewno",
+   "code": "DRW-O",
+   "name": "Drewno opałowe",
+   "cat": "drewno",
+   "unit": "m3",
+   "active": true
+  },
+  {
+   "id": "pr_drewno_inw",
+   "code": "DRW-I",
+   "name": "Drewno z wycinki inwestycyjnej",
+   "cat": "drewno",
+   "unit": "m3",
+   "active": true
+  },
+  {
+   "id": "pr_zr_lesna",
+   "code": "ZR-PL",
+   "name": "Zrębka produkcyjna leśna",
+   "cat": "zrebka",
+   "unit": "MP",
+   "active": true
+  },
+  {
+   "id": "pr_zr_inw",
+   "code": "ZR-PI",
+   "name": "Zrębka produkcyjna inwestycyjna",
+   "cat": "zrebka",
+   "unit": "MP",
+   "active": true
+  },
+  {
+   "id": "pr_zr_tow",
+   "code": "ZR-T",
+   "name": "Zrębka towar",
+   "cat": "zrebka",
+   "unit": "MP",
+   "active": true
+  },
+  {
+   "id": "pr_pks",
+   "code": "PKS",
+   "name": "PKS (łupina palmowa)",
+   "cat": "agro",
+   "unit": "t",
+   "active": true
+  },
+  {
+   "id": "pr_lupina",
+   "code": "LUP-N",
+   "name": "Łupina nerkowca",
+   "cat": "agro",
+   "unit": "t",
+   "active": true
+  }
+ ],
+ "partners": [
+  {
+   "id": "pa_lander",
+   "name": "Lander Agro",
+   "role": "supplier",
+   "kind": "firma",
+   "city": "Gliwice",
+   "active": true
+  },
+  {
+   "id": "pa_ndl_rr",
+   "name": "Nadleśnictwo Rudy Raciborskie",
+   "role": "supplier",
+   "kind": "nadlesnictwo",
+   "lesnictwa": [
+    "Stanica",
+    "Kuźnia",
+    "Jankowice",
+    "Rudy"
+   ],
+   "city": "Kuźnia Raciborska",
+   "active": true
+  },
+  {
+   "id": "pa_ndl_ryb",
+   "name": "Nadleśnictwo Rybnik",
+   "role": "supplier",
+   "kind": "nadlesnictwo",
+   "lesnictwa": [
+    "Wielopole",
+    "Paruszowiec",
+    "Golejów"
+   ],
+   "city": "Rybnik",
+   "active": true
+  },
+  {
+   "id": "pa_drwal",
+   "name": "Usługi Leśne Drwal sp. z o.o.",
+   "role": "supplier",
+   "kind": "firma",
+   "city": "Gliwice",
+   "active": true
+  },
+  {
+   "id": "pa_ec_zab",
+   "name": "Elektrociepłownia Zabrze S.A.",
+   "role": "buyer",
+   "city": "Zabrze",
+   "active": true
+  },
+  {
+   "id": "pa_ec_kat",
+   "name": "EC Katowice — biomasa",
+   "role": "buyer",
+   "city": "Katowice",
+   "active": true
+  },
+  {
+   "id": "pa_ciep_ryb",
+   "name": "Ciepłownia Rybnik",
+   "role": "buyer",
+   "city": "Rybnik",
+   "active": true
+  },
+  {
+   "id": "pa_tartak",
+   "name": "Tartak Beskid s.c.",
+   "role": "both",
+   "kind": "firma",
+   "city": "Żywiec",
+   "active": true
+  },
+  {
+   "id": "pa_agro",
+   "name": "Biomass Trading B.V.",
+   "role": "supplier",
+   "kind": "firma",
+   "city": "Rotterdam",
+   "active": true
+  },
+  {
+   "id": "pa_elektrownia",
+   "name": "Elektrownia Łaziska",
+   "role": "buyer",
+   "city": "Łaziska Górne",
+   "active": true
+  }
+ ],
+ "carriers": [
+  "ESI Logistics",
+  "DAP Trans",
+  "Transport Kowalski",
+  "PKP Cargo"
+ ],
+ "fleet": {
+  "vehicles": [
+   {
+    "id": "ve_scania",
+    "name": "Scania R450 — ruchoma podłoga",
+    "reg": "SGL 4T821",
+    "type": "ruchoma_podloga"
+   },
+   {
+    "id": "ve_volvo",
+    "name": "Volvo FH 500 — ruchoma podłoga",
+    "reg": "SZA 12345",
+    "type": "ruchoma_podloga"
+   },
+   {
+    "id": "ve_man",
+    "name": "MAN TGX — ciężarowy",
+    "reg": "SK 7788X",
+    "type": "ciezarowy"
+   },
+   {
+    "id": "ve_daf",
+    "name": "DAF XF 480 — ruchoma podłoga",
+    "reg": "ESR 4R210",
+    "type": "ruchoma_podloga"
+   }
+  ],
+  "drivers": [
+   {
+    "id": "dr_kowalski",
+    "name": "Jan Kowalski"
+   },
+   {
+    "id": "dr_nowak",
+    "name": "Piotr Nowak"
+   },
+   {
+    "id": "dr_wojcik",
+    "name": "Tomasz Wójcik"
+   },
+   {
+    "id": "dr_zielinski",
+    "name": "Marek Zieliński"
+   },
+   {
+    "id": "dr_kaminski",
+    "name": "Łukasz Kamiński"
+   }
+  ]
+ },
+ "warehouses": [
+  {
+   "id": "wh_zab",
+   "code": "ZAB",
+   "name": "RiC Zabrze"
+  },
+  {
+   "id": "wh_bra",
+   "code": "BRA",
+   "name": "RiC Brąszewice"
+  },
+  {
+   "id": "wh_rok",
+   "code": "ROK",
+   "name": "RiC Rokitki"
+  }
+ ]
+}

@@ -1,0 +1,46 @@
+ResInvest ERP — AI Document Scanner Test (moduł eksperymentalny)
+Program stworzony przez Roesner Mateusz dla ResInvest Commodities.
+
+Copyright (c) 2026 Mateusz Roesner. Wszelkie prawa zastrzeżone.
+
+Autor:           Mateusz Roesner
+Licencjobiorca:  ResInvest Commodities
+
+1. Przedmiot licencji
+   Oprogramowanie ResInvest ERP (program, ResInvest ERP Serwer, instalator), jego kod
+   źródłowy, dokumentacja i materiały towarzyszące (w tym film wprowadzający) zostały
+   wykonane przez Mateusza Roesnera na potrzeby ResInvest Commodities.
+
+2. Zakres licencji
+   ResInvest Commodities otrzymuje niewyłączną, nieprzenoszalną licencję na korzystanie
+   z oprogramowania w ramach własnej działalności, na dowolnej liczbie stanowisk
+   i serwerów w swojej sieci, w tym na: instalowanie, uruchamianie, wykonywanie kopii
+   zapasowych oraz przetwarzanie własnych danych. Szczegółowe warunki (w tym ewentualne
+   przeniesienie autorskich praw majątkowych, modyfikacje i serwis) określa odrębna umowa
+   między Autorem a Licencjobiorcą — w razie rozbieżności pierwszeństwo ma umowa.
+
+3. Ograniczenia
+   Bez uprzedniej pisemnej zgody Autora zabrania się:
+     a) udostępniania, sprzedaży, sublicencjonowania lub rozpowszechniania oprogramowania
+        osobom trzecim,
+     b) modyfikowania, dekompilacji lub tworzenia utworów zależnych poza zakresem
+        przewidzianym w umowie,
+     c) usuwania lub zmiany oznaczeń autorstwa i praw autorskich, w tym stopki
+        „Program stworzony przez Roesner Mateusz dla ResInvest Commodities”.
+
+4. Dane
+   Dane wprowadzone do programu (operacje, dokumenty, kartoteki, konta) stanowią
+   własność Licencjobiorcy. Licencjobiorca odpowiada za kopie zapasowe (w trybie serwera
+   program wykonuje je automatycznie) oraz za zabezpieczenie komputera serwera i kont.
+
+5. Wyłączenie odpowiedzialności
+   Oprogramowanie jest dostarczane „TAKIE, JAKIE JEST”, bez gwarancji wykraczających poza
+   zapisy umowy. Autor nie odpowiada za szkody wynikłe z użycia oprogramowania niezgodnie
+   z dokumentacją lub z utraty danych, której zapobiegłaby kopia zapasowa.
+
+6. Składniki stron trzecich (moduł AI Document Scanner Test)
+   * @anthropic-ai/sdk — oficjalny klient Anthropic API, licencja MIT (node_modules/@anthropic-ai/sdk/LICENSE).
+   * Narzędzia deweloperskie (nie są częścią działającego modułu): TypeScript (Apache-2.0),
+     ESLint, @eslint/js, globals, @types/node (MIT), Playwright (Apache-2.0) — testy E2E i generator przykładów.
+   * Przykładowe dokumenty w katalogu samples/ są fikcyjne i wygenerowane przez tools/make-samples.mjs.
+   Korzystanie z usługi Anthropic API podlega warunkom Anthropic (konto i klucz Licencjobiorcy).

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>AI Skaner dokumentów — test</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">RI</span>
+      <div>
+        <div class="brand-name">ResInvest ERP · AI Document Scanner</div>
+        <div class="brand-sub">Moduł eksperymentalny — zdjęcie → rozpoznanie → dane</div>
+      </div>
+    </div>
+    <div class="top-right">
+      <span class="pill pill-test" title="Wyniki nie są dokumentami ERP i nie zmieniają stanów magazynowych">TRYB TESTOWY · bez księgowania</span>
+      <span class="pill" id="providerPill">Provider: …</span>
+    </div>
+  </header>
+
+  <div class="banner" id="simBanner" hidden>
+    <b>Wynik symulowany.</b> Aktywny jest provider <b>mock</b> — rozpoznaje tylko przykładowe zdjęcia (bez OCR).
+    Do analizy własnych zdjęć ustaw <code>ANTHROPIC_API_KEY</code> w <code>server.env</code> i uruchom serwer ponownie.
+  </div>
+
+  <main class="grid">
+    <section class="card" aria-labelledby="hDoc">
+      <div class="card-head">
+        <h2 id="hDoc">Dokument</h2>
+        <div class="tools">
+          <button type="button" class="btn ghost sm" id="btnZoom" disabled aria-pressed="false">Powiększ</button>
+          <label class="chk"><input type="checkbox" id="chkBoxes" checked> Ramki pól</label>
+        </div>
+      </div>
+
+      <div class="upload" id="dropZone">
+        <div class="upload-row">
+          <label class="btn primary">
+            <input type="file" id="fileInput" accept="image/*" hidden>
+            Wybierz zdjęcie
+          </label>
+          <label class="btn">
+            <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+            Zrób zdjęcie
+          </label>
+          <label class="field-inline">
+            <span>Typ</span>
+            <select id="hintType">
+              <option value="AUTO">Automatycznie</option>
+              <option value="PZ">PZ</option>
+              <option value="WZ">WZ</option>
+              <option value="KWIT_WYWOZOWY">Kwit wywozowy</option>
+              <option value="KWIT_WAGOWY">Kwit wagowy</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted small">Przeciągnij zdjęcie tutaj albo wybierz plik. JPEG / PNG / WEBP / HEIC (telefon). Duże zdjęcia są zmniejszane w przeglądarce.</p>
+        <div class="samples" id="samples">
+          <span class="muted small">Przykłady:</span>
+        </div>
+      </div>
+
+      <div class="viewer" id="viewer">
+        <div class="viewer-empty" id="viewerEmpty">Brak zdjęcia. Wybierz plik lub przykład.</div>
+        <div class="stage" id="stage" hidden>
+          <img id="docImage" alt="Zdjęcie dokumentu">
+          <div class="overlay" id="overlay"></div>
+        </div>
+        <div class="busy" id="busy" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <div id="busyText">Analiza dokumentu…</div>
+          <button type="button" class="btn sm" id="btnAbort">Przerwij</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="hRes">
+      <div class="card-head">
+        <h2 id="hRes">Rozpoznanie</h2>
+        <span class="muted small" id="scanMeta"></span>
+      </div>
+
+      <div class="empty-state" id="resultEmpty">Wynik pojawi się po analizie zdjęcia.</div>
+      <div id="errorBox" class="alert error" role="alert" hidden></div>
+
+      <form id="resultForm" hidden autocomplete="off">
+        <div class="doctype">
+          <div>
+            <div class="lbl">Typ dokumentu</div>
+            <select id="docType" aria-label="Typ dokumentu"></select>
+            <div class="muted small" id="docTypeEvidence"></div>
+          </div>
+          <div class="conf-big" id="docTypeConf"></div>
+        </div>
+
+        <ul class="alerts" id="alerts"></ul>
+
+        <div class="fields" id="fields"></div>
+
+        <details class="more" id="extraFieldsBox">
+          <summary>Pozostałe pola (puste na tym typie dokumentu)</summary>
+          <div class="fields" id="extraFields"></div>
+        </details>
+
+        <div class="actions">
+          <label class="field-inline grow">
+            <span>Sprawdzający</span>
+            <input id="reviewer" maxlength="80" placeholder="imię i nazwisko">
+          </label>
+          <button type="submit" class="btn primary" id="btnSave" disabled>Zapisz korektę (test)</button>
+          <button type="button" class="btn" id="btnReviewed">Oznacz jako sprawdzone</button>
+          <a class="btn ghost" id="btnExport" href="#" download>Eksport JSON</a>
+        </div>
+        <p class="muted small">Zapis trafia wyłącznie do izolowanych danych testowych modułu. Nie powstaje dokument PZ/WZ ani ruch magazynowy.</p>
+
+        <details class="more">
+          <summary>Odczytany tekst (OCR) i uwagi providera</summary>
+          <p class="small" id="providerNotes"></p>
+          <pre class="rawtext" id="rawText"></pre>
+        </details>
+
+        <details class="more">
+          <summary>Historia korekt <span id="corrCount" class="muted"></span></summary>
+          <table class="tbl small" id="corrTable"><thead><tr><th>Kiedy</th><th>Kto</th><th>Pole</th><th>Było</th><th>Jest</th></tr></thead><tbody></tbody></table>
+        </details>
+      </form>
+    </section>
+  </main>
+
+  <section class="card history" aria-labelledby="hHist">
+    <div class="card-head">
+      <h2 id="hHist">Historia testów</h2>
+      <button type="button" class="btn ghost sm" id="btnRefresh">Odśwież</button>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl" id="histTable">
+        <thead><tr><th>Data</th><th>Typ</th><th>Numer</th><th>Pewność typu</th><th>Provider</th><th>Korekty</th><th>Status</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="foot muted small">
+    AI Document Scanner Test · moduł izolowany od ResInvest ERP · Program stworzony przez Roesner Mateusz dla ResInvest Commodities.
+  </footer>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

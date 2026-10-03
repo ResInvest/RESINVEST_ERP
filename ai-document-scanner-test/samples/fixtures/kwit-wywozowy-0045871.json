@@ -1,0 +1,171 @@
+{
+ "_opis": "Fixture providera MOCK — wynik symulowany dla przykładowego obrazu (dokument fikcyjny). Pewności są przykładowe; ramki = rzeczywiste położenie tekstu.",
+ "file": "kwit-wywozowy-0045871.png",
+ "sha256": "66a8fe4ea43cba76fa13ed1d229d2f1033c339a915eeaecaa7809a4dbb55043b",
+ "raw": {
+  "docType": {
+   "value": "KWIT_WYWOZOWY",
+   "confidence": 0.95,
+   "evidence": "Tytuł „KWIT WYWOZOWY”, pola nadleśnictwo / leśnictwo."
+  },
+  "fields": {
+   "docNumber": {
+    "value": "KW 0045871",
+    "confidence": 0.97,
+    "bbox": [
+     0.1435,
+     0.098,
+     0.257,
+     0.1178
+    ]
+   },
+   "docDate": {
+    "value": "01.10.2026",
+    "confidence": 0.96,
+    "bbox": [
+     0.409,
+     0.1006,
+     0.5173,
+     0.1204
+    ]
+   },
+   "time": {
+    "value": "7:40",
+    "confidence": 0.74,
+    "bbox": [
+     0.5815,
+     0.0977,
+     0.6426,
+     0.1228
+    ]
+   },
+   "supplier": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "recipient": {
+    "value": "ResInvest Commodities sp. z o.o.",
+    "confidence": 0.92,
+    "bbox": [
+     0.5383,
+     0.1606,
+     0.8588,
+     0.1975
+    ]
+   },
+   "warehouse": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "product": {
+    "value": "S2AP",
+    "confidence": 0.94,
+    "bbox": [
+     0.1279,
+     0.2905,
+     0.1842,
+     0.3115
+    ]
+   },
+   "quantity": {
+    "value": "31,20 m3",
+    "confidence": 0.96,
+    "bbox": [
+     0.6908,
+     0.2961,
+     0.7991,
+     0.3176
+    ]
+   },
+   "grossWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "tareWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "netWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "vehicleReg": {
+    "value": "SGL 4T821",
+    "confidence": 0.9,
+    "bbox": [
+     0.2858,
+     0.3628,
+     0.3975,
+     0.3843
+    ]
+   },
+   "trailerReg": {
+    "value": "SGL 2N44P",
+    "confidence": 0.83,
+    "bbox": [
+     0.5267,
+     0.3652,
+     0.6383,
+     0.3867
+    ]
+   },
+   "driver": {
+    "value": "J. Kowalski",
+    "confidence": 0.8,
+    "bbox": [
+     0.2313,
+     0.3782,
+     0.371,
+     0.404
+    ]
+   },
+   "carrier": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "loadingPlace": {
+    "value": "Oddz. 112a",
+    "confidence": 0.85,
+    "bbox": [
+     0.5375,
+     0.2142,
+     0.6554,
+     0.2358
+    ]
+   },
+   "deliveryPlace": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "forestDistrict": {
+    "value": "Rudy Raciborskie",
+    "confidence": 0.97,
+    "bbox": [
+     0.1354,
+     0.1566,
+     0.331,
+     0.179
+    ]
+   },
+   "forestRange": {
+    "value": "Kuźnia",
+    "confidence": 0.93,
+    "bbox": [
+     0.1347,
+     0.1942,
+     0.2051,
+     0.2154
+    ]
+   }
+  },
+  "rawText": "KWIT WYWOZOWY\nNr KW 0045871  ·  Data wywozu: 01.10.2026   godz. 7:40\nNadleśnictwoRudy RaciborskieLeśnictwoKuźnia\nNabywcaResInvest Commodities sp. z o.o.Miejsce załadunkuOddz. 112a\nSortymentLiczba szt.Miąższość\nS2AP—31,20 m3\nŚrodek transportu\nNr rej. pojazdu: SGL 4T821    przyczepa: SGL 2N44P\nKierowca: J. Kowalski\nWystawił (leśniczy)Odebrał",
+  "notes": "Godzina wpisana odręcznie."
+ }
+}
