@@ -7,7 +7,8 @@ import { join } from "node:path";
 import { ScanStore, isValidId, newId, StoreError } from "../src/store.mjs";
 import { applyCorrection } from "../src/analyze.mjs";
 import { normalizeExtraction } from "../src/normalize.mjs";
-import { loadMasterData, matchMasterData, similarity, simplify } from "../src/master-data.mjs";
+import { matchMasterData, similarity, simplify } from "../src/master-data.mjs";
+import { loadMasterData } from "../src/master-data-file.mjs";
 import { loadConfig, parseEnvFile, assertIsolatedDataDir, MODULE_ROOT } from "../src/config.mjs";
 
 const tmp = () => mkdtempSync(join(tmpdir(), "scanner-test-"));
@@ -100,12 +101,13 @@ test("kartoteki ERP: tylko odczyt wybranych kluczy i podpowiedzi dopasowania", (
   const md = loadMasterData(MASTER);
   assert.ok(md && md.products.length === 7 && md.vehicles.length === 4);
   assert.ok(!("users" in md));
-  const r = normalizeExtraction(JSON.parse(readFileSync(join(MODULE_ROOT, "samples", "fixtures", "kwit-wywozowy-0045871.json"), "utf8")).raw);
+  const r = normalizeExtraction(JSON.parse(readFileSync(join(MODULE_ROOT, "samples", "fixtures", "kwit-wywozowy-3-202640017-0871.json"), "utf8")).raw);
   const m = matchMasterData(r.fields, md);
   assert.equal(m.forestDistrict.id, "pa_ndl_rr");
   assert.equal(m.forestRange.label, "Kuźnia — Nadleśnictwo Rudy Raciborskie");
   assert.equal(m.vehicleReg.id, "ve_scania");
-  assert.equal(r.fields.forestDistrict.value, "Rudy Raciborskie", "wartość odczytu bez zmian");
+  assert.equal(r.fields.forestDistrict.value, "PGL LP NADLEŚNICTWO RUDY RACIBORSKIE", "wartość odczytu bez zmian");
+  assert.equal(m.forestDistrict.score, 1, "prefiks „PGL LP NADLEŚNICTWO” pomijany przy dopasowaniu");
   assert.equal(statSync(MASTER).mtimeMs, before, "plik kartotek nie jest modyfikowany");
   assert.equal(simplify("Usługi Leśne Drwal sp. z o.o."), "uslugi lesne drwal");
   assert.ok(similarity("Elektrociepłownia Zabrze SA", "Elektrociepłownia Zabrze S.A.") > 0.95);

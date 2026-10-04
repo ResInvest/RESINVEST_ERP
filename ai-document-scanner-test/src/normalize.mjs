@@ -15,7 +15,7 @@
    * wyliczenia kontrolne (np. netto = brutto \u2212 tara) są tylko OSTRZEŻENIEM / podpowiedzią,
    * normalizacja nie zmienia sensu odczytu (np. nie poprawia cyfr).
    ========================================================================= */
-import { FIELDS, FIELD_BY_KEY, DOC_TYPE_KEYS, fieldsFor, QUANTITY_UNITS } from "./schema.mjs";
+import { FIELDS, FIELD_BY_KEY, DOC_TYPE_KEYS, fieldsFor, QUANTITY_UNITS, isManualField } from "./schema.mjs";
 
 /**
  * @typedef {{ value: string|null, confidence: number|null, bbox: number[]|null }} RawField
@@ -298,7 +298,9 @@ export function normalizeField(key, raw, source = "ai") {
     default:
       normalized = rawValue;
   }
-  return { value, normalized, confidence: confidence == null ? null : Math.round(confidence * 1000) / 1000, bbox: normalizeBbox(raw && raw.bbox), warnings, source };
+  // ostrzeżenia dostarczone przez źródło odczytu (np. rozbieżne przebiegi OCR)
+  const extra = raw && Array.isArray(/** @type {any} */ (raw).warnings) ? /** @type {any} */ (raw).warnings.map(String) : [];
+  return { value, normalized, confidence: confidence == null ? null : Math.round(confidence * 1000) / 1000, bbox: normalizeBbox(raw && raw.bbox), warnings: [...extra, ...warnings], source };
 }
 
 /* ------------------------------------------------------------------ */
@@ -351,7 +353,17 @@ export function applyTypeRules(docType, all) {
   const keep = fieldsFor(docType);
   /** @type {Record<string, FieldResult>} */
   const out = {};
-  for (const f of FIELDS) out[f.key] = keep.includes(f.key) && all[f.key] ? structuredClone(all[f.key]) : emptyField();
+  for (const f of FIELDS) {
+    const src = all[f.key];
+    // pola ręczne (numeracja WZ / PZ / kwitu wagowego): odczyt OCR / AI jest pomijany
+    const manualOnly = isManualField(docType, f.key) && !(src && src.source === "manual");
+    out[f.key] = keep.includes(f.key) && src && !manualOnly ? structuredClone(src) : emptyField();
+  }
+  // PZ: tony odczytywane tylko wtedy, gdy stoją obok ilości w MP
+  const t = out.netWeight;
+  if (docType === "PZ" && t.value != null && t.source === "ai" && !(out.quantity.normalized && out.quantity.normalized.unit === "MP")) {
+    out.netWeight = emptyField();
+  }
   const q = out.quantity, allowed = QUANTITY_UNITS[/** @type {keyof typeof QUANTITY_UNITS} */ (docType)];
   if (allowed && q.value != null && q.normalized && q.normalized.unit && !allowed.includes(q.normalized.unit)) {
     q.warnings.push(`Jednostka ${q.normalized.unit} nietypowa dla tego dokumentu (oczekiwano: ${allowed.join(", ")}).`);

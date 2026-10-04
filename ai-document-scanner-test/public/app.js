@@ -60,6 +60,9 @@ const level = c => (c == null ? "none" : c >= 0.9 ? "ok" : c >= 0.75 ? "mid" : "
 const fmtDate = iso => { try { return new Date(iso).toLocaleString("pl-PL", { dateStyle: "short", timeStyle: "short" }); } catch { return iso; } };
 const typeLabel = t => (state.status && state.status.schema.docTypes[t] ? state.status.schema.docTypes[t].label : t);
 const fieldDef = key => state.status.schema.fields.find(f => f.key === key);
+/** Etykieta pola dla aktualnego typu (np. „Nr kwitu”, „Numer (ręcznie)”). */
+const labelFor = key => { const o = (state.status.schema.labelOverrides || {})[currentDocType()]; return (o && o[key]) || (fieldDef(key) || { label: key }).label; };
+const isManual = key => ((state.status.schema.manualFields || {})[currentDocType()] || []).includes(key);
 
 function storageGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
 function storageSet(k, v) { try { localStorage.setItem(k, v); } catch { /* tryb prywatny */ } }
@@ -233,11 +236,10 @@ function fieldData(key) {
 /** @param {string} key */
 function fieldRow(key) {
   const f = fieldData(key);
-  const def = fieldDef(key);
   const id = "f_" + key;
   const edited = Object.prototype.hasOwnProperty.call(state.edits, key);
   const value = edited ? state.edits[key] : f.value;
-  const input = /** @type {HTMLInputElement} */ (el("input", { id, name: key, value: value == null ? "" : value, placeholder: "null — brak na dokumencie", maxlength: 300, class: (value == null ? "is-null" : "") + (edited ? " changed" : ""), "aria-describedby": id + "_meta" }));
+  const input = /** @type {HTMLInputElement} */ (el("input", { id, name: key, value: value == null ? "" : value, placeholder: isManual(key) ? "wpisz ręcznie" : "null — brak na dokumencie", maxlength: 300, class: (value == null ? "is-null" : "") + (edited ? " changed" : ""), "aria-describedby": id + "_meta" }));
   input.addEventListener("input", () => {
     const v = input.value.trim();
     const next = v === "" ? null : v;
@@ -261,7 +263,7 @@ function fieldRow(key) {
     ...(f.warnings || []).map(w => el("span", { class: "warn", text: "⚠ " + w })),
     erp ? el("span", { class: "erp", text: `Kartoteka ERP: ${erp.label}${erp.score < 1 ? ` (${Math.round(erp.score * 100)}%)` : ""}` }) : null
   ]);
-  const row = el("div", { class: "frow", "data-key": key }, [el("label", { for: id, text: def ? def.label : key }), input, conf, meta]);
+  const row = el("div", { class: "frow" + (isManual(key) ? " manual" : ""), "data-key": key }, [el("label", { for: id, text: labelFor(key) }), input, conf, meta]);
   row.addEventListener("mouseenter", () => setActive(key));
   row.addEventListener("mouseleave", () => { if (document.activeElement !== input) setActive(null); });
   return row;

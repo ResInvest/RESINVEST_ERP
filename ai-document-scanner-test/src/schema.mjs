@@ -64,16 +64,16 @@ export const FIELD_BY_KEY = Object.fromEntries(FIELDS.map(f => [f.key, f]));
  */
 export const TYPE_SECTIONS = {
   KWIT_WYWOZOWY: [
-    { title: "Kwit", fields: ["docNumber", "forestDistrict", "forestRange"] },
+    { title: "Kwit", fields: ["docNumber", "docDate", "forestDistrict", "forestRange"] },
     { title: "Transport", fields: ["vehicleReg", "quantity"] }
   ],
   WZ: [
-    { title: "Dokument", fields: ["docDate", "supplier", "recipient"] },
+    { title: "Dokument", fields: ["docNumber", "docDate", "supplier", "recipient"] },
     { title: "Transport", fields: ["vehicleReg", "quantity"] }
   ],
   PZ: [
-    { title: "Dokument", fields: ["docDate", "supplier", "recipient"] },
-    { title: "Transport", fields: ["vehicleReg", "quantity"] }
+    { title: "Dokument", fields: ["docNumber", "docDate", "supplier", "recipient"] },
+    { title: "Transport", fields: ["vehicleReg", "quantity", "netWeight"] }
   ],
   KWIT_WAGOWY: [
     { title: "Kwit", fields: ["docNumber", "docDate", "time", "supplier", "recipient", "product"] },
@@ -85,6 +85,33 @@ export const TYPE_SECTIONS = {
     { title: "Transport", fields: ["vehicleReg", "quantity"] }
   ]
 };
+
+/**
+ * Pola wpisywane WYŁĄCZNIE ręcznie (numeracja WZ / PZ / kwitu wagowego) — OCR / AI ich nie wypełnia,
+ * a odczytana wartość jest pomijana.
+ * @type {Partial<Record<DocType, string[]>>}
+ */
+export const MANUAL_FIELDS = { WZ: ["docNumber"], PZ: ["docNumber"], KWIT_WAGOWY: ["docNumber"] };
+
+/** Etykiety pól zależne od typu dokumentu (np. tony obok MP na PZ). */
+/** @type {Partial<Record<DocType, Record<string, string>>>} */
+export const LABEL_OVERRIDES = {
+  KWIT_WYWOZOWY: { docNumber: "Nr kwitu", quantity: "Ilość [m3]" },
+  WZ: { docNumber: "Numer (ręcznie)" },
+  PZ: { docNumber: "Numer (ręcznie)", netWeight: "Ilość [t] (gdy obok MP)" },
+  KWIT_WAGOWY: { docNumber: "Numer (ręcznie)" }
+};
+
+/** Czy pole jest wpisywane tylko ręcznie dla typu? */
+export function isManualField(docType, key) {
+  return (MANUAL_FIELDS[/** @type {DocType} */ (docType)] || []).includes(key);
+}
+
+/** Etykieta pola dla typu dokumentu. */
+export function fieldLabel(docType, key) {
+  const o = LABEL_OVERRIDES[/** @type {DocType} */ (docType)];
+  return (o && o[key]) || (FIELD_BY_KEY[key] ? FIELD_BY_KEY[key].label : key);
+}
 
 /** Płaska lista pól typu (kolejność wyświetlania). */
 /** @type {Record<DocType, string[]>} */

@@ -3,7 +3,7 @@ import js from "@eslint/js";
 import globals from "globals";
 
 export default [
-  { ignores: ["node_modules/**", "dist/**", "data-test/**"] },
+  { ignores: ["node_modules/**", "dist/**", "data-test/**", "standalone/AI_Skaner_Dokumentow.html"] },
   js.configs.recommended,
   {
     files: ["**/*.mjs", "**/*.js"],
@@ -16,6 +16,6 @@ export default [
       "prefer-const": ["error", { destructuring: "all" }]
     }
   },
-  { files: ["public/**/*.js"], languageOptions: { globals: { ...globals.browser } } },
+  { files: ["public/**/*.js", "standalone/src/**/*.mjs"], languageOptions: { globals: { ...globals.browser } } },
   { files: ["**/*.cjs"], languageOptions: { sourceType: "commonjs", globals: { ...globals.node } } }
 ];

@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { scoreDocument, summarize, matches, expectedField, compareKey } from "../src/evaluate.mjs";
 import { normalizeExtraction } from "../src/normalize.mjs";
 import { FIELD_KEYS } from "../src/schema.mjs";
-import { loadMasterData, matchMasterData, integrationHints, warehouseName } from "../src/master-data.mjs";
+import { matchMasterData, integrationHints, warehouseName } from "../src/master-data.mjs";
+import { loadMasterData } from "../src/master-data-file.mjs";
 import { MODULE_ROOT } from "../src/config.mjs";
 
 const EVAL = join(MODULE_ROOT, "eval", "real");
@@ -56,7 +57,7 @@ test("wykrywa zgadywanie, pominięcia i błędne wartości", () => {
 test("oceniane są tylko pola typu dokumentu", () => {
   const kwit = specs.find(s => s.docType === "KWIT_WYWOZOWY");
   const r = scoreDocument(kwit, resultFrom(kwit));
-  assert.deepEqual(r.rows.map(x => x.key).sort(), ["docNumber", "forestDistrict", "forestRange", "quantity", "vehicleReg"]);
+  assert.deepEqual(r.rows.map(x => x.key).sort(), ["docDate", "docNumber", "forestDistrict", "forestRange", "quantity", "vehicleReg"]);
   const wz = specs.find(s => s.image.startsWith("wz-zielona"));
   assert.deepEqual(scoreDocument(wz, resultFrom(wz)).rows.map(x => x.key).sort(), ["docDate", "quantity", "recipient", "vehicleReg"]);
 });
@@ -82,7 +83,7 @@ test("podsumowanie i kalibracja pewności", () => {
   const sum = summarize([a, b]);
   assert.equal(sum.documents, 2);
   assert.equal(sum.docTypeAccuracy, 0.5);
-  assert.equal(sum.presentFieldAccuracy, 0.9, "9 z 10 pól z dokumentu");
+  assert.equal(sum.presentFieldAccuracy, 0.917, "11 z 12 pól z dokumentu");
   assert.equal(sum.avgConfidenceWrong, 0.9);
 });
 

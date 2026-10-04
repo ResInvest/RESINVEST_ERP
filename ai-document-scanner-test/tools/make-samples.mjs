@@ -50,7 +50,7 @@ th { background: #ecebe5; font-size: 18px; text-transform: uppercase; }
 
 /**
  * Specyfikacja dokumentu: html + pewności pól (symulowane) + typ.
- * @type {{ file: string, docType: string, typeConfidence: number, evidence: string, rotate: number, html: string, conf: Record<string, number>, notes: string|null }[]}
+ * @type {{ file: string, docType: string, typeConfidence: number, evidence: string, rotate: number, html: string, conf: Record<string, number>, notes: string|null, values?: Record<string, string> }[]}
  */
 const SAMPLES = [
   {
@@ -91,21 +91,28 @@ const SAMPLES = [
     </div>`
   },
   {
-    file: "kwit-wywozowy-0045871.png", docType: "KWIT_WYWOZOWY", typeConfidence: 0.95, evidence: "Tytuł „KWIT WYWOZOWY”, pola nadleśnictwo / leśnictwo.", rotate: 0.8, notes: "Godzina wpisana odręcznie.",
-    conf: { docNumber: 0.97, docDate: 0.96, time: 0.74, forestDistrict: 0.97, forestRange: 0.93, loadingPlace: 0.85, product: 0.94, quantity: 0.96, recipient: 0.92, vehicleReg: 0.9, trailerReg: 0.83, driver: 0.8 },
-    html: `<div class="paper">
-      <h1>KWIT WYWOZOWY</h1>
-      <h2>Nr <b class="mono"><span data-f="docNumber">KW 0045871</span></b> &nbsp;·&nbsp; Data wywozu: <span data-f="docDate">01.10.2026</span> &nbsp; godz. <span class="hand"><span data-f="time">7:40</span></span></h2>
-      <div class="row">
-        <div class="box"><span class="lbl">Nadleśnictwo</span><b><span data-f="forestDistrict">Rudy Raciborskie</span></b><br><span class="lbl" style="margin-top:12px">Leśnictwo</span><span data-f="forestRange">Kuźnia</span></div>
-        <div class="box"><span class="lbl">Nabywca</span><b><span data-f="recipient">ResInvest Commodities sp. z o.o.</span></b><br><span class="lbl" style="margin-top:12px">Miejsce załadunku</span><span data-f="loadingPlace">Oddz. 112a</span></div>
-      </div>
-      <table><tr><th>Sortyment</th><th style="width:200px">Liczba szt.</th><th style="width:260px">Miąższość</th></tr>
-        <tr><td><span data-f="product">S2AP</span></td><td>—</td><td><b><span data-f="quantity">31,20 m3</span></b></td></tr></table>
-      <div class="row"><div class="box"><span class="lbl">Środek transportu</span>
-        Nr rej. pojazdu: <b class="mono"><span data-f="vehicleReg">SGL 4T821</span></b> &nbsp;&nbsp; przyczepa: <b class="mono"><span data-f="trailerReg">SGL 2N44P</span></b><br>
-        Kierowca: <span class="hand"><span data-f="driver">J. Kowalski</span></span></div></div>
-      <div class="sign"><div>Wystawił (leśniczy)</div><div>Odebrał</div></div>
+    file: "kwit-wywozowy-3-202640017-0871.png", docType: "KWIT_WYWOZOWY", typeConfidence: 0.95, evidence: "Tytuł „Kwit wywozowy”, pola nadleśnictwo / leśnictwo.", rotate: 0.6, notes: null,
+    conf: { docNumber: 0.97, docDate: 0.96, forestDistrict: 0.97, forestRange: 0.93, recipient: 0.92, vehicleReg: 0.9, quantity: 0.96 },
+    values: { quantity: "31,20 m3" }, // jednostka z nagłówka kolumny „Masy [m3]” (tak odczytuje ją model AI)
+    // układ jak wydruk kwitu wywozowego z systemu leśnego: „Etykieta : wartość”, tabela, masy łączne
+    html: `<div class="paper" style="left:170px; width:900px; padding:60px 50px; font-size:23px; line-height:1.55">
+      <div style="text-align:center; font-size:30px; font-weight:bold">Kwit wywozowy</div>
+      <div style="text-align:center; margin-bottom:22px">nr <span data-f="docNumber">3/202640017/0871</span></div>
+      <table style="font-size:23px; margin:0 0 16px; border:0"><tbody>
+        <tr><td style="border:0; padding:2px 8px 2px 0; width:250px">Nadleśnictwo</td><td style="border:0; padding:2px 0">: <span data-f="forestDistrict">PGL LP NADLEŚNICTWO RUDY RACIBORSKIE</span></td></tr>
+        <tr><td style="border:0; padding:2px 8px 2px 0">Nazwa leśnictwa</td><td style="border:0; padding:2px 0">: <span data-f="forestRange">KUŹNIA</span></td></tr>
+        <tr><td style="border:0; padding:2px 8px 2px 0">Klient</td><td style="border:0; padding:2px 0">: <span data-f="recipient">RESINVEST COMMODITIES PL S.A.</span></td></tr>
+        <tr><td style="border:0; padding:2px 8px 2px 0">Data wystawienia</td><td style="border:0; padding:2px 0">: <span data-f="docDate">01/10/2026</span> 07:40:12</td></tr>
+        <tr><td style="border:0; padding:2px 8px 2px 0">Pozycja planu</td><td style="border:0; padding:2px 0">: 202640017</td></tr>
+        <tr><td style="border:0; padding:2px 8px 2px 0">Przewoźnik</td><td style="border:0; padding:2px 0">: Przewoźnik odbiorcy</td></tr>
+        <tr><td style="border:0; padding:2px 8px 2px 0">Nr rej. pojazdu</td><td style="border:0; padding:2px 0">: <span data-f="vehicleReg">SGL 4T821</span></td></tr>
+        <tr><td style="border:0; padding:2px 8px 2px 0">Wydano dnia</td><td style="border:0; padding:2px 0">: 01/10/2026 r.</td></tr>
+      </tbody></table>
+      <table style="font-size:20px; margin:10px 0"><tr><th>Lp</th><th>Artykuł</th><th>Długość</th><th>Ilość</th><th>Masa[m3]</th></tr>
+        <tr><td>1</td><td>S2AP</td><td>2,40</td><td>1</td><td>31,20</td></tr></table>
+      <div style="margin-top:14px">Masy [m3] i ilości łączne wg artykułów</div>
+      <div>S2AP / <span data-f="quantity">31,20</span> / 1</div>
+      <div class="sign" style="margin-top:50px"><div>Wydający dokument</div><div>Odbierający</div></div>
     </div>`
   },
   {
@@ -176,7 +183,7 @@ async function main() {
       const b = boxes[k];
       if (!b) return [k, { value: null, confidence: null, bbox: null }];
       if (s.conf[k] == null) throw new Error(`${s.file}: brak pewności dla pola ${k}`);
-      return [k, { value: b.text, confidence: s.conf[k], bbox: [r4((b.box[0] - pad) / W), r4((b.box[1] - pad) / H), r4((b.box[2] + pad) / W), r4((b.box[3] + pad) / H)] }];
+      return [k, { value: (s.values && s.values[k]) || b.text, confidence: s.conf[k], bbox: [r4((b.box[0] - pad) / W), r4((b.box[1] - pad) / H), r4((b.box[2] + pad) / W), r4((b.box[3] + pad) / H)] }];
     }));
     const rawText = await page.evaluate(() => (document.querySelector(".paper")?.textContent || "").replace(/[ \t]+/g, " ").replace(/\n\s*/g, "\n").trim());
     const sha = createHash("sha256").update(readFileSync(join(outDir, s.file))).digest("hex");

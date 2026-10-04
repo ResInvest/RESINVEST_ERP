@@ -68,14 +68,15 @@ async function waitHealth() {
     const conf = k => page.textContent(`.frow[data-key="${k}"] .conf .val`);
     const fieldKeys = async () => page.$$eval("#fields .frow", rows => rows.map(r => /** @type {HTMLElement} */ (r).dataset.key));
     const sections = async () => page.$$eval("#fields .fsection-title", h => h.map(x => x.textContent));
-    check("WZ: tylko pola data, dostawca, odbiorca | nr rej., ilość", JSON.stringify(await fieldKeys()) === JSON.stringify(["docDate", "supplier", "recipient", "vehicleReg", "quantity"]), JSON.stringify(await fieldKeys()));
+    check("WZ: pola numer (ręcznie), data, dostawca, odbiorca | nr rej., ilość", JSON.stringify(await fieldKeys()) === JSON.stringify(["docNumber", "docDate", "supplier", "recipient", "vehicleReg", "quantity"]), JSON.stringify(await fieldKeys()));
+    check("WZ: numer do wpisania ręcznie", (await val("docNumber")) === "" && (await page.textContent('.frow[data-key="docNumber"] label')) === "Numer (ręcznie)");
     check("WZ: sekcje Dokument i Transport", JSON.stringify(await sections()) === JSON.stringify(["Dokument", "Transport"]));
     check("data 03.10.2026 · 99%", (await val("docDate")) === "03.10.2026" && (await conf("docDate")) === "99%");
     check("dostawca niewpisany → null", (await val("supplier")) === "" && (await conf("supplier")) === "—");
     check("odbiorca XYZ Sp. z o.o. · 96%", (await val("recipient")) === "XYZ Sp. z o.o." && (await conf("recipient")) === "96%");
     check("nr rej. WI12345 · 91%", (await val("vehicleReg")) === "WI12345" && (await conf("vehicleReg")) === "91%");
     check("ilość 68,40 MP · 99%", (await val("quantity")) === "68,40 MP" && (await conf("quantity")) === "99%");
-    check("brak pól spoza listy (numer, towar, kierowca)", (await page.locator("#f_docNumber, #f_product, #f_driver, #f_trailerReg").count()) === 0);
+    check("brak pól spoza listy (towar, kierowca, naczepa)", (await page.locator("#f_product, #f_driver, #f_trailerReg").count()) === 0);
     check("zdjęcie obok danych", await page.isVisible("#docImage") && (await page.evaluate(() => /** @type {HTMLImageElement} */ (document.getElementById("docImage")).naturalWidth)) === 1240);
     check("ramki tylko dla 4 odczytanych pól", (await page.locator("#overlay .bbox").count()) === 4);
 
@@ -135,9 +136,9 @@ async function waitHealth() {
     const overflow = await m.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     check("brak poziomego przewijania (390 px)", overflow <= 0, "nadmiar " + overflow + " px");
     const kwKeys = await m.$$eval("#fields .frow", rows => rows.map(r => /** @type {HTMLElement} */ (r).dataset.key));
-    check("kwit wywozowy: nr kwitu, nadleśnictwo, leśnictwo | nr rej., ilość m3", JSON.stringify(kwKeys) === JSON.stringify(["docNumber", "forestDistrict", "forestRange", "vehicleReg", "quantity"]), JSON.stringify(kwKeys));
+    check("kwit wywozowy: nr kwitu, data, nadleśnictwo, leśnictwo | nr rej., ilość m3", JSON.stringify(kwKeys) === JSON.stringify(["docNumber", "docDate", "forestDistrict", "forestRange", "vehicleReg", "quantity"]), JSON.stringify(kwKeys));
     check("kwit wywozowy: sekcje Kwit i Transport", JSON.stringify(await m.$$eval("#fields .fsection-title", h => h.map(x => x.textContent))) === JSON.stringify(["Kwit", "Transport"]));
-    check("kwit: KW 0045871 · 31,20 m3", (await m.inputValue("#f_docNumber")) === "KW 0045871" && (await m.inputValue("#f_quantity")) === "31,20 m3");
+    check("kwit: nr 3/202640017/0871 · 31,20 m3", (await m.inputValue("#f_docNumber")) === "3/202640017/0871" && (await m.inputValue("#f_quantity")) === "31,20 m3");
     check("kartoteka ERP: nadleśnictwo dopasowane", (await m.textContent('.frow[data-key="forestDistrict"] .meta')).includes("Nadleśnictwo Rudy Raciborskie"));
     const camAccept = await m.getAttribute("#cameraInput", "capture");
     check("przycisk aparatu (capture=environment)", camAccept === "environment");

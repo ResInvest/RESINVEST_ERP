@@ -1,8 +1,8 @@
 {
   "name": "resinvest-ai-document-scanner-test",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "ResInvest ERP — AI Document Scanner Test: izolowany moduł testowy rozpoznawania dokumentów (PZ, WZ, kwit wywozowy, kwit wagowy) ze zdjęć. Tylko odczyt danych — nic nie jest księgowane w ERP.",
+  "description": "ResInvest ERP — skaner dokumentów (PZ, WZ, kwit wywozowy, kwit wagowy) ze zdjęć: program próbny w jednym pliku HTML (darmowy OCR Tesseract w przeglądarce, offline) oraz moduł serwerowy z opcjonalnym providerem AI. Nic nie jest księgowane w ERP.",
   "author": "Mateusz Roesner",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
@@ -15,19 +15,24 @@
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test tests/*.test.mjs",
-    "test:e2e": "node tests/e2e.cjs",
-    "build": "node tools/build.mjs",
+    "test:e2e": "node tests/e2e.cjs && node tests/e2e-standalone.cjs",
+    "build": "node tools/build.mjs && node tools/build-standalone.mjs",
     "samples": "node tools/make-samples.mjs",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e"
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e",
+    "build:standalone": "node tools/build-standalone.mjs",
+    "test:standalone": "node tests/e2e-standalone.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@tesseract.js-data/pol": "^1.0.0",
     "@types/node": "^22.20.5",
+    "esbuild": "^0.28.2",
     "eslint": "^10.12.0",
     "globals": "^17.13.0",
+    "tesseract.js": "^7.0.0",
     "typescript": "^6.0.3"
   }
 }

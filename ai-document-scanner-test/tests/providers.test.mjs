@@ -111,8 +111,10 @@ test("Claude: żądanie zawiera obraz, schemat JSON i fallback; wynik jest parso
   assert.match(params.messages[0].content[1].text, /podpowiedź użytkownika\): WZ/);
   assert.match(params.system, /Nie zgaduj/);
   assert.match(params.system, /nagłówku kolumny/, "jednostka z nagłówka kolumny");
-  assert.match(params.system, /KWIT_WYWOZOWY: Kwit: docNumber, forestDistrict, forestRange \| Transport: vehicleReg, quantity/);
-  assert.match(params.system, /WZ: Dokument: docDate, supplier, recipient \| Transport: vehicleReg, quantity/);
+  assert.match(params.system, /KWIT_WYWOZOWY: Kwit: docNumber, docDate, forestDistrict, forestRange \| Transport: vehicleReg, quantity/);
+  assert.match(params.system, /- WZ: Dokument: docDate, supplier, recipient \| Transport: vehicleReg, quantity/, "numeracja WZ ręczna — nie dla AI");
+  assert.match(params.system, /- PZ: Dokument: docDate, supplier, recipient \| Transport: vehicleReg, quantity, netWeight/);
+  assert.match(params.system, /Numeracja WZ, PZ i kwitu wagowego jest wpisywana ręcznie/);
   assert.match(params.system, /numer kwitu z góry dokumentu/);
   assert.match(params.system, /Znaki wodne aparatu/);
   assert.ok(!/\d{4}-\d{2}-\d{2}/.test(buildSystemPrompt()), "instrukcja systemowa bez dat (stabilny cache)");

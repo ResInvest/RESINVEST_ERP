@@ -14,7 +14,7 @@
    żądanie na model zastępczy (fallbacks: "default"); który model odpowiedział,
    zapisujemy w meta.servedBy.
    ========================================================================= */
-import { extractionJsonSchema, DOC_TYPES, FIELDS, TYPE_SECTIONS } from "../schema.mjs";
+import { extractionJsonSchema, DOC_TYPES, FIELDS, TYPE_SECTIONS, isManualField } from "../schema.mjs";
 import { ProviderError } from "./provider.mjs";
 
 export const DEFAULT_MODEL = "claude-opus-5-5";
@@ -25,7 +25,7 @@ export function buildSystemPrompt() {
   const types = Object.entries(DOC_TYPES).map(([k, v]) => `- ${k}: ${v.description}`).join("\n");
   const fields = FIELDS.map(f => `- ${f.key} (${f.label}): ${f.hint}`).join("\n");
   const perType = Object.entries(TYPE_SECTIONS).filter(([k]) => k !== "NIEZNANY")
-    .map(([k, secs]) => `- ${k}: ${secs.map(s => `${s.title}: ${s.fields.join(", ")}`).join(" | ")}`).join("\n");
+    .map(([k, secs]) => `- ${k}: ${secs.map(s => `${s.title}: ${s.fields.filter(f => !isManualField(k, f)).join(", ")}`).join(" | ")}`).join("\n");
   return `Jesteś modułem OCR systemu magazynowego firmy handlującej biomasą drzewną (zrębka, drewno, PKS) w Polsce.
 Dostajesz zdjęcie JEDNEGO dokumentu: PZ, WZ, kwitu wywozowego drewna albo kwitu wagowego. Zdjęcie może być krzywe, prześwietlone lub częściowo nieczytelne; dokument może być wypełniony odręcznie.
 
@@ -45,6 +45,8 @@ Zasady (obowiązkowe):
 - Dostawcę i odbiorcę wpisuj tylko wtedy, gdy są wpisani w polach dokumentu („Dostawca”, „Odbiorca”, „Nabywca”, „Nazwa i adres odbiorcy”). Nadruk / pieczątka wystawcy formularza to nie jest wpisany dostawca.
 - Kwit wywozowy: docNumber = numer kwitu z góry dokumentu (wiersz „nr …” pod tytułem), forestDistrict = wiersz „Nadleśnictwo”, forestRange = „Nazwa leśnictwa”, vehicleReg = „Nr rej. pojazdu”, quantity = łączna ilość m3 (kolumna „Masa[m3]” / wiersz „Razem”) — nie liczba sztuk i nie masa w kg.
 - WZ / PZ: quantity = ilość wydana / przyjęta w MP, m3 albo t, z jednostką z kolumny „j.m.” / „Jedn.” (np. „62,60 mp”). Jeśli ilość wpisano w niewłaściwą kolumnę (np. „KTM / symbol indeksu”), ale jest jednoznacznie powiązana z towarem i jednostką, odczytaj ją, obniż confidence i opisz to w notes.
+- Numeracja WZ, PZ i kwitu wagowego jest wpisywana ręcznie przez użytkownika — dla tych typów docNumber = null.
+- PZ: jeśli obok ilości w MP podano także tony (np. „62,60 mp / 20,5 t”), quantity = ilość w MP, netWeight = tony; w przeciwnym razie netWeight = null.
 - Jednostka podana w nagłówku kolumny lub w osobnej kolumnie jest częścią dokumentu — dołącz ją do ilości (np. „17,50 m3”).
 - vehicleReg: sam numer rejestracyjny — z pola „Środek transportu: PY 30536 - Lander Agro” tylko „PY 30536”.
 - Daty przepisuj tak, jak napisano (np. „27.08.26r.”, „27/03/2026”).

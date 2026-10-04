@@ -14,5 +14,5 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*.mjs", "server/**/*.mjs", "tools/**/*.mjs", "public/**/*.js"]
+  "include": ["src/**/*.mjs", "server/**/*.mjs", "tools/**/*.mjs", "public/**/*.js", "standalone/src/**/*.mjs"]
 }

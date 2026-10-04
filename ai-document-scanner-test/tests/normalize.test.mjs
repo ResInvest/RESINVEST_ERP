@@ -5,7 +5,7 @@ import {
   parsePlNumber, parseQuantity, parseDate, parseTime, normalizePlate, isPolishPlate, normalizeBbox,
   normalizeField, normalizeExtraction, crossCheck, applyTypeRules, isEmptyValue, canonicalUnit, isAmbiguousNumber, CAP_INVALID, CAP_UNUSUAL, averageConfidence
 } from "../src/normalize.mjs";
-import { FIELD_KEYS, extractionJsonSchema, fieldsFor, TYPE_SECTIONS } from "../src/schema.mjs";
+import { FIELD_KEYS, extractionJsonSchema, fieldsFor, TYPE_SECTIONS, isManualField, fieldLabel } from "../src/schema.mjs";
 
 const raw = (value, confidence = 0.9, bbox = null) => ({ value, confidence, bbox });
 
@@ -189,17 +189,27 @@ test("schemat JSON dla providera: wszystkie pola wymagane i bez dodatkowych", ()
 
 test("pola odczytywane dla typu (bez dodatkowych pól)", () => {
   assert.deepEqual(TYPE_SECTIONS.KWIT_WYWOZOWY, [
-    { title: "Kwit", fields: ["docNumber", "forestDistrict", "forestRange"] },
+    { title: "Kwit", fields: ["docNumber", "docDate", "forestDistrict", "forestRange"] },
     { title: "Transport", fields: ["vehicleReg", "quantity"] }
   ]);
-  for (const t of ["WZ", "PZ"]) assert.deepEqual(fieldsFor(t), ["docDate", "supplier", "recipient", "vehicleReg", "quantity"]);
+  assert.deepEqual(fieldsFor("WZ"), ["docNumber", "docDate", "supplier", "recipient", "vehicleReg", "quantity"]);
+  assert.deepEqual(fieldsFor("PZ"), ["docNumber", "docDate", "supplier", "recipient", "vehicleReg", "quantity", "netWeight"]);
+  assert.ok(isManualField("WZ", "docNumber") && isManualField("PZ", "docNumber") && isManualField("KWIT_WAGOWY", "docNumber"));
+  assert.ok(!isManualField("KWIT_WYWOZOWY", "docNumber"), "nr kwitu wywozowego jest odczytywany");
+  assert.equal(fieldLabel("PZ", "netWeight"), "Ilość [t] (gdy obok MP)");
+  assert.equal(fieldLabel("KWIT_WYWOZOWY", "docNumber"), "Nr kwitu");
   assert.equal(fieldsFor("COŚ"), fieldsFor("NIEZNANY"));
   const all = Object.fromEntries(FIELD_KEYS.map(k => [k, normalizeField(k, null)]));
   all.docNumber = normalizeField("docNumber", raw("458/10/2026", 0.99));
   all.driver = normalizeField("driver", raw("Jan Kowalski", 0.8));
   all.quantity = normalizeField("quantity", raw("12 t", 0.95));
   const wz = applyTypeRules("WZ", all);
-  assert.equal(wz.docNumber.value, null, "numer nie jest odczytywany na WZ");
+  assert.equal(wz.docNumber.value, null, "numeracja WZ ręczna — odczyt pomijany");
+  const manual = applyTypeRules("WZ", Object.assign({}, all, { docNumber: normalizeField("docNumber", raw("WZ/7/2026"), "manual") }));
+  assert.equal(manual.docNumber.value, "WZ/7/2026", "numer wpisany ręcznie zostaje");
+  const pzT = Object.assign({}, all, { quantity: normalizeField("quantity", raw("62,6 mp", 0.9)), netWeight: normalizeField("netWeight", raw("20,5 t", 0.9)) });
+  assert.equal(applyTypeRules("PZ", pzT).netWeight.value, "20,50 t", "PZ: tony obok MP");
+  assert.equal(applyTypeRules("PZ", Object.assign({}, pzT, { quantity: normalizeField("quantity", raw("24 m3", 0.9)) })).netWeight.value, null, "tony tylko obok MP");
   assert.equal(wz.driver.value, null);
   assert.equal(wz.quantity.value, "12,00 t");
   assert.equal(wz.quantity.confidence, 0.95, "t dozwolone na WZ");

@@ -39,7 +39,11 @@ Licencjobiorca:  ResInvest Commodities
    z dokumentacją lub z utraty danych, której zapobiegłaby kopia zapasowa.
 
 6. Składniki stron trzecich (moduł AI Document Scanner Test)
-   * @anthropic-ai/sdk — oficjalny klient Anthropic API, licencja MIT (node_modules/@anthropic-ai/sdk/LICENSE).
+   * Tesseract.js i tesseract.js-core (silnik OCR, osadzony w programie HTML) — licencja Apache-2.0.
+   * Dane językowe OCR (pol.traineddata, projekt tesseract-ocr/tessdata, pakiet @tesseract.js-data/pol) —
+     Apache-2.0 / MIT.
+   * esbuild (budowa programu HTML, narzędzie deweloperskie) — licencja MIT.
+   * @anthropic-ai/sdk — oficjalny klient Anthropic API (tylko opcjonalny moduł serwerowy), licencja MIT.
    * Narzędzia deweloperskie (nie są częścią działającego modułu): TypeScript (Apache-2.0),
      ESLint, @eslint/js, globals, @types/node (MIT), Playwright (Apache-2.0) — testy E2E i generator przykładów.
    * Przykładowe dokumenty w katalogu samples/ są fikcyjne i wygenerowane przez tools/make-samples.mjs.

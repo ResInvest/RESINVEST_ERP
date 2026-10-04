@@ -1,19 +1,61 @@
-# ResInvest ERP — AI Document Scanner Test
+# ResInvest ERP — Skaner dokumentów (test)
 
 *Moduł eksperymentalny. Program stworzony przez Roesner Mateusz dla ResInvest Commodities.*
 
-Izolowany moduł testowy, który sprawdza, czy da się automatycznie odczytać ze **zdjęcia** dokumenty:
-**PZ**, **WZ**, **kwit wywozowy** i **kwit wagowy**.
+Sprawdza, czy da się automatycznie odczytać ze **zdjęcia**: **kwit wywozowy**, **WZ**, **PZ** i **kwit wagowy**.
 
 ```
-ZDJĘCIE  →  ROZPOZNANIE (OCR / AI)  →  DANE (pola + pewność + podświetlenie na zdjęciu)  →  ręczna korekta
+ZDJĘCIE  →  ROZPOZNANIE (OCR)  →  DANE (pola + pewność + podświetlenie na zdjęciu)  →  ręczna korekta
 ```
 
-> **Tryb testowy.** Moduł **nie łączy się z bazą ResInvest ERP**, nie tworzy dokumentów PZ/WZ, ruchów
-> magazynowych, transportów ani produkcji i nie zmienia stanów. Wyniki zapisuje wyłącznie w osobnym
-> katalogu `data-test/` (oznaczone `testOnly: true`, `erpPosted: false`). Decyzja o integracji z ERP — po teście.
+> **Tryb testowy.** Nic nie trafia do ResInvest ERP: brak dokumentów PZ/WZ, ruchów magazynowych, zmian stanów.
 
----
+## 0. Program próbny — jeden plik HTML (darmowy, bez internetu, bez kluczy)
+
+**`standalone/AI_Skaner_Dokumentow.html`** (ok. 6,4 MB) — otwórz dwuklikiem w Chrome / Edge / Firefox / Safari
+(komputer lub telefon). Nie wymaga instalacji, serwera, internetu ani kluczy API.
+
+* **OCR:** Tesseract.js (open source, Apache-2.0) z polskimi danymi językowymi — działa w przeglądarce.
+  Wszystkie zasoby są w pliku; program nie łączy się z siecią (blokuje to też nagłówek CSP w pliku).
+* **Pola:**
+
+  | Dokument | Odczyt OCR | Wpis ręczny |
+  |---|---|---|
+  | Kwit wywozowy | nr kwitu (góra), data, nadleśnictwo, leśnictwo · *Transport:* nr rej., ilość m3 | — |
+  | WZ | data, dostawca, odbiorca (jeśli wpisani) · *Transport:* nr rej., ilość MP / m3 / t | **numer** |
+  | PZ | jak WZ + **ilość [t]**, gdy tony stoją obok ilości w MP | **numer** |
+  | Kwit wagowy | data, godzina, dostawca, odbiorca, towar, brutto / tara / netto, nr rej., naczepa, kierowca | **numer** |
+
+* **Dokładny odczyt** (domyślnie): dwa przebiegi OCR (oryginał i powiększenie). Zgodne odczyty → wyższa pewność;
+  rozbieżne → niska pewność i ostrzeżenie z obiema wersjami. Na WZ / PZ wartość musi wyjść w obu przebiegach.
+* **Pewność:** z pewności znaków OCR; numery (kwitu, rejestracyjne) najwyżej 85% — nie mają sumy kontrolnej, jedna
+  pomylona cyfra jest niewykrywalna; pola z formularzy WZ / PZ najwyżej 70% (pismo ręczne).
+* Zdjęcie obok danych z **ramkami prawdziwych współrzędnych** słów OCR; obrót ↺ ↻; przykłady w pliku.
+* **Wpis ręczny z podpowiedziami** z kartotek ERP (kontrahenci, magazyny, pojazdy, nadleśnictwa / leśnictwa);
+  kartoteki można wczytać z kopii JSON ResInvest ERP (zapisywane są tylko kartoteki).
+* **Historia testów** w przeglądarce (bez zdjęć — prywatność), historia korekt było → jest, eksport CSV / JSON.
+
+### Wyniki na prawdziwych zdjęciach (3 dokumenty od użytkownika)
+
+| Dokument | Typ | Pola poprawnie | Uwagi |
+|---|---|---|---|
+| Kwit wywozowy LP (wydruk termiczny, nieostre zdjęcie) | ✓ | 3 / 6 — data, nadleśnictwo, ilość m3 | nr kwitu i nr rej. z jedną pomyloną cyfrą (oznaczone „do sprawdzenia”), leśnictwo nieczytelne → puste |
+| WZ zielona (odręczna) | ✓ | 0 / 4 | pismo ręczne — pola puste do wpisania (bez zgadywania) |
+| WZ niebieska (odręczna) | ✓ | 0 / 3 | jw. |
+
+Żadne pole nie zostało wpisane „z powietrza” (0 zgadnięć). **Ograniczenie darmowego OCR:** pisma odręcznego
+Tesseract nie czyta — dla odręcznych WZ / PZ program rozpoznaje typ i ułatwia szybki wpis; drukowane kwity
+odczytuje częściowo. Lepsze wyniki: zdjęcie z bliska, ostre, równo, przy dobrym świetle.
+
+```bash
+npm install && npm run build:standalone   # przebudowa pliku HTML (po zmianach w kodzie)
+npm run test:standalone                   # test E2E pliku (file://, sieć zablokowana)
+```
+
+## Moduł serwerowy (opcjonalny, wymaga płatnego klucza AI)
+
+Poniżej — moduł z serwerem Node.js i opcjonalnym providerem Claude (Anthropic API). **Nie jest potrzebny**
+do programu próbnego; zostaje na wypadek przyszłej decyzji o płatnym, dokładniejszym rozpoznawaniu (także pisma ręcznego).
 
 ## 1. Co potrafi
 
@@ -97,8 +139,10 @@ Kolejne dokumenty: dodaj zdjęcie + `*.expected.json` (pola nieopisane = null; n
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript (`checkJs`, `strict`) na kodzie modułu (src, server, tools, public) |
 | `npm test` | testy jednostkowe i API (`node --test`, bez sieci) |
-| `npm run build` | kontrole (składnia, brak sekretów i CDN w interfejsie, identyfikatory, fixture) + `dist/` |
-| `npm run test:e2e` | test przeglądarkowy (Playwright + Chromium, komputer i telefon 390 px) |
+| `npm run build` | kontrole (składnia, brak sekretów i CDN w interfejsie, identyfikatory, fixture) + `dist/` + program HTML |
+| `npm run build:standalone` | tylko program próbny `standalone/AI_Skaner_Dokumentow.html` |
+| `npm run test:standalone` | test E2E programu HTML (offline) + pomiar na zdjęciach z `eval/real` (jeśli są) |
+| `npm run test:e2e` | testy przeglądarkowe modułu serwerowego i programu HTML (Playwright + Chromium, komputer i telefon 390 px) |
 | `npm run verify` | wszystko powyżej po kolei |
 | `npm run samples` | ponowne wygenerowanie przykładowych dokumentów i fixture |
 

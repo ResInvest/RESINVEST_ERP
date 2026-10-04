@@ -30,9 +30,9 @@ import { loadConfig, MODULE_ROOT } from "../src/config.mjs";
 import { createProviders } from "../src/providers/index.mjs";
 import { ProviderError } from "../src/providers/provider.mjs";
 import { ScanStore, StoreError, isValidId } from "../src/store.mjs";
-import { loadMasterData } from "../src/master-data.mjs";
+import { loadMasterData } from "../src/master-data-file.mjs";
 import { analyzeDocument, applyCorrection, InputError } from "../src/analyze.mjs";
-import { FIELDS, DOC_TYPES, FIELDS_BY_TYPE, TYPE_SECTIONS, SCHEMA_VERSION } from "../src/schema.mjs";
+import { FIELDS, DOC_TYPES, FIELDS_BY_TYPE, TYPE_SECTIONS, MANUAL_FIELDS, LABEL_OVERRIDES, SCHEMA_VERSION } from "../src/schema.mjs";
 import { SUPPORTED_MIME } from "../src/image.mjs";
 
 export const MODULE_VERSION = JSON.parse(readFileSync(join(MODULE_ROOT, "package.json"), "utf8")).version;
@@ -147,7 +147,7 @@ export function createScannerServer(opts) {
       provider: provider.status(),
       providers: Object.values(providers.all).map(p => p.status()),
       limits: { maxUploadBytes: cfg.maxUploadBytes, minSide: cfg.minSide, maxSide: cfg.maxSide, mime: SUPPORTED_MIME, clientMaxSide: 2400 },
-      schema: { version: SCHEMA_VERSION, docTypes: DOC_TYPES, fields: FIELDS.map(f => ({ key: f.key, label: f.label, kind: f.kind })), fieldsByType: FIELDS_BY_TYPE, typeSections: TYPE_SECTIONS },
+      schema: { version: SCHEMA_VERSION, docTypes: DOC_TYPES, fields: FIELDS.map(f => ({ key: f.key, label: f.label, kind: f.kind })), fieldsByType: FIELDS_BY_TYPE, typeSections: TYPE_SECTIONS, manualFields: MANUAL_FIELDS, labelOverrides: LABEL_OVERRIDES },
       erpMasterData: masterData ? { loaded: true, file: masterData.source.split(/[\\/]/).pop(), products: masterData.products.length, partners: masterData.partners.length, vehicles: masterData.vehicles.length, drivers: masterData.drivers.length } : { loaded: false },
       samples: listSamples(),
       authRequired: !!cfg.accessToken

@@ -9,20 +9,22 @@
    Wynik to PODPOWIEDŹ („pasuje do kartoteki: …”), nie zmiana wartości odczytu.
    Wartość pola pozostaje dokładnie taka, jak na dokumencie.
    ========================================================================= */
-import { readFileSync, existsSync } from "node:fs";
 import { plateKey } from "./normalize.mjs";
 
 /** Klucze danych ERP, które moduł czyta. Konta użytkowników, operacje i księga są pomijane. */
 export const MASTER_KEYS = ["products", "partners", "carriers", "fleet", "warehouses"];
 
-/** Wczytanie kartotek z pliku JSON ERP (tylko wybrane klucze). Zwraca null, gdy brak pliku. */
-export function loadMasterData(file) {
-  if (!file || !existsSync(file)) return null;
-  const j = JSON.parse(readFileSync(file, "utf8"));
-  const src = j && j.state ? j.state : j; // kopia serwera ma dane w polu state
+/**
+ * Kartoteki z obiektu danych ERP (tylko wybrane klucze). Bez dostępu do plików — działa w przeglądarce i w Node.
+ * @param {any} j dane ERP (stan, kopia serwera z polem state albo eksport kartotek)
+ * @param {string} [source] opis źródła
+ */
+export function loadMasterDataFromObject(j, source = "kartoteki") {
+  if (!j || typeof j !== "object") return null;
+  const src = j.state ? j.state : j; // kopia serwera ma dane w polu state
   const fleet = src.fleet || {};
   return {
-    source: file,
+    source,
     products: (src.products || []).map(p => ({ id: p.id, code: p.code, name: p.name, unit: p.unit, active: p.active !== false })),
     partners: (src.partners || []).map(p => ({ id: p.id, name: p.name, role: p.role, city: p.city || "", lesnictwa: p.lesnictwa || [], active: p.active !== false })),
     carriers: (src.carriers || []).map(c => (typeof c === "string" ? { name: c } : { name: c.name })),
@@ -88,7 +90,7 @@ function best(value, list, nameOf, min) {
 /**
  * Podpowiedzi dopasowania pól odczytu do kartotek ERP.
  * @param {Record<string, import("./normalize.mjs").FieldResult>} fields
- * @param {ReturnType<typeof loadMasterData>} md
+ * @param {ReturnType<typeof loadMasterDataFromObject>} md
  * @returns {Record<string, { kind: string, id: string|null, label: string, score: number }>}
  */
 export function matchMasterData(fields, md, min = 0.6) {
@@ -107,7 +109,9 @@ export function matchMasterData(fields, md, min = 0.6) {
     if (wh && (!partner || wh.score > partner.score)) put("recipient", "warehouse", wh, w => `${w.name} (${w.code}) — magazyn własny`);
     else put("recipient", "partner", partner, p => p.name);
   }
-  if (val("forestDistrict")) put("forestDistrict", "partner", best(val("forestDistrict"), md.partners.filter(p => /nadle/i.test(p.name)), p => p.name.replace(/^nadleśnictwo\s+/i, ""), min), p => p.name);
+  // „PGL LP NADLEŚNICTWO RUDY RACIBORSKIE” (kwit) ≈ „Nadleśnictwo Rudy Raciborskie” (kartoteka)
+  const ndl = s => String(s).replace(/^(pgl\s+lp\s+)?nadle[sś]nictwo\s+/i, "");
+  if (val("forestDistrict")) put("forestDistrict", "partner", best(ndl(val("forestDistrict")), md.partners.filter(p => /nadle/i.test(p.name)), p => ndl(p.name), min), p => p.name);
   if (val("driver")) put("driver", "driver", best(val("driver"), md.drivers, d => d.name, 0.8), d => d.name);
   if (val("forestRange")) {
     for (const p of md.partners) {
