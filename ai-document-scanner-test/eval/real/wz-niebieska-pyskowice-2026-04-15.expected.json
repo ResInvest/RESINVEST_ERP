@@ -1,0 +1,14 @@
+{
+  "_opis": "Wzorzec: ręczny odczyt prawdziwej WZ (niebieski druk, wypełnienie odręczne, pieczątka magazynu). Ilość wpisana w kolumnę KTM, kolumna „Ilość wydana” pusta. Pola nieopisane = null.",
+  "image": "wz-niebieska-pyskowice-2026-04-15.jpg",
+  "docType": "WZ",
+  "fields": {
+    "docDate": "15.04.26r.",
+    "recipient": { "value": "Magazyn Kacery", "uncertain": true, "note": "odręczna nazwa — druga część nieczytelna" },
+    "supplier": { "value": null, "alternatives": ["ResInvest Commodities PL S.A."] },
+    "warehouse": { "value": "MAGAZYN ul. Wiejska 26A 44-120 Pyskowice", "alternatives": ["Magazyn Pyskowice", "Pyskowice", "ul. Wiejska 26A 44-120 Pyskowice"], "note": "z pieczątki" },
+    "product": "Zrębka",
+    "quantity": { "value": "60 mp", "note": "wpisane w kolumnę KTM — model powinien odczytać z obniżoną pewnością" },
+    "vehicleReg": "SK 7H433"
+  }
+}

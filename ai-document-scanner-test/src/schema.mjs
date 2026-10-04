@@ -54,7 +54,12 @@ export const FIELDS = [
   { key: "loadingPlace", label: "Miejsce załadunku", kind: "text", hint: "Miejsce załadunku / pochodzenia (np. oddział leśny, plac).", erp: "production.investSite / place" },
   { key: "deliveryPlace", label: "Miejsce dostawy", kind: "text", hint: "Miejsce rozładunku / dostawy.", erp: "transport.place" },
   { key: "forestDistrict", label: "Nadleśnictwo", kind: "text", hint: "Nazwa nadleśnictwa (kwit wywozowy).", erp: "production.ndl" },
-  { key: "forestRange", label: "Leśnictwo", kind: "text", hint: "Nazwa leśnictwa (kwit wywozowy).", erp: "production.lesnictwo" }
+  { key: "forestRange", label: "Leśnictwo", kind: "text", hint: "Nazwa leśnictwa (kwit wywozowy) albo leśnictwo dopisane na WZ / PZ (np. „L. Kuźnia”).", erp: "production.lesnictwo" },
+  { key: "declaredWeight", label: "Masa wyliczona (deklarowana)", kind: "weight", hint: "Masa podana na dokumencie jako wyliczona / szacunkowa (np. na kwicie wywozowym „waga drewna obliczona … wynosi 12950,00 kg”), NIE wynik ważenia.", erp: "weightMode: auto — tylko porównanie" },
+  { key: "contractNumber", label: "Nr umowy", kind: "text", hint: "Numer umowy (np. „Nr umowy nadl.”).", erp: "—" },
+  { key: "eudrReference", label: "Nr referencyjny EUDR", kind: "text", hint: "Numer referencyjny deklaracji EUDR, jeśli jest.", erp: "— (do rozbudowy: identyfikowalność drewna)" },
+  { key: "issuedBy", label: "Wystawił / wydał", kind: "text", hint: "Imię i nazwisko osoby wystawiającej / wydającej (pole „Wystawił”, „Wydający dokument”, „Wydał”). Sam nieczytelny podpis = null.", erp: "audyt (opis)" },
+  { key: "receivedBy", label: "Odebrał / odbierający", kind: "text", hint: "Imię i nazwisko osoby odbierającej (pole „Odebrał”, „Odbierający”). Sam nieczytelny podpis = null.", erp: "transport.runs[].driver (po potwierdzeniu)" }
 ];
 
 export const FIELD_KEYS = FIELDS.map(f => f.key);
@@ -64,10 +69,10 @@ export const FIELD_BY_KEY = Object.fromEntries(FIELDS.map(f => [f.key, f]));
 /** Pola typowe dla danego typu dokumentu — kolejność wyświetlania. Pozostałe pola są pokazywane, jeśli mają wartość. */
 /** @type {Record<DocType, string[]>} */
 export const FIELDS_BY_TYPE = {
-  WZ: ["docNumber", "docDate", "warehouse", "recipient", "product", "quantity", "vehicleReg", "trailerReg", "driver", "carrier", "deliveryPlace"],
-  PZ: ["docNumber", "docDate", "warehouse", "supplier", "product", "quantity", "vehicleReg", "trailerReg", "driver", "carrier", "loadingPlace"],
-  KWIT_WYWOZOWY: ["docNumber", "docDate", "time", "supplier", "forestDistrict", "forestRange", "loadingPlace", "product", "quantity", "recipient", "carrier", "vehicleReg", "trailerReg", "driver"],
-  KWIT_WAGOWY: ["docNumber", "docDate", "time", "supplier", "recipient", "product", "grossWeight", "tareWeight", "netWeight", "vehicleReg", "trailerReg", "driver"],
+  WZ: ["docNumber", "docDate", "warehouse", "recipient", "product", "quantity", "vehicleReg", "trailerReg", "driver", "carrier", "deliveryPlace", "issuedBy", "receivedBy"],
+  PZ: ["docNumber", "docDate", "warehouse", "supplier", "product", "quantity", "vehicleReg", "trailerReg", "driver", "carrier", "loadingPlace", "issuedBy", "receivedBy"],
+  KWIT_WYWOZOWY: ["docNumber", "docDate", "time", "supplier", "forestDistrict", "forestRange", "loadingPlace", "product", "quantity", "declaredWeight", "recipient", "carrier", "vehicleReg", "trailerReg", "driver", "contractNumber", "eudrReference", "issuedBy", "receivedBy"],
+  KWIT_WAGOWY: ["docNumber", "docDate", "time", "supplier", "recipient", "product", "grossWeight", "tareWeight", "netWeight", "vehicleReg", "trailerReg", "driver", "issuedBy"],
   NIEZNANY: ["docNumber", "docDate", "supplier", "recipient", "product", "quantity", "vehicleReg", "driver"]
 };
 

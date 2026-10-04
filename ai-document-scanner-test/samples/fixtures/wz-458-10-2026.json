@@ -148,6 +148,31 @@
     "value": null,
     "confidence": null,
     "bbox": null
+   },
+   "declaredWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "contractNumber": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "eudrReference": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "issuedBy": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "receivedBy": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
    }
   },
   "rawText": "WZ — WYDANIE ZEWNĘTRZNE\nNr 458/10/2026  ·  Data wystawienia: 03.10.2026\nWystawca / magazynResInvest CommoditiesMagazyn: RiC Zabrzeul. Gwarecka 16, 41-800 Zabrze\nOdbiorcaXYZ Sp. z o.o.ul. Przemysłowa 744-100 Gliwice\nLp.Nazwa towaruJ.m.Ilość\n1Zrębka drzewnaMP68,40 MP\nTransport\nSamochód: WI12345    Naczepa: W12345\nKierowca: Jan Kowalski\nWydałOdebrał (kierowca)",

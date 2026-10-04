@@ -154,7 +154,8 @@ function validYMD(y, m, d) {
  * @returns {string|null}
  */
 export function parseDate(text) {
-  const s = String(text || "").trim().replace(/\s*r\.?$/i, "").replace(/\s+/g, "");
+  // „27/03/2026 15:12:05” — godzina po dacie jest pomijana (osobne pole „Godzina”)
+  const s = String(text || "").trim().replace(/[\sT]+\d{1,2}[:.]\d{2}(?:[:.]\d{2})?$/, "").replace(/\s*r\.?$/i, "").replace(/\s+/g, "");
   let m = s.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/);
   let y, mo, d;
   if (m) { y = +m[1]; mo = +m[2]; d = +m[3]; }

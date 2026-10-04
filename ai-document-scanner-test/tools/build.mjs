@@ -57,6 +57,16 @@ for (const f of readdirSync(fxDir).filter(x => x.endsWith(".json"))) {
   if (keys !== want) errors.push(`Fixture ${f}: pola nie zgadzają się ze schematem`);
 }
 
+// 1f. wzorce pomiaru jakości (eval/real/*.expected.json) — tylko znane pola i typy
+const evalDir = join(MODULE_ROOT, "eval", "real");
+try {
+  for (const f of readdirSync(evalDir).filter(x => x.endsWith(".expected.json"))) {
+    const j = JSON.parse(readFileSync(join(evalDir, f), "utf8"));
+    if (!DOC_TYPE_KEYS.includes(j.docType)) errors.push(`Wzorzec ${f}: nieznany typ ${j.docType}`);
+    for (const k of Object.keys(j.fields || {})) if (!FIELD_KEYS.includes(k)) errors.push(`Wzorzec ${f}: nieznane pole ${k}`);
+  }
+} catch { /* brak katalogu eval — pomijamy */ }
+
 if (errors.length) {
   console.error("BUILD NIEUDANY:\n - " + errors.join("\n - "));
   process.exit(1);

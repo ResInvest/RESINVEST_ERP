@@ -163,6 +163,31 @@
      0.2051,
      0.2154
     ]
+   },
+   "declaredWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "contractNumber": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "eudrReference": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "issuedBy": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "receivedBy": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
    }
   },
   "rawText": "KWIT WYWOZOWY\nNr KW 0045871  ·  Data wywozu: 01.10.2026   godz. 7:40\nNadleśnictwoRudy RaciborskieLeśnictwoKuźnia\nNabywcaResInvest Commodities sp. z o.o.Miejsce załadunkuOddz. 112a\nSortymentLiczba szt.Miąższość\nS2AP—31,20 m3\nŚrodek transportu\nNr rej. pojazdu: SGL 4T821    przyczepa: SGL 2N44P\nKierowca: J. Kowalski\nWystawił (leśniczy)Odebrał",

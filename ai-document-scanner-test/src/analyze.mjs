@@ -10,7 +10,7 @@
 import { inspectImage, EXT_BY_MIME } from "./image.mjs";
 import { normalizeExtraction, normalizeField, crossCheck } from "./normalize.mjs";
 import { DOC_TYPE_KEYS, FIELD_BY_KEY } from "./schema.mjs";
-import { matchMasterData } from "./master-data.mjs";
+import { matchMasterData, integrationHints } from "./master-data.mjs";
 import { ProviderError } from "./providers/provider.mjs";
 
 export class InputError extends Error {
@@ -33,12 +33,14 @@ export async function analyzeDocument(ctx, input) {
   try { result = normalizeExtraction(raw, { hintType }); }
   catch (e) { throw new ProviderError(e instanceof Error ? e.message : String(e), { status: 502, code: "BAD_SHAPE", cause: e }); }
 
+  const erpMatches = matchMasterData(result.fields, ctx.masterData);
+  result.hints = [...result.hints, ...integrationHints(result.docType.value, erpMatches)];
   return ctx.store.create({
     image: { buffer: ctx.cfg.keepImages ? input.buffer : null, mime: img.mime, ext: EXT_BY_MIME[img.mime], width: img.width, height: img.height, sha256: img.sha256, originalName: sanitizeName(input.originalName) },
     provider: Object.assign({ name: ctx.provider.name }, meta),
     hintType,
     result,
-    erpMatches: matchMasterData(result.fields, ctx.masterData)
+    erpMatches
   });
 }
 
@@ -75,9 +77,9 @@ export async function applyCorrection(ctx, id, patch) {
       r.fields[k] = next;
     }
     const cc = crossCheck(r.docType.value, r.fields);
-    r.checks = cc.warnings;
-    r.hints = cc.hints;
     rec.erpMatches = matchMasterData(r.fields, ctx.masterData);
+    r.checks = cc.warnings;
+    r.hints = [...cc.hints, ...integrationHints(r.docType.value, rec.erpMatches)];
     if (patch.markReviewed) rec.status = "REVIEWED";
   });
 }

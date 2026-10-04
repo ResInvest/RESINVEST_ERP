@@ -148,6 +148,31 @@
     "value": null,
     "confidence": null,
     "bbox": null
+   },
+   "declaredWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "contractNumber": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "eudrReference": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "issuedBy": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "receivedBy": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
    }
   },
   "rawText": "PZ — PRZYJĘCIE ZEWNĘTRZNE\nNr PZ/014/09/2026  ·  Data: 28.09.2026\nDostawcaUsługi Leśne Drwal sp. z o.o.ul. Leśna 3, 44-100 Gliwice\nMagazyn przyjmującyRiC ZabrzeResInvest Commodities\nLp.TowarJ.m.Ilość\n1Drewno opałowem324,50 m3\nDostawa\nPrzewoźnik: Transport Kowalski\nNr rej.: SGL 7Z412    Naczepa: —\nKierowca: Zbigniew Kos\nPrzyjąłDostawca",

@@ -23,7 +23,7 @@ ZDJĘCIE  →  ROZPOZNANIE (OCR / AI)  →  DANE (pola + pewność + podświetle
 | Przygotowanie obrazu | w przeglądarce: zmniejszenie dłuższego boku do 2400 px, korekta orientacji EXIF; na serwerze: kontrola sygnatury pliku, rozmiaru i rozdzielczości |
 | OCR / analiza AI | provider **Claude (Anthropic API)** — jedno wywołanie z obrazem i wymuszonym schematem JSON; provider **mock** do testów bez sieci |
 | Typ dokumentu | PZ, WZ, KWIT_WYWOZOWY, KWIT_WAGOWY albo NIEZNANY + pewność + uzasadnienie |
-| Pola (19) | numer, data, godzina, dostawca, odbiorca, magazyn, towar, ilość + jednostka, masa brutto / tara / netto, samochód, naczepa, kierowca, przewoźnik, miejsce załadunku, miejsce dostawy, nadleśnictwo, leśnictwo |
+| Pola (24) | numer, data, godzina, dostawca, odbiorca, magazyn, towar, ilość + jednostka, masa brutto / tara / netto, masa wyliczona (deklarowana), samochód, naczepa, kierowca, przewoźnik, miejsce załadunku, miejsce dostawy, nadleśnictwo, leśnictwo, nr umowy, nr referencyjny EUDR, wystawił, odebrał |
 | Pewność | dla typu i każdego pola (0–100%), kolory: ≥ 90% zielony, 75–89% bursztynowy, < 75% czerwony |
 | Brak danych | `null` — pole puste z opisem „null — brak na dokumencie”; **nic nie jest zgadywane ani wyliczane** |
 | Walidacja | daty, godziny, liczby w zapisie polskim, jednostki (MP, m3, t, kg), numery rejestracyjne; błędny format obniża pewność i daje ostrzeżenie |
@@ -70,6 +70,23 @@ Bez tokenu serwer odmówi nasłuchu poza localhost.
 3. Własne zdjęcie z providerem mock → „NIEZNANY”, wszystkie pola `null` (mock nie udaje OCR).
 4. Z kluczem Claude — zdjęcia prawdziwych dokumentów z telefonu; popraw błędy, zapisz korektę, porównaj
    w historii korekt, ile pól wymagało poprawy (to jest miara jakości do decyzji o integracji).
+
+### Pomiar jakości na prawdziwych dokumentach
+
+Katalog `eval/real/` zawiera **wzorce** (`*.expected.json`) — ręczny odczyt prawdziwych dokumentów
+(kwit wywozowy LP, dwie odręczne WZ). Same zdjęcia **nie są w repozytorium** (podpisy, dane osób) —
+skopiuj je do `eval/real/` pod nazwami z pola `"image"`. Następnie:
+
+```bash
+node tools/eval.mjs                     # provider wg konfiguracji (Claude, gdy jest klucz)
+node tools/eval.mjs --only kwit         # jeden dokument
+```
+
+Raport: typ dokumentu, **pola z dokumentu odczytane poprawnie** (np. 12/14), **brak zgadywania**
+(pola nieobecne na dokumencie, które zostały null), lista: ok / ✗ inna wartość / ∅ pominięte / !! wpisane bez
+pokrycia / ? wzorzec niepewny, średnia pewność poprawnych i błędnych odczytów (kalibracja). Raport JSON trafia do
+`eval/real/reports/` (poza git). Narzędzie nie zapisuje niczego w wynikach testowych ani w ERP.
+Kolejne dokumenty: dodaj zdjęcie + `*.expected.json` (pola nieopisane = null; nieczytelne dla człowieka — `"uncertain": true`).
 
 ## 4. Polecenia
 
@@ -140,6 +157,13 @@ Format pola w wyniku: `{ value, normalized, confidence, bbox: [x0,y0,x1,y1] (0..
 * Ramki (bbox) z Claude są **przybliżone** (model podaje współrzędne, to nie jest OCR słowo-po-słowie).
   Dokładne współrzędne słów dałby provider typu Azure Document Intelligence / Google Document AI.
 * Pismo odręczne, pieczątki na tekście, mocno krzywe lub ciemne zdjęcia obniżają jakość.
+* Długie, wąskie wydruki termiczne (kwit wywozowy 1670×4094 px) są zmniejszane — drobny tekst może stracić
+  czytelność; przy słabym wyniku fotografuj kwit bliżej (np. górną część z danymi).
+* Wnioski z prawdziwych dokumentów (uwzględnione w schemacie i instrukcji modelu): jednostka bywa tylko w nagłówku
+  kolumny („Masa[m3]”, „j.m.”), ilość bywa wpisana w złą kolumnę (KTM), „Środek transp.” łączy nr rej. i firmę,
+  pieczątka magazynu jest jedynym wskazaniem magazynu, numery WZ bywają niewypełnione (null), daty „27.08.26r.”,
+  kwit LP podaje masę **wyliczoną** (nie z wagi), „Odbierający” nie musi być kierowcą, WZ do magazynu własnego
+  (np. „RiC Magazyn Zabrze”) to w ERP raczej przesunięcie MM.
 * Jedno zdjęcie = jeden dokument, jedna strona, jedna pozycja towarowa (wiele pozycji — do rozbudowy schematu).
 * Provider mock rozpoznaje wyłącznie przykłady z `samples/` (pewności w fixture są przykładowe).
 * Moduł jednostanowiskowy (magazyn plików JSON); brak logowania użytkowników ERP — „Sprawdzający” to tekst.

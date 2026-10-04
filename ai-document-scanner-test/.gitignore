@@ -8,3 +8,9 @@ data-test/
 .env
 server.env
 config/server.env
+
+# prawdziwe zdjęcia dokumentów (podpisy, dane osobowe) i raporty pomiaru — poza repozytorium
+eval/real/*.jpg
+eval/real/*.jpeg
+eval/real/*.png
+eval/**/reports/

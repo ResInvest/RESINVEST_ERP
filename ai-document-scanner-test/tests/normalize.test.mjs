@@ -51,6 +51,8 @@ test("daty i godziny", () => {
   assert.equal(parseDate("29.02.2028"), "2028-02-29");
   assert.equal(parseDate("13/13/2026"), null);
   assert.equal(parseDate("październik"), null);
+  assert.equal(parseDate("27/03/2026 15:12:05"), "2026-03-27", "data z godziną (kwit wywozowy LP)");
+  assert.equal(parseDate("27.08.26r."), "2026-08-27", "odręczna WZ");
   assert.equal(parseTime("7:40"), "07:40");
   assert.equal(parseTime("14.12"), "14:12");
   assert.equal(parseTime("07:05:31"), "07:05:31");

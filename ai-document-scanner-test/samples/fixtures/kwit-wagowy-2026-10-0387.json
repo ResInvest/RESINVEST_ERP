@@ -158,6 +158,31 @@
     "value": null,
     "confidence": null,
     "bbox": null
+   },
+   "declaredWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "contractNumber": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "eudrReference": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "issuedBy": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "receivedBy": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
    }
   },
   "rawText": "KWIT WAGOWY\nElektrociepłownia Zabrze S.A. — waga samochodowa nr 2\nNr kwitu: 2026/10/0387\nData: 2026-10-02   Godz.: 14:12\nDostawca: ResInvest Commodities\nOdbiorca: Elektrociepłownia Zabrze S.A.\nTowar: Zrębka drzewna\nPojazd: SZA 12345\nNaczepa: SZA 5521N\nBRUTTO:  39 860 kg\nTARA:    15 420 kg\nNETTO:   24 440 kg\nWażący: ......................",

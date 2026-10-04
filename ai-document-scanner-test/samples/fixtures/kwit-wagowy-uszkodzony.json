@@ -143,6 +143,31 @@
     "value": null,
     "confidence": null,
     "bbox": null
+   },
+   "declaredWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "contractNumber": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "eudrReference": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "issuedBy": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "receivedBy": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
    }
   },
   "rawText": "KWIT WAGOWY\nCiepłownia Rybnik — waga najazdowa\nNr: CR/1187/26\nData: 29.09.2026   Godz.: 9:5?\nOdbiorca: Ciepłownia Rybnik\nTowar: zrębka leśna\nNr rej.: SZA 7K9O1\nBRUTTO:  40 120 kg\nTARA:    14 980 kg\nNETTO:   24 ### kg",

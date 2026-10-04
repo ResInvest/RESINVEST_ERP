@@ -109,6 +109,9 @@ test("Claude: żądanie zawiera obraz, schemat JSON i fallback; wynik jest parso
   assert.equal(img.source.data, wz.toString("base64"));
   assert.match(params.messages[0].content[1].text, /podpowiedź użytkownika\): WZ/);
   assert.match(params.system, /Nie zgaduj/);
+  assert.match(params.system, /nagłówku kolumny/, "jednostka z nagłówka kolumny");
+  assert.match(params.system, /declaredWeight, nigdy grossWeight/, "masa wyliczona ≠ ważenie");
+  assert.match(params.system, /Znaki wodne aparatu/);
   assert.ok(!/\d{4}-\d{2}-\d{2}/.test(buildSystemPrompt()), "instrukcja systemowa bez dat (stabilny cache)");
 });
 

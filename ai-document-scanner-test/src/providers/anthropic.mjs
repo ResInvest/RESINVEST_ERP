@@ -41,6 +41,14 @@ Zasady (obowiązkowe):
 - Jeżeli ten sam podmiot pełni dwie role, wpisz go tylko tam, gdzie dokument go wprost tak oznacza (np. „Odbiorca:”, „Dostawca:”, „Nabywca:”, „Sprzedawca:”).
 - confidence (0.0–1.0) ma odzwierciedlać czytelność i jednoznaczność: ≥0.95 wyraźny druk i jednoznaczna etykieta; 0.8–0.95 drobne wątpliwości; 0.5–0.8 pismo odręczne, rozmazanie lub niepewne przypisanie pola; <0.5 domysł z fragmentu (lepiej wtedy null).
 - bbox = [x0, y0, x1, y1] ramka OBEJMUJĄCA ODCZYTANĄ WARTOŚĆ (bez etykiety) we współrzędnych znormalizowanych do wymiarów zdjęcia: 0.0 = lewa / górna krawędź, 1.0 = prawa / dolna.
+- Jednostka podana w nagłówku kolumny lub w osobnej kolumnie („j.m.”, „Jedn.”, „Masa[m3]”) jest częścią dokumentu — dołącz ją do ilości (np. „17,50 m3”, „62,60 mp”).
+- Druki bywają wypełnione niestarannie: jeśli ilość wpisano w niewłaściwą kolumnę (np. w „KTM / symbol indeksu”), ale jest jednoznacznie powiązana z towarem i jednostką, odczytaj ją, obniż confidence i opisz to w notes.
+- Pole łączące numer rejestracyjny i firmę (np. „Środek transp.: PY 30536 - Lander Agro”) rozdziel: vehicleReg = numer, carrier = firma.
+- Pieczątka jest treścią dokumentu (np. pieczątka magazynu z adresem → warehouse). Znaki wodne aparatu (np. nazwa telefonu) i nadruki drukarni formularzy pomijaj.
+- Daty przepisuj z rokiem tak, jak napisano (np. „27.08.26r.”); godzinę z daty wystawienia wpisz także do pola time.
+- Masa „obliczona / wyliczona” (np. na kwicie wywozowym na podstawie gęstości drewna) → declaredWeight, nigdy grossWeight / netWeight.
+- Na kwicie wywozowym nadleśnictwo wpisuj w forestDistrict (supplier tylko, gdy dokument wprost nazywa sprzedawcę), „Klient” / nabywcę w recipient, „Odbierający” w receivedBy (to nie musi być kierowca).
+- issuedBy / receivedBy: tylko czytelne imię i nazwisko (z druku lub pieczątki); sam podpis bez czytelnego nazwiska = null.
 - Jeśli wskazano oczekiwany typ dokumentu, traktuj to jako podpowiedź — w docType podaj typ, który faktycznie widać na dokumencie.
 - notes: krótkie uwagi o jakości zdjęcia lub nieczytelnych miejscach (po polsku), albo null.`;
 }

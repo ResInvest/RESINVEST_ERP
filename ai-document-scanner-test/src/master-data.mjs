@@ -57,6 +57,25 @@ export function similarity(a, b) {
   return Math.round(score * 1000) / 1000;
 }
 
+/** Nazwa magazynu bez słów ogólnych („magazyn”, „RiC”) — „RiC Magazyn Zabrze” ≈ „RiC Zabrze”. */
+export function warehouseName(s) {
+  return simplify(s).replace(/\b(magazyn\w*|ric|plac|sklad)\b/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Podpowiedzi integracyjne wynikające z dopasowania do kartotek (tylko informacja dla użytkownika).
+ * @param {string} docType
+ * @param {Record<string, { kind: string, label: string }>} matches
+ * @returns {string[]}
+ */
+export function integrationHints(docType, matches) {
+  const out = [];
+  if (docType === "WZ" && matches.recipient && matches.recipient.kind === "warehouse") {
+    out.push(`Odbiorcą jest magazyn własny: ${matches.recipient.label.replace(/ — magazyn własny$/, "")}. W ResInvest ERP taki ruch to zwykle przesunięcie MM, a nie sprzedaż WZ — do decyzji przy integracji.`);
+  }
+  return out;
+}
+
 function best(value, list, nameOf, min) {
   let top = null;
   for (const item of list) {
@@ -81,11 +100,21 @@ export function matchMasterData(fields, md, min = 0.6) {
 
   if (val("product")) put("product", "product", best(val("product"), md.products, p => p.name, min), p => `${p.name} (${p.code}, ${p.unit})`);
   if (val("supplier")) put("supplier", "partner", best(val("supplier"), md.partners.filter(p => p.role !== "buyer"), p => p.name, min), p => p.name);
-  if (val("recipient")) put("recipient", "partner", best(val("recipient"), md.partners.filter(p => p.role !== "supplier"), p => p.name, min), p => p.name);
+  if (val("recipient")) {
+    // odbiorcą bywa magazyn własny (np. „RiC Magazyn Zabrze”) — porównujemy też z magazynami
+    const partner = best(val("recipient"), md.partners.filter(p => p.role !== "supplier"), p => p.name, min);
+    const wh = best(warehouseName(val("recipient")), md.warehouses, w => warehouseName(w.name), min);
+    if (wh && (!partner || wh.score > partner.score)) put("recipient", "warehouse", wh, w => `${w.name} (${w.code}) — magazyn własny`);
+    else put("recipient", "partner", partner, p => p.name);
+  }
   if (val("forestDistrict")) put("forestDistrict", "partner", best(val("forestDistrict"), md.partners.filter(p => /nadle/i.test(p.name)), p => p.name.replace(/^nadleśnictwo\s+/i, ""), min), p => p.name);
-  if (val("carrier")) put("carrier", "carrier", best(val("carrier"), md.carriers, c => c.name, min), c => c.name);
+  if (val("carrier")) {
+    const c = best(val("carrier"), md.carriers, x => x.name, min);
+    if (c) put("carrier", "carrier", c, x => x.name);
+    else put("carrier", "partner", best(val("carrier"), md.partners, p => p.name, min), p => `${p.name} (kontrahent)`);
+  }
   if (val("driver")) put("driver", "driver", best(val("driver"), md.drivers, d => d.name, 0.8), d => d.name);
-  if (val("warehouse")) put("warehouse", "warehouse", best(val("warehouse"), md.warehouses, w => w.name, min), w => `${w.name} (${w.code})`);
+  if (val("warehouse")) put("warehouse", "warehouse", best(warehouseName(val("warehouse")), md.warehouses, w => warehouseName(w.name), min), w => `${w.name} (${w.code})`);
   if (val("forestRange")) {
     for (const p of md.partners) {
       const l = (p.lesnictwa || []).find(x => similarity(x, val("forestRange")) >= 0.8);
