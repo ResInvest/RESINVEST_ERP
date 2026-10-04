@@ -4,7 +4,8 @@
 
    Wzorzec (*.expected.json) to ręczny odczyt dokumentu przez człowieka:
      { image, docType, fields: { pole: "wartość" | null | { value, alternatives?, uncertain? } } }
-   Pola nieopisane we wzorcu oczekują null (nie ma ich na dokumencie).
+   Oceniane są tylko pola odczytywane dla typu dokumentu (schema.TYPE_SECTIONS);
+   pola nieopisane we wzorcu oczekują null (nie ma ich na dokumencie).
 
    Porównanie odbywa się na wartościach znormalizowanych (data ISO, ilość + jednostka,
    masa w kg, nr rej. bez spacji, tekst bez wielkości liter / polskich znaków / form prawnych).
@@ -16,7 +17,7 @@
      hallucinated  — na dokumencie brak (null), a provider coś wpisał  ← najgroźniejsze („zgadywanie”),
      uncertain     — wzorzec niepewny (nieczytelny dla człowieka) — poza dokładnością.
    ========================================================================= */
-import { FIELD_KEYS, FIELD_BY_KEY } from "./schema.mjs";
+import { FIELD_BY_KEY, fieldsFor } from "./schema.mjs";
 import { normalizeField, plateKey } from "./normalize.mjs";
 import { simplify, similarity } from "./master-data.mjs";
 
@@ -68,7 +69,8 @@ export function scoreDocument(expected, result) {
   const rows = [];
   const counts = { correct: 0, wrong: 0, missed: 0, hallucinated: 0, uncertain: 0 };
   const present = { total: 0, correct: 0 }, absent = { total: 0, correct: 0 };
-  for (const key of FIELD_KEYS) {
+  // oceniane są tylko pola odczytywane dla typu dokumentu ze wzorca
+  for (const key of fieldsFor(expected.docType)) {
     const exp = expectedField(expected.fields[key]);
     const got = result.fields[key] ? result.fields[key].value : null;
     let status;

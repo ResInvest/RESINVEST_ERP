@@ -108,13 +108,7 @@ export function matchMasterData(fields, md, min = 0.6) {
     else put("recipient", "partner", partner, p => p.name);
   }
   if (val("forestDistrict")) put("forestDistrict", "partner", best(val("forestDistrict"), md.partners.filter(p => /nadle/i.test(p.name)), p => p.name.replace(/^nadleśnictwo\s+/i, ""), min), p => p.name);
-  if (val("carrier")) {
-    const c = best(val("carrier"), md.carriers, x => x.name, min);
-    if (c) put("carrier", "carrier", c, x => x.name);
-    else put("carrier", "partner", best(val("carrier"), md.partners, p => p.name, min), p => `${p.name} (kontrahent)`);
-  }
   if (val("driver")) put("driver", "driver", best(val("driver"), md.drivers, d => d.name, 0.8), d => d.name);
-  if (val("warehouse")) put("warehouse", "warehouse", best(warehouseName(val("warehouse")), md.warehouses, w => warehouseName(w.name), min), w => `${w.name} (${w.code})`);
   if (val("forestRange")) {
     for (const p of md.partners) {
       const l = (p.lesnictwa || []).find(x => similarity(x, val("forestRange")) >= 0.8);

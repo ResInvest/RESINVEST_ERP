@@ -1,16 +1,12 @@
 {
-  "_opis": "Wzorzec: ręczny odczyt prawdziwej WZ (zielony druk, wypełnienie odręczne). Nr WZ niewypełniony. Pola nieopisane = null.",
+  "_opis": "Wzorzec: ręczny odczyt prawdziwej WZ (zielony druk, wypełnienie odręczne). Pola: data, dostawca, odbiorca; transport: nr rej., ilość.",
   "image": "wz-zielona-ric-zabrze-2026-08-27.jpg",
   "docType": "WZ",
   "fields": {
     "docDate": "27.08.26r.",
+    "supplier": { "value": null, "alternatives": ["ResInvest Commodities PL S.A."], "note": "pole dostawcy niewypełnione; nadruk wystawcy dopuszczalny" },
     "recipient": { "value": "RiC Magazyn Zabrze", "alternatives": ["RIC Magazyn Zabrze"] },
-    "supplier": { "value": null, "alternatives": ["ResInvest Commodities PL S.A."], "note": "nadruk wystawcy — dokument nie oznacza go jako dostawcy" },
-    "product": "Zrębka produkcyjna leśna",
-    "quantity": "62,60 mp",
     "vehicleReg": "PY 30536",
-    "carrier": "Lander Agro",
-    "forestDistrict": { "value": "Strzelce Opolskie", "alternatives": ["Nadl. Strzelce Opolskie"] },
-    "forestRange": { "value": "Spórok", "uncertain": true, "note": "odręczne „L. Spór…” — końcówka nieczytelna" }
+    "quantity": "62,60 mp"
   }
 }

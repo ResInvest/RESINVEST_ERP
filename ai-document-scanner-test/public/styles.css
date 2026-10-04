@@ -94,7 +94,9 @@ select, input { font: inherit; color: var(--ink); background: var(--card); borde
 .conf-big { text-align: right; font-size: 13px; color: var(--muted); }
 .conf-big b { display: block; font-size: 24px; }
 
-.fields { display: grid; gap: 6px; }
+.fields { display: grid; gap: 14px; }
+.fsection { display: grid; gap: 6px; }
+.fsection-title { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .7px; color: var(--accent); border-bottom: 2px solid var(--accent-soft); padding-bottom: 4px; }
 .frow { display: grid; grid-template-columns: minmax(110px, 160px) minmax(0, 1fr) 92px; gap: 4px 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; transition: border-color .12s, background .12s; }
 .frow.active { border-color: #ca8a04; background: color-mix(in srgb, #facc15 10%, var(--card)); }
 .frow label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); }
@@ -143,6 +145,6 @@ select, input { font: inherit; color: var(--ink); background: var(--card); borde
   .conf-big { text-align: left; }
   .actions .btn { flex: 1 1 auto; }
   /* Historia na telefonie: tylko kluczowe kolumny */
-  #histTable th:nth-child(4), #histTable td:nth-child(4), #histTable th:nth-child(5), #histTable td:nth-child(5), #histTable th:nth-child(6), #histTable td:nth-child(6) { display: none; }
+  #histTable th:nth-child(5), #histTable td:nth-child(5), #histTable th:nth-child(6), #histTable td:nth-child(6), #histTable th:nth-child(7), #histTable td:nth-child(7) { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

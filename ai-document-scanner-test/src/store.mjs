@@ -130,6 +130,8 @@ export class ScanStore {
           docType: r.result && r.result.docType ? r.result.docType.value : null,
           docTypeConfidence: r.result && r.result.docType ? r.result.docType.confidence : null,
           docNumber: r.result && r.result.fields && r.result.fields.docNumber ? r.result.fields.docNumber.value : null,
+          docDate: r.result && r.result.fields && r.result.fields.docDate ? r.result.fields.docDate.value : null,
+          vehicleReg: r.result && r.result.fields && r.result.fields.vehicleReg ? r.result.fields.vehicleReg.value : null,
           provider: r.provider ? r.provider.name : null, simulated: !!(r.provider && r.provider.simulated),
           corrections: (r.corrections || []).length
         });

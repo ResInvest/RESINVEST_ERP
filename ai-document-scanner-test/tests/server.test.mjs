@@ -59,8 +59,9 @@ test("skan WZ: wynik, pewności, ramki, dopasowanie ERP, zapis tylko w katalogu 
   assert.equal(sc.result.fields.quantity.value, "68,40 MP");
   assert.deepEqual(sc.result.fields.quantity.normalized, { amount: 68.4, unit: "MP" });
   assert.equal(sc.result.fields.supplier.value, null);
-  assert.equal(sc.erpMatches.driver.id, "dr_kowalski");
-  assert.ok(sc.result.fields.docNumber.bbox.every(x => x >= 0 && x <= 1));
+  assert.equal(sc.erpMatches.driver, undefined, "kierowca nie jest odczytywany na WZ");
+  assert.equal(sc.result.fields.docNumber.value, null, "numer nie jest odczytywany na WZ");
+  assert.ok(sc.result.fields.vehicleReg.bbox.every(x => x >= 0 && x <= 1));
   assert.deepEqual(readdirSync(join(dataDir, "scans")).sort(), [`${sc.id}.json`, `${sc.id}.png`].sort());
   const img = await fetch(`${base}/api/scans/${sc.id}/image`);
   assert.equal(img.headers.get("content-type"), "image/png");
@@ -73,11 +74,14 @@ test("skan WZ: wynik, pewności, ramki, dopasowanie ERP, zapis tylko w katalogu 
 test("korekta przez API i konflikt rewizji", async () => {
   const sc = (await scan(wz)).json.scan;
   const patch = (body, headers = { "Content-Type": "application/json" }) => call(`/api/scans/${sc.id}`, { method: "PATCH", headers, body: JSON.stringify(body) });
-  const ok = await patch({ rev: 1, reviewer: "Test", fields: { driver: "Jan Kowalski-Nowak" } });
+  const ok = await patch({ rev: 1, reviewer: "Test", fields: { vehicleReg: "WI 1234P" } });
   assert.equal(ok.res.status, 200);
-  assert.equal(ok.json.scan.result.fields.driver.source, "manual");
-  assert.equal(ok.json.scan.corrections[0].was, "Jan Kowalski");
-  assert.equal((await patch({ rev: 1, fields: { driver: "X" } })).res.status, 409);
+  assert.equal(ok.json.scan.result.fields.vehicleReg.source, "manual");
+  assert.equal(ok.json.scan.corrections[0].was, "WI12345");
+  assert.equal((await patch({ rev: 1, fields: { vehicleReg: "X" } })).res.status, 409);
+  const notWz = await patch({ rev: 2, fields: { driver: "Jan" } });
+  assert.equal(notWz.res.status, 400, "pole spoza WZ odrzucone");
+  assert.match(notWz.json.error, /nie jest odczytywane dla typu WZ/);
   assert.equal((await patch({ rev: 2 }, { "Content-Type": "text/plain" })).res.status, 415);
   const bad = await call(`/api/scans/${sc.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: "{zły" });
   assert.equal(bad.res.status, 400);

@@ -3,9 +3,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   parsePlNumber, parseQuantity, parseDate, parseTime, normalizePlate, isPolishPlate, normalizeBbox,
-  normalizeField, normalizeExtraction, crossCheck, isEmptyValue, canonicalUnit, isAmbiguousNumber, CAP_INVALID, CAP_UNUSUAL, averageConfidence
+  normalizeField, normalizeExtraction, crossCheck, applyTypeRules, isEmptyValue, canonicalUnit, isAmbiguousNumber, CAP_INVALID, CAP_UNUSUAL, averageConfidence
 } from "../src/normalize.mjs";
-import { FIELD_KEYS, extractionJsonSchema, displayOrder } from "../src/schema.mjs";
+import { FIELD_KEYS, extractionJsonSchema, fieldsFor, TYPE_SECTIONS } from "../src/schema.mjs";
 
 const raw = (value, confidence = 0.9, bbox = null) => ({ value, confidence, bbox });
 
@@ -172,7 +172,8 @@ test("normalizacja całego wyniku i nieznany typ", () => {
   assert.equal(u.docType.value, "NIEZNANY");
   assert.equal(u.docType.confidence, 0);
   assert.throws(() => normalizeExtraction(/** @type {any} */ ({ fields })), /nieoczekiwanym formacie/);
-  assert.equal(averageConfidence(r.fields), 0.99);
+  assert.equal(averageConfidence(r.extracted), 0.99, "pełny odczyt zachowany w extracted");
+  assert.equal(r.fields.docNumber.value, null, "WZ nie odczytuje numeru");
 });
 
 test("schemat JSON dla providera: wszystkie pola wymagane i bez dodatkowych", () => {
@@ -184,5 +185,27 @@ test("schemat JSON dla providera: wszystkie pola wymagane i bez dodatkowych", ()
     assert.deepEqual(f.required, ["value", "confidence", "bbox"]);
     assert.deepEqual(f.properties.value.type, ["string", "null"]);
   }
-  assert.deepEqual(displayOrder("KWIT_WAGOWY", {}).slice(0, 3), ["docNumber", "docDate", "time"]);
+});
+
+test("pola odczytywane dla typu (bez dodatkowych pól)", () => {
+  assert.deepEqual(TYPE_SECTIONS.KWIT_WYWOZOWY, [
+    { title: "Kwit", fields: ["docNumber", "forestDistrict", "forestRange"] },
+    { title: "Transport", fields: ["vehicleReg", "quantity"] }
+  ]);
+  for (const t of ["WZ", "PZ"]) assert.deepEqual(fieldsFor(t), ["docDate", "supplier", "recipient", "vehicleReg", "quantity"]);
+  assert.equal(fieldsFor("COŚ"), fieldsFor("NIEZNANY"));
+  const all = Object.fromEntries(FIELD_KEYS.map(k => [k, normalizeField(k, null)]));
+  all.docNumber = normalizeField("docNumber", raw("458/10/2026", 0.99));
+  all.driver = normalizeField("driver", raw("Jan Kowalski", 0.8));
+  all.quantity = normalizeField("quantity", raw("12 t", 0.95));
+  const wz = applyTypeRules("WZ", all);
+  assert.equal(wz.docNumber.value, null, "numer nie jest odczytywany na WZ");
+  assert.equal(wz.driver.value, null);
+  assert.equal(wz.quantity.value, "12,00 t");
+  assert.equal(wz.quantity.confidence, 0.95, "t dozwolone na WZ");
+  const kw = applyTypeRules("KWIT_WYWOZOWY", all);
+  assert.equal(kw.docNumber.value, "458/10/2026");
+  assert.equal(kw.quantity.confidence, CAP_UNUSUAL, "kwit wywozowy: oczekiwane m3");
+  assert.match(kw.quantity.warnings.at(-1), /oczekiwano: m3/);
+  assert.equal(all.quantity.warnings.length, 0, "oryginał bez zmian");
 });

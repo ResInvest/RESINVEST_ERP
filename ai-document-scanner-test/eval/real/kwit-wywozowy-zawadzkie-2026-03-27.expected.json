@@ -1,24 +1,12 @@
 {
-  "_opis": "Wzorzec: ręczny odczyt prawdziwego kwitu wywozowego (wydruk termiczny LP, zdjęcie telefonem, nieostre). Pola nieopisane = null.",
+  "_opis": "Wzorzec: ręczny odczyt prawdziwego kwitu wywozowego (wydruk termiczny LP, zdjęcie telefonem, nieostre). Pola: nr kwitu (góra), nadleśnictwo, leśnictwo; transport: nr rej., ilość m3.",
   "image": "kwit-wywozowy-zawadzkie-2026-03-27.jpg",
   "docType": "KWIT_WYWOZOWY",
   "fields": {
     "docNumber": { "value": "7/202636843/1019", "note": "wiersz „nr …” pod tytułem; cyfry rozmyte, zgodne z pozycją planu 202636843" },
-    "docDate": "27/03/2026",
-    "time": "15:12:05",
     "forestDistrict": { "value": "PGL LP Nadleśnictwo Zawadzkie", "alternatives": ["Nadleśnictwo Zawadzkie", "Zawadzkie"] },
     "forestRange": { "value": "Kolonowskie (R2)", "alternatives": ["Kolonowskie"] },
-    "loadingPlace": { "value": "02-14-3-7", "uncertain": true, "note": "„Adres leśny” — przypisanie do miejsca załadunku dyskusyjne" },
-    "supplier": { "value": null, "alternatives": ["PGL LP Nadleśnictwo Zawadzkie", "Nadleśnictwo Zawadzkie"], "note": "dokument nie nazywa sprzedawcy wprost" },
-    "recipient": { "value": "ResInvest Commodities PL Spółka Akcyjna", "alternatives": ["ResInvest Commodities PL S.A."] },
-    "product": { "value": "SO M2 ZE", "alternatives": ["SO/M2"] },
-    "quantity": "17,50 m3",
-    "declaredWeight": "12950,00 kg",
-    "carrier": { "value": "Przewoźnik odbiorcy (1877)", "alternatives": ["Przewoźnik odbiorcy"] },
     "vehicleReg": "WND 3546F",
-    "contractNumber": "E260214010",
-    "eudrReference": { "value": "26PLT3N3EA39VU-OXTUSWS0", "uncertain": true, "note": "znaki O/0 nieodróżnialne na zdjęciu" },
-    "issuedBy": { "value": "Krzysztof Sawczuk (590)", "alternatives": ["Krzysztof Sawczuk"] },
-    "receivedBy": "Kuć Dariusz"
+    "quantity": "17,50 m3"
   }
 }

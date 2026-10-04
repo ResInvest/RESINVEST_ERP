@@ -49,16 +49,6 @@
     "confidence": null,
     "bbox": null
    },
-   "warehouse": {
-    "value": "RiC Zabrze",
-    "confidence": 0.94,
-    "bbox": [
-     0.5355,
-     0.1547,
-     0.648,
-     0.1757
-    ]
-   },
    "product": {
     "value": "Drewno opałowe",
     "confidence": 0.96,
@@ -119,57 +109,12 @@
      0.3733
     ]
    },
-   "carrier": {
-    "value": "Transport Kowalski",
-    "confidence": 0.92,
-    "bbox": [
-     0.2513,
-     0.3203,
-     0.4382,
-     0.3417
-    ]
-   },
-   "loadingPlace": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "deliveryPlace": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
    "forestDistrict": {
     "value": null,
     "confidence": null,
     "bbox": null
    },
    "forestRange": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "declaredWeight": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "contractNumber": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "eudrReference": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "issuedBy": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "receivedBy": {
     "value": null,
     "confidence": null,
     "bbox": null

@@ -15,7 +15,7 @@
    * wyliczenia kontrolne (np. netto = brutto \u2212 tara) są tylko OSTRZEŻENIEM / podpowiedzią,
    * normalizacja nie zmienia sensu odczytu (np. nie poprawia cyfr).
    ========================================================================= */
-import { FIELDS, FIELD_BY_KEY, DOC_TYPE_KEYS } from "./schema.mjs";
+import { FIELDS, FIELD_BY_KEY, DOC_TYPE_KEYS, fieldsFor, QUANTITY_UNITS } from "./schema.mjs";
 
 /**
  * @typedef {{ value: string|null, confidence: number|null, bbox: number[]|null }} RawField
@@ -334,6 +334,33 @@ export function crossCheck(docType, fields) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Pola właściwe dla typu dokumentu                                    */
+/* ------------------------------------------------------------------ */
+
+/** @returns {FieldResult} */
+const emptyField = (source = /** @type {"ai"|"manual"} */ ("ai")) => ({ value: null, normalized: null, confidence: null, bbox: null, warnings: [], source });
+
+/**
+ * Zostawia tylko pola odczytywane dla typu (pozostałe = null) i sprawdza jednostkę ilości
+ * (kwit wywozowy: m3; WZ / PZ: MP, m3 albo t).
+ * @param {string} docType
+ * @param {Record<string, FieldResult>} all  pola po normalizacji (wszystkie)
+ * @returns {Record<string, FieldResult>}
+ */
+export function applyTypeRules(docType, all) {
+  const keep = fieldsFor(docType);
+  /** @type {Record<string, FieldResult>} */
+  const out = {};
+  for (const f of FIELDS) out[f.key] = keep.includes(f.key) && all[f.key] ? structuredClone(all[f.key]) : emptyField();
+  const q = out.quantity, allowed = QUANTITY_UNITS[/** @type {keyof typeof QUANTITY_UNITS} */ (docType)];
+  if (allowed && q.value != null && q.normalized && q.normalized.unit && !allowed.includes(q.normalized.unit)) {
+    q.warnings.push(`Jednostka ${q.normalized.unit} nietypowa dla tego dokumentu (oczekiwano: ${allowed.join(", ")}).`);
+    if (q.source === "ai" && q.confidence != null) q.confidence = Math.min(q.confidence, CAP_UNUSUAL);
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
 /* Normalizacja całego wyniku                                          */
 /* ------------------------------------------------------------------ */
 
@@ -355,15 +382,18 @@ export function normalizeExtraction(raw, opts = {}) {
   if (opts.hintType && opts.hintType !== typeValue && typeValue !== "NIEZNANY") {
     warnings.push(`Wybrano typ ${opts.hintType}, a dokument wygląda na ${typeValue}. Pozostawiono typ rozpoznany — zmień ręcznie, jeśli trzeba.`);
   }
+  /** Wszystkie odczytane pola (po normalizacji) — potrzebne, gdy użytkownik zmieni typ dokumentu. */
   /** @type {Record<string, FieldResult>} */
-  const fields = {};
-  for (const f of FIELDS) fields[f.key] = normalizeField(f.key, raw.fields[f.key], "ai");
+  const extracted = {};
+  for (const f of FIELDS) extracted[f.key] = normalizeField(f.key, raw.fields[f.key], "ai");
   const unknown = Object.keys(raw.fields).filter(k => !FIELD_BY_KEY[k]);
   if (unknown.length) warnings.push("Pominięto nieznane pola: " + unknown.join(", "));
+  const fields = applyTypeRules(typeValue, extracted);
   const cc = crossCheck(typeValue, fields);
   return {
     docType: { value: typeValue, confidence: typeConf == null ? null : Math.round(typeConf * 1000) / 1000, evidence: raw.docType.evidence || null, source: /** @type {"ai"|"manual"} */ ("ai") },
     fields,
+    extracted,
     rawText: raw.rawText ? String(raw.rawText) : null,
     notes: raw.notes ? String(raw.notes) : null,
     warnings,

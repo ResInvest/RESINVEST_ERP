@@ -14,7 +14,7 @@
    żądanie na model zastępczy (fallbacks: "default"); który model odpowiedział,
    zapisujemy w meta.servedBy.
    ========================================================================= */
-import { extractionJsonSchema, DOC_TYPES, FIELDS } from "../schema.mjs";
+import { extractionJsonSchema, DOC_TYPES, FIELDS, TYPE_SECTIONS } from "../schema.mjs";
 import { ProviderError } from "./provider.mjs";
 
 export const DEFAULT_MODEL = "claude-opus-5-5";
@@ -24,6 +24,8 @@ const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 export function buildSystemPrompt() {
   const types = Object.entries(DOC_TYPES).map(([k, v]) => `- ${k}: ${v.description}`).join("\n");
   const fields = FIELDS.map(f => `- ${f.key} (${f.label}): ${f.hint}`).join("\n");
+  const perType = Object.entries(TYPE_SECTIONS).filter(([k]) => k !== "NIEZNANY")
+    .map(([k, secs]) => `- ${k}: ${secs.map(s => `${s.title}: ${s.fields.join(", ")}`).join(" | ")}`).join("\n");
   return `Jesteś modułem OCR systemu magazynowego firmy handlującej biomasą drzewną (zrębka, drewno, PKS) w Polsce.
 Dostajesz zdjęcie JEDNEGO dokumentu: PZ, WZ, kwitu wywozowego drewna albo kwitu wagowego. Zdjęcie może być krzywe, prześwietlone lub częściowo nieczytelne; dokument może być wypełniony odręcznie.
 
@@ -31,24 +33,24 @@ Zadanie:
 1. Odczytaj cały tekst dokumentu (rawText).
 2. Określ typ dokumentu (docType) na podstawie tego, co jest na dokumencie (nagłówek, układ, pola):
 ${types}
-3. Wypełnij pola:
+3. Wypełnij WYŁĄCZNIE pola właściwe dla rozpoznanego typu (pozostałe pola: value = null, confidence = null, bbox = null):
+${perType}
+   Dla NIEZNANY wypełnij to, co pasuje z powyższych.
+Opis pól:
 ${fields}
 
 Zasady (obowiązkowe):
 - Przepisuj wartości DOKŁADNIE tak, jak są na dokumencie (cyfry, separatory, jednostki, wielkość liter numerów rejestracyjnych). Nie przeliczaj jednostek, nie formatuj dat inaczej, nie poprawiaj pisowni nazw.
 - Jeżeli informacji NIE MA na dokumencie albo jest nieczytelna — value = null, confidence = null, bbox = null. Nie zgaduj, nie wyliczaj (np. nie licz netto z brutto i tary), nie uzupełniaj z wiedzy ogólnej ani z innych pól.
-- Pole „ilość” wypełniaj tylko ilością towaru z jednostką (MP, m3, t, kg…); masy z wagi wpisuj w grossWeight / tareWeight / netWeight.
-- Jeżeli ten sam podmiot pełni dwie role, wpisz go tylko tam, gdzie dokument go wprost tak oznacza (np. „Odbiorca:”, „Dostawca:”, „Nabywca:”, „Sprzedawca:”).
+- Dostawcę i odbiorcę wpisuj tylko wtedy, gdy są wpisani w polach dokumentu („Dostawca”, „Odbiorca”, „Nabywca”, „Nazwa i adres odbiorcy”). Nadruk / pieczątka wystawcy formularza to nie jest wpisany dostawca.
+- Kwit wywozowy: docNumber = numer kwitu z góry dokumentu (wiersz „nr …” pod tytułem), forestDistrict = wiersz „Nadleśnictwo”, forestRange = „Nazwa leśnictwa”, vehicleReg = „Nr rej. pojazdu”, quantity = łączna ilość m3 (kolumna „Masa[m3]” / wiersz „Razem”) — nie liczba sztuk i nie masa w kg.
+- WZ / PZ: quantity = ilość wydana / przyjęta w MP, m3 albo t, z jednostką z kolumny „j.m.” / „Jedn.” (np. „62,60 mp”). Jeśli ilość wpisano w niewłaściwą kolumnę (np. „KTM / symbol indeksu”), ale jest jednoznacznie powiązana z towarem i jednostką, odczytaj ją, obniż confidence i opisz to w notes.
+- Jednostka podana w nagłówku kolumny lub w osobnej kolumnie jest częścią dokumentu — dołącz ją do ilości (np. „17,50 m3”).
+- vehicleReg: sam numer rejestracyjny — z pola „Środek transportu: PY 30536 - Lander Agro” tylko „PY 30536”.
+- Daty przepisuj tak, jak napisano (np. „27.08.26r.”, „27/03/2026”).
+- Znaki wodne aparatu (np. nazwa telefonu) i nadruki drukarni formularzy pomijaj.
 - confidence (0.0–1.0) ma odzwierciedlać czytelność i jednoznaczność: ≥0.95 wyraźny druk i jednoznaczna etykieta; 0.8–0.95 drobne wątpliwości; 0.5–0.8 pismo odręczne, rozmazanie lub niepewne przypisanie pola; <0.5 domysł z fragmentu (lepiej wtedy null).
 - bbox = [x0, y0, x1, y1] ramka OBEJMUJĄCA ODCZYTANĄ WARTOŚĆ (bez etykiety) we współrzędnych znormalizowanych do wymiarów zdjęcia: 0.0 = lewa / górna krawędź, 1.0 = prawa / dolna.
-- Jednostka podana w nagłówku kolumny lub w osobnej kolumnie („j.m.”, „Jedn.”, „Masa[m3]”) jest częścią dokumentu — dołącz ją do ilości (np. „17,50 m3”, „62,60 mp”).
-- Druki bywają wypełnione niestarannie: jeśli ilość wpisano w niewłaściwą kolumnę (np. w „KTM / symbol indeksu”), ale jest jednoznacznie powiązana z towarem i jednostką, odczytaj ją, obniż confidence i opisz to w notes.
-- Pole łączące numer rejestracyjny i firmę (np. „Środek transp.: PY 30536 - Lander Agro”) rozdziel: vehicleReg = numer, carrier = firma.
-- Pieczątka jest treścią dokumentu (np. pieczątka magazynu z adresem → warehouse). Znaki wodne aparatu (np. nazwa telefonu) i nadruki drukarni formularzy pomijaj.
-- Daty przepisuj z rokiem tak, jak napisano (np. „27.08.26r.”); godzinę z daty wystawienia wpisz także do pola time.
-- Masa „obliczona / wyliczona” (np. na kwicie wywozowym na podstawie gęstości drewna) → declaredWeight, nigdy grossWeight / netWeight.
-- Na kwicie wywozowym nadleśnictwo wpisuj w forestDistrict (supplier tylko, gdy dokument wprost nazywa sprzedawcę), „Klient” / nabywcę w recipient, „Odbierający” w receivedBy (to nie musi być kierowca).
-- issuedBy / receivedBy: tylko czytelne imię i nazwisko (z druku lub pieczątki); sam podpis bez czytelnego nazwiska = null.
 - Jeśli wskazano oczekiwany typ dokumentu, traktuj to jako podpowiedź — w docType podaj typ, który faktycznie widać na dokumencie.
 - notes: krótkie uwagi o jakości zdjęcia lub nieczytelnych miejscach (po polsku), albo null.`;
 }

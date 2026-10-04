@@ -193,12 +193,12 @@ function render() {
   );
 
   // pola
-  const order = state.status.schema.fieldsByType[currentDocType()] || [];
-  const main = [...order, ...state.status.schema.fields.map(f => f.key).filter(k => !order.includes(k) && r.fields[k] && r.fields[k].value != null)];
-  const extra = state.status.schema.fields.map(f => f.key).filter(k => !main.includes(k));
-  $("fields").replaceChildren(...main.map(k => fieldRow(k)));
-  $("extraFields").replaceChildren(...extra.map(k => fieldRow(k)));
-  $("extraFieldsBox").hidden = !extra.length;
+  // tylko pola odczytywane dla typu, w sekcjach (np. kwit: Kwit | Transport)
+  const sections = state.status.schema.typeSections[currentDocType()] || state.status.schema.typeSections.NIEZNANY;
+  $("fields").replaceChildren(...sections.map(sec => el("div", { class: "fsection" }, [
+    el("h3", { class: "fsection-title", text: sec.title }),
+    ...sec.fields.map(k => fieldRow(k))
+  ])));
 
   renderBoxes();
   /** @type {HTMLAnchorElement} */ ($("btnExport")).href = `/api/scans/${encodeURIComponent(s.id)}/export`;
@@ -213,9 +213,26 @@ function render() {
   updateSaveState();
 }
 
+const EMPTY_FIELD = /** @type {FieldResult} */ ({ value: null, normalized: null, confidence: null, bbox: null, warnings: [], source: "ai" });
+
+/**
+ * Dane pola do pokazania. Po zmianie typu (przed zapisem) pola nowego typu pochodzą z pełnego
+ * odczytu AI (aiResult.extracted) — tak samo przeliczy je serwer przy zapisie.
+ * @param {string} key @returns {FieldResult}
+ */
+function fieldData(key) {
+  const s = state.scan;
+  const storedTypeFields = state.status.schema.fieldsByType[s.result.docType.value] || [];
+  if (state.editDocType && !storedTypeFields.includes(key)) {
+    const ex = s.aiResult && s.aiResult.extracted ? s.aiResult.extracted[key] : null;
+    return ex || EMPTY_FIELD;
+  }
+  return s.result.fields[key] || EMPTY_FIELD;
+}
+
 /** @param {string} key */
 function fieldRow(key) {
-  const f = /** @type {FieldResult} */ (state.scan.result.fields[key]);
+  const f = fieldData(key);
   const def = fieldDef(key);
   const id = "f_" + key;
   const edited = Object.prototype.hasOwnProperty.call(state.edits, key);
@@ -252,8 +269,8 @@ function fieldRow(key) {
 
 function renderBoxes() {
   const ov = $("overlay");
-  const fields = state.scan.result.fields;
-  ov.replaceChildren(...Object.entries(fields).filter(([, f]) => f.bbox && f.value != null).map(([k, f]) => {
+  const keys = state.status.schema.fieldsByType[currentDocType()] || [];
+  ov.replaceChildren(...keys.map(k => /** @type {[string, FieldResult]} */ ([k, fieldData(k)])).filter(([, f]) => f.bbox && f.value != null).map(([k, f]) => {
     const [x0, y0, x1, y1] = f.bbox;
     const b = el("button", { type: "button", class: "bbox", "data-key": k, "data-label": (fieldDef(k) || { label: k }).label, "aria-label": "Pokaż pole: " + (fieldDef(k) || { label: k }).label });
     Object.assign(b.style, { left: x0 * 100 + "%", top: y0 * 100 + "%", width: (x1 - x0) * 100 + "%", height: (y1 - y0) * 100 + "%" });
@@ -310,7 +327,7 @@ async function refreshHistory() {
     const r = await api("/api/scans");
     const tbody = $("histTable").querySelector("tbody");
     if (!tbody) return;
-    if (!r.scans.length) { tbody.replaceChildren(el("tr", {}, [el("td", { colspan: 8, class: "muted", text: "Brak wyników testowych." })])); return; }
+    if (!r.scans.length) { tbody.replaceChildren(el("tr", {}, [el("td", { colspan: 9, class: "muted", text: "Brak wyników testowych." })])); return; }
     tbody.replaceChildren(...r.scans.map(s => {
       const del = el("button", { type: "button", class: "btn ghost sm danger", text: "Usuń", "aria-label": "Usuń wynik testowy" });
       del.addEventListener("click", async ev => {
@@ -320,7 +337,7 @@ async function refreshHistory() {
         catch (e) { showError(e instanceof Error ? e.message : String(e)); }
       });
       const tr = el("tr", { "data-id": s.id, class: state.scan && state.scan.id === s.id ? "current" : "", tabindex: 0 }, [
-        el("td", { text: fmtDate(s.createdAt) }), el("td", { text: s.docType || "—" }), el("td", { text: s.docNumber || "—" }),
+        el("td", { text: fmtDate(s.createdAt) }), el("td", { text: s.docType || "—" }), el("td", { text: s.docNumber || s.docDate || "—" }), el("td", { text: s.vehicleReg || "—" }),
         el("td", { text: pct(s.docTypeConfidence) }), el("td", { text: (s.provider || "—") + (s.simulated ? " (sym.)" : "") }),
         el("td", { text: String(s.corrections) }), el("td", { text: s.status === "REVIEWED" ? "sprawdzone" : "do sprawdzenia" }), el("td", {}, [del])
       ]);
@@ -384,6 +401,9 @@ async function init() {
   $("docType").addEventListener("change", ev => {
     const v = /** @type {HTMLSelectElement} */ (ev.target).value;
     state.editDocType = v === state.scan.result.docType.value ? null : v;
+    // poprawki pól, których nowy typ nie odczytuje, są porzucane
+    const keep = state.status.schema.fieldsByType[currentDocType()] || [];
+    for (const k of Object.keys(state.edits)) if (!keep.includes(k)) delete state.edits[k];
     render();
   });
   $("resultForm").addEventListener("submit", ev => { ev.preventDefault(); saveCorrections(false); });

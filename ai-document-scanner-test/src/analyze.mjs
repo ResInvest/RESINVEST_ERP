@@ -8,8 +8,8 @@
    Żaden krok nie tworzy dokumentu PZ/WZ, ruchu magazynowego ani transportu.
    ========================================================================= */
 import { inspectImage, EXT_BY_MIME } from "./image.mjs";
-import { normalizeExtraction, normalizeField, crossCheck } from "./normalize.mjs";
-import { DOC_TYPE_KEYS, FIELD_BY_KEY } from "./schema.mjs";
+import { normalizeExtraction, normalizeField, crossCheck, applyTypeRules } from "./normalize.mjs";
+import { DOC_TYPE_KEYS, FIELD_BY_KEY, fieldsFor } from "./schema.mjs";
 import { matchMasterData, integrationHints } from "./master-data.mjs";
 import { ProviderError } from "./providers/provider.mjs";
 
@@ -68,7 +68,14 @@ export async function applyCorrection(ctx, id, patch) {
     if (patch.docType !== undefined && patch.docType !== r.docType.value) {
       rec.corrections.push({ at, by: reviewer, field: "docType", was: r.docType.value, now: patch.docType });
       r.docType = { value: patch.docType, confidence: 1, evidence: "korekta ręczna", source: "manual" };
+      // pola nowego typu: odczyt AI (extracted), a na nim wcześniejsze korekty ręczne
+      const merged = Object.assign({}, rec.aiResult.extracted || rec.aiResult.fields);
+      for (const [k, f] of Object.entries(r.fields)) if (f && f.source === "manual") merged[k] = f;
+      r.fields = applyTypeRules(patch.docType, merged);
     }
+    const allowed = fieldsFor(r.docType.value);
+    const notAllowed = Object.keys(fields).filter(k => !allowed.includes(k));
+    if (notAllowed.length) throw new InputError(`Pole ${notAllowed.join(", ")} nie jest odczytywane dla typu ${r.docType.value}.`);
     for (const [k, v] of Object.entries(fields)) {
       const cur = r.fields[k];
       const next = normalizeField(k, { value: v, confidence: 1, bbox: cur ? cur.bbox : null }, "manual");

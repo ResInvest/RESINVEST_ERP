@@ -54,11 +54,6 @@
      0.2003
     ]
    },
-   "warehouse": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
    "product": {
     "value": "zrębka leśna",
     "confidence": 0.81,
@@ -119,52 +114,12 @@
     "confidence": null,
     "bbox": null
    },
-   "carrier": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "loadingPlace": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "deliveryPlace": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
    "forestDistrict": {
     "value": null,
     "confidence": null,
     "bbox": null
    },
    "forestRange": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "declaredWeight": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "contractNumber": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "eudrReference": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "issuedBy": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "receivedBy": {
     "value": null,
     "confidence": null,
     "bbox": null

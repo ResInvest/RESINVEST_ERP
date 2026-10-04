@@ -49,16 +49,6 @@
      0.1748
     ]
    },
-   "warehouse": {
-    "value": "RiC Zabrze",
-    "confidence": 0.95,
-    "bbox": [
-     0.2235,
-     0.1717,
-     0.3361,
-     0.193
-    ]
-   },
    "product": {
     "value": "Zrębka drzewna",
     "confidence": 0.97,
@@ -124,52 +114,12 @@
      0.38
     ]
    },
-   "carrier": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "loadingPlace": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "deliveryPlace": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
    "forestDistrict": {
     "value": null,
     "confidence": null,
     "bbox": null
    },
    "forestRange": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "declaredWeight": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "contractNumber": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "eudrReference": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "issuedBy": {
-    "value": null,
-    "confidence": null,
-    "bbox": null
-   },
-   "receivedBy": {
     "value": null,
     "confidence": null,
     "bbox": null

@@ -23,7 +23,7 @@ ZDJĘCIE  →  ROZPOZNANIE (OCR / AI)  →  DANE (pola + pewność + podświetle
 | Przygotowanie obrazu | w przeglądarce: zmniejszenie dłuższego boku do 2400 px, korekta orientacji EXIF; na serwerze: kontrola sygnatury pliku, rozmiaru i rozdzielczości |
 | OCR / analiza AI | provider **Claude (Anthropic API)** — jedno wywołanie z obrazem i wymuszonym schematem JSON; provider **mock** do testów bez sieci |
 | Typ dokumentu | PZ, WZ, KWIT_WYWOZOWY, KWIT_WAGOWY albo NIEZNANY + pewność + uzasadnienie |
-| Pola (24) | numer, data, godzina, dostawca, odbiorca, magazyn, towar, ilość + jednostka, masa brutto / tara / netto, masa wyliczona (deklarowana), samochód, naczepa, kierowca, przewoźnik, miejsce załadunku, miejsce dostawy, nadleśnictwo, leśnictwo, nr umowy, nr referencyjny EUDR, wystawił, odebrał |
+| Odczytywane pola | **Kwit wywozowy:** nr kwitu (góra dokumentu), nadleśnictwo, leśnictwo · *Transport:* nr rejestracyjny, ilość m3. **WZ / PZ:** data, dostawca i odbiorca (jeśli wpisani) · *Transport:* nr rejestracyjny, ilość (MP, m3 albo t). **Kwit wagowy:** nr, data, godzina, dostawca, odbiorca, towar, brutto / tara / netto, nr rej., naczepa, kierowca. Pola spoza listy typu nie są pokazywane ani zapisywane |
 | Pewność | dla typu i każdego pola (0–100%), kolory: ≥ 90% zielony, 75–89% bursztynowy, < 75% czerwony |
 | Brak danych | `null` — pole puste z opisem „null — brak na dokumencie”; **nic nie jest zgadywane ani wyliczane** |
 | Walidacja | daty, godziny, liczby w zapisie polskim, jednostki (MP, m3, t, kg), numery rejestracyjne; błędny format obniża pewność i daje ostrzeżenie |
@@ -82,7 +82,7 @@ node tools/eval.mjs                     # provider wg konfiguracji (Claude, gdy 
 node tools/eval.mjs --only kwit         # jeden dokument
 ```
 
-Raport: typ dokumentu, **pola z dokumentu odczytane poprawnie** (np. 12/14), **brak zgadywania**
+Oceniane są tylko pola odczytywane dla typu dokumentu. Raport: typ dokumentu, **pola z dokumentu odczytane poprawnie** (np. 4/5), **brak zgadywania**
 (pola nieobecne na dokumencie, które zostały null), lista: ok / ✗ inna wartość / ∅ pominięte / !! wpisane bez
 pokrycia / ? wzorzec niepewny, średnia pewność poprawnych i błędnych odczytów (kalibracja). Raport JSON trafia do
 `eval/real/reports/` (poza git). Narzędzie nie zapisuje niczego w wynikach testowych ani w ERP.
@@ -159,11 +159,10 @@ Format pola w wyniku: `{ value, normalized, confidence, bbox: [x0,y0,x1,y1] (0..
 * Pismo odręczne, pieczątki na tekście, mocno krzywe lub ciemne zdjęcia obniżają jakość.
 * Długie, wąskie wydruki termiczne (kwit wywozowy 1670×4094 px) są zmniejszane — drobny tekst może stracić
   czytelność; przy słabym wyniku fotografuj kwit bliżej (np. górną część z danymi).
-* Wnioski z prawdziwych dokumentów (uwzględnione w schemacie i instrukcji modelu): jednostka bywa tylko w nagłówku
-  kolumny („Masa[m3]”, „j.m.”), ilość bywa wpisana w złą kolumnę (KTM), „Środek transp.” łączy nr rej. i firmę,
-  pieczątka magazynu jest jedynym wskazaniem magazynu, numery WZ bywają niewypełnione (null), daty „27.08.26r.”,
-  kwit LP podaje masę **wyliczoną** (nie z wagi), „Odbierający” nie musi być kierowcą, WZ do magazynu własnego
-  (np. „RiC Magazyn Zabrze”) to w ERP raczej przesunięcie MM.
+* Wnioski z prawdziwych dokumentów (uwzględnione w instrukcji modelu, bez dodawania pól): jednostka bywa tylko
+  w nagłówku kolumny („Masa[m3]”, „j.m.”), ilość bywa wpisana w złą kolumnę (KTM), „Środek transp.” łączy nr rej.
+  i firmę (odczytywany jest sam numer), daty „27.08.26r.” i „27/03/2026 15:12:05”, WZ do magazynu własnego
+  (np. „RiC Magazyn Zabrze”) to w ERP raczej przesunięcie MM (podpowiedź).
 * Jedno zdjęcie = jeden dokument, jedna strona, jedna pozycja towarowa (wiele pozycji — do rozbudowy schematu).
 * Provider mock rozpoznaje wyłącznie przykłady z `samples/` (pewności w fixture są przykładowe).
 * Moduł jednostanowiskowy (magazyn plików JSON); brak logowania użytkowników ERP — „Sprawdzający” to tekst.

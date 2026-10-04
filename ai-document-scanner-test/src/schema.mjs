@@ -36,52 +36,68 @@ export const DOC_TYPE_KEYS = /** @type {DocType[]} */ (Object.keys(DOC_TYPES));
 
 /** @type {FieldDef[]} */
 export const FIELDS = [
-  { key: "docNumber", label: "Numer", kind: "text", hint: "Numer dokumentu dokładnie jak na dokumencie (np. 458/10/2026, WZ/012/09/2026, nr kwitu).", erp: "operation.no / input.extDoc / transport.runs[].kwit" },
-  { key: "docDate", label: "Data", kind: "date", hint: "Data wystawienia dokumentu (dla kwitu wagowego: data ważenia).", erp: "operation.docDate" },
-  { key: "time", label: "Godzina", kind: "time", hint: "Godzina z dokumentu (np. ważenia lub wywozu), jeśli jest.", erp: "—" },
-  { key: "supplier", label: "Dostawca / sprzedawca", kind: "text", hint: "Firma przekazująca towar (na PZ dostawca, na kwicie wywozowym nadleśnictwo-sprzedawca).", erp: "purchase.supplierId (partners)" },
-  { key: "recipient", label: "Odbiorca", kind: "text", hint: "Firma odbierająca towar / nabywca.", erp: "sale.buyerId (partners)" },
-  { key: "warehouse", label: "Magazyn", kind: "text", hint: "Magazyn wystawiający lub przyjmujący, jeśli jest podany.", erp: "operation.whId (warehouses)" },
-  { key: "product", label: "Towar / sortyment", kind: "text", hint: "Nazwa towaru lub sortymentu (np. Zrębka drzewna, S2AP, drewno opałowe).", erp: "productId (products)" },
-  { key: "quantity", label: "Ilość", kind: "quantity", hint: "Ilość z jednostką dokładnie jak na dokumencie (np. 68,40 MP, 24,5 m3, 12,3 t).", erp: "qty + unit (MP / m3 / t)" },
-  { key: "grossWeight", label: "Masa brutto", kind: "weight", hint: "Masa brutto z jednostką (kg lub t).", erp: "weightManual (kwit wagowy)" },
-  { key: "tareWeight", label: "Tara", kind: "weight", hint: "Masa tary z jednostką (kg lub t).", erp: "—" },
-  { key: "netWeight", label: "Masa netto", kind: "weight", hint: "Masa netto z jednostką (kg lub t).", erp: "sale.weightT / transport.runs[].weightT" },
-  { key: "vehicleReg", label: "Samochód (nr rej.)", kind: "plate", hint: "Numer rejestracyjny pojazdu (ciągnika / samochodu).", erp: "transport.runs[].reg / fleet.vehicles[].reg" },
-  { key: "trailerReg", label: "Naczepa / przyczepa", kind: "plate", hint: "Numer rejestracyjny naczepy lub przyczepy.", erp: "—" },
-  { key: "driver", label: "Kierowca", kind: "text", hint: "Imię i nazwisko kierowcy.", erp: "transport.runs[].driver / fleet.drivers" },
-  { key: "carrier", label: "Przewoźnik", kind: "text", hint: "Firma transportowa / przewoźnik.", erp: "transport.external.company (carriers)" },
-  { key: "loadingPlace", label: "Miejsce załadunku", kind: "text", hint: "Miejsce załadunku / pochodzenia (np. oddział leśny, plac).", erp: "production.investSite / place" },
-  { key: "deliveryPlace", label: "Miejsce dostawy", kind: "text", hint: "Miejsce rozładunku / dostawy.", erp: "transport.place" },
-  { key: "forestDistrict", label: "Nadleśnictwo", kind: "text", hint: "Nazwa nadleśnictwa (kwit wywozowy).", erp: "production.ndl" },
-  { key: "forestRange", label: "Leśnictwo", kind: "text", hint: "Nazwa leśnictwa (kwit wywozowy) albo leśnictwo dopisane na WZ / PZ (np. „L. Kuźnia”).", erp: "production.lesnictwo" },
-  { key: "declaredWeight", label: "Masa wyliczona (deklarowana)", kind: "weight", hint: "Masa podana na dokumencie jako wyliczona / szacunkowa (np. na kwicie wywozowym „waga drewna obliczona … wynosi 12950,00 kg”), NIE wynik ważenia.", erp: "weightMode: auto — tylko porównanie" },
-  { key: "contractNumber", label: "Nr umowy", kind: "text", hint: "Numer umowy (np. „Nr umowy nadl.”).", erp: "—" },
-  { key: "eudrReference", label: "Nr referencyjny EUDR", kind: "text", hint: "Numer referencyjny deklaracji EUDR, jeśli jest.", erp: "— (do rozbudowy: identyfikowalność drewna)" },
-  { key: "issuedBy", label: "Wystawił / wydał", kind: "text", hint: "Imię i nazwisko osoby wystawiającej / wydającej (pole „Wystawił”, „Wydający dokument”, „Wydał”). Sam nieczytelny podpis = null.", erp: "audyt (opis)" },
-  { key: "receivedBy", label: "Odebrał / odbierający", kind: "text", hint: "Imię i nazwisko osoby odbierającej (pole „Odebrał”, „Odbierający”). Sam nieczytelny podpis = null.", erp: "transport.runs[].driver (po potwierdzeniu)" }
+  { key: "docNumber", label: "Numer", kind: "text", hint: "Numer dokumentu dokładnie jak na dokumencie. Kwit wywozowy: numer kwitu z GÓRY dokumentu (wiersz „nr …” pod tytułem, np. 7/202636843/1019).", erp: "operation.no / input.extDoc / transport.runs[].kwit" },
+  { key: "docDate", label: "Data", kind: "date", hint: "Data dokumentu (WZ/PZ: data wystawienia lub wysyłki; kwit wagowy: data ważenia).", erp: "operation.docDate" },
+  { key: "time", label: "Godzina", kind: "time", hint: "Godzina ważenia (kwit wagowy), jeśli jest.", erp: "—" },
+  { key: "supplier", label: "Dostawca", kind: "text", hint: "Dostawca — tylko jeśli jest wpisany na dokumencie (pole „Dostawca” / „Sprzedawca”).", erp: "purchase.supplierId (partners)" },
+  { key: "recipient", label: "Odbiorca", kind: "text", hint: "Odbiorca — tylko jeśli jest wpisany na dokumencie (pole „Odbiorca” / „Nabywca” / „Nazwa i adres odbiorcy”).", erp: "sale.buyerId (partners) / magazyn docelowy" },
+  { key: "product", label: "Towar", kind: "text", hint: "Nazwa towaru (kwit wagowy).", erp: "productId (products)" },
+  { key: "quantity", label: "Ilość", kind: "quantity", hint: "Ilość z jednostką. WZ/PZ: MP, m3 albo t (np. 62,60 mp). Kwit wywozowy: ilość m3 z tabeli / sekcji transportu (kolumna „Masa[m3]”, „Razem”), np. 17,50 m3.", erp: "qty + unit (MP / m3 / t)" },
+  { key: "grossWeight", label: "Masa brutto", kind: "weight", hint: "Masa brutto z jednostką (kg lub t) — kwit wagowy.", erp: "weightManual (kwit wagowy)" },
+  { key: "tareWeight", label: "Tara", kind: "weight", hint: "Masa tary z jednostką (kg lub t) — kwit wagowy.", erp: "—" },
+  { key: "netWeight", label: "Masa netto", kind: "weight", hint: "Masa netto z jednostką (kg lub t) — kwit wagowy.", erp: "sale.weightT / transport.runs[].weightT" },
+  { key: "vehicleReg", label: "Nr rejestracyjny", kind: "plate", hint: "Numer rejestracyjny pojazdu (sam numer, bez nazwy firmy — np. z „PY 30536 - Lander Agro” tylko PY 30536).", erp: "transport.runs[].reg / fleet.vehicles[].reg" },
+  { key: "trailerReg", label: "Naczepa / przyczepa", kind: "plate", hint: "Numer rejestracyjny naczepy (kwit wagowy).", erp: "—" },
+  { key: "driver", label: "Kierowca", kind: "text", hint: "Imię i nazwisko kierowcy (kwit wagowy), jeśli wpisane.", erp: "transport.runs[].driver / fleet.drivers" },
+  { key: "forestDistrict", label: "Nadleśnictwo", kind: "text", hint: "Nadleśnictwo (kwit wywozowy, wiersz „Nadleśnictwo”).", erp: "production.ndl" },
+  { key: "forestRange", label: "Leśnictwo", kind: "text", hint: "Leśnictwo (kwit wywozowy, wiersz „Nazwa leśnictwa”).", erp: "production.lesnictwo" }
 ];
 
 export const FIELD_KEYS = FIELDS.map(f => f.key);
 /** @type {Record<string, FieldDef>} */
 export const FIELD_BY_KEY = Object.fromEntries(FIELDS.map(f => [f.key, f]));
 
-/** Pola typowe dla danego typu dokumentu — kolejność wyświetlania. Pozostałe pola są pokazywane, jeśli mają wartość. */
-/** @type {Record<DocType, string[]>} */
-export const FIELDS_BY_TYPE = {
-  WZ: ["docNumber", "docDate", "warehouse", "recipient", "product", "quantity", "vehicleReg", "trailerReg", "driver", "carrier", "deliveryPlace", "issuedBy", "receivedBy"],
-  PZ: ["docNumber", "docDate", "warehouse", "supplier", "product", "quantity", "vehicleReg", "trailerReg", "driver", "carrier", "loadingPlace", "issuedBy", "receivedBy"],
-  KWIT_WYWOZOWY: ["docNumber", "docDate", "time", "supplier", "forestDistrict", "forestRange", "loadingPlace", "product", "quantity", "declaredWeight", "recipient", "carrier", "vehicleReg", "trailerReg", "driver", "contractNumber", "eudrReference", "issuedBy", "receivedBy"],
-  KWIT_WAGOWY: ["docNumber", "docDate", "time", "supplier", "recipient", "product", "grossWeight", "tareWeight", "netWeight", "vehicleReg", "trailerReg", "driver", "issuedBy"],
-  NIEZNANY: ["docNumber", "docDate", "supplier", "recipient", "product", "quantity", "vehicleReg", "driver"]
+/**
+ * Pola odczytywane dla danego typu dokumentu — w sekcjach i w kolejności wyświetlania.
+ * Pola spoza listy typu nie są pokazywane ani oceniane (zostają null).
+ * @type {Record<DocType, { title: string, fields: string[] }[]>}
+ */
+export const TYPE_SECTIONS = {
+  KWIT_WYWOZOWY: [
+    { title: "Kwit", fields: ["docNumber", "forestDistrict", "forestRange"] },
+    { title: "Transport", fields: ["vehicleReg", "quantity"] }
+  ],
+  WZ: [
+    { title: "Dokument", fields: ["docDate", "supplier", "recipient"] },
+    { title: "Transport", fields: ["vehicleReg", "quantity"] }
+  ],
+  PZ: [
+    { title: "Dokument", fields: ["docDate", "supplier", "recipient"] },
+    { title: "Transport", fields: ["vehicleReg", "quantity"] }
+  ],
+  KWIT_WAGOWY: [
+    { title: "Kwit", fields: ["docNumber", "docDate", "time", "supplier", "recipient", "product"] },
+    { title: "Ważenie", fields: ["grossWeight", "tareWeight", "netWeight"] },
+    { title: "Transport", fields: ["vehicleReg", "trailerReg", "driver"] }
+  ],
+  NIEZNANY: [
+    { title: "Dokument", fields: ["docNumber", "docDate", "supplier", "recipient", "forestDistrict", "forestRange"] },
+    { title: "Transport", fields: ["vehicleReg", "quantity"] }
+  ]
 };
 
-/** Kolejność pól do wyświetlenia: najpierw typowe dla typu, potem pozostałe z wartością. */
-export function displayOrder(docType, fields) {
-  const base = FIELDS_BY_TYPE[/** @type {DocType} */ (docType)] || FIELDS_BY_TYPE.NIEZNANY;
-  const extra = FIELD_KEYS.filter(k => !base.includes(k) && fields && fields[k] && fields[k].value != null);
-  return [...base, ...extra];
+/** Płaska lista pól typu (kolejność wyświetlania). */
+/** @type {Record<DocType, string[]>} */
+export const FIELDS_BY_TYPE = /** @type {any} */ (Object.fromEntries(Object.entries(TYPE_SECTIONS).map(([t, secs]) => [t, secs.flatMap(s => s.fields)])));
+
+/** Pola odczytywane dla typu (nieznany typ → NIEZNANY). */
+export function fieldsFor(docType) {
+  return FIELDS_BY_TYPE[/** @type {DocType} */ (docType)] || FIELDS_BY_TYPE.NIEZNANY;
 }
+
+/** Dozwolone jednostki ilości dla typu (null = bez ograniczeń). */
+/** @type {Partial<Record<DocType, string[]>>} */
+export const QUANTITY_UNITS = { KWIT_WYWOZOWY: ["m3"], WZ: ["MP", "m3", "t"], PZ: ["MP", "m3", "t"] };
 
 /* ------------------------------------------------------------------ */
 /* Schemat JSON odpowiedzi providera AI (structured outputs)           */

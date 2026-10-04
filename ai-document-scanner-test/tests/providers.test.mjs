@@ -49,15 +49,16 @@ test("mock: każdy przykład ma fixture zgodny z obrazem", async () => {
   }
 });
 
-test("mock: przykład WZ = wynik z zadania testowego", async () => {
+test("mock: przykład WZ — tylko pola WZ (data, dostawca, odbiorca, nr rej., ilość)", async () => {
   const p = createMockProvider({ fixturesDir: FIXTURES });
   const { raw } = await p.analyze({ buffer: wz, mime: "image/png", sha256: sha256(wz) });
   const r = normalizeExtraction(raw);
   assert.equal(r.docType.value, "WZ"); assert.equal(r.docType.confidence, 0.98);
-  const want = { docNumber: ["458/10/2026", 0.99], docDate: ["03.10.2026", 0.99], recipient: ["XYZ Sp. z o.o.", 0.96], product: ["Zrębka drzewna", 0.97], quantity: ["68,40 MP", 0.99], vehicleReg: ["WI12345", 0.91], trailerReg: ["W12345", 0.86], driver: ["Jan Kowalski", 0.78] };
+  const want = { docDate: ["03.10.2026", 0.99], recipient: ["XYZ Sp. z o.o.", 0.96], quantity: ["68,40 MP", 0.99], vehicleReg: ["WI12345", 0.91] };
   for (const [k, [v, c]] of Object.entries(want)) { assert.equal(r.fields[k].value, v, k); assert.equal(r.fields[k].confidence, c, k); }
   assert.equal(r.fields.supplier.value, null, "dostawcy nie ma na WZ → null");
-  assert.equal(r.fields.netWeight.value, null);
+  for (const k of ["docNumber", "product", "trailerReg", "driver", "netWeight"]) assert.equal(r.fields[k].value, null, `${k} nie jest odczytywane na WZ`);
+  assert.equal(r.extracted.driver.value, "Jan Kowalski", "pełny odczyt zachowany na wypadek zmiany typu");
 });
 
 test("mock: kwit uszkodzony — netto null, podpowiedź bez wpisywania, nieczytelna godzina ostrzeżeniem", async () => {
@@ -110,7 +111,9 @@ test("Claude: żądanie zawiera obraz, schemat JSON i fallback; wynik jest parso
   assert.match(params.messages[0].content[1].text, /podpowiedź użytkownika\): WZ/);
   assert.match(params.system, /Nie zgaduj/);
   assert.match(params.system, /nagłówku kolumny/, "jednostka z nagłówka kolumny");
-  assert.match(params.system, /declaredWeight, nigdy grossWeight/, "masa wyliczona ≠ ważenie");
+  assert.match(params.system, /KWIT_WYWOZOWY: Kwit: docNumber, forestDistrict, forestRange \| Transport: vehicleReg, quantity/);
+  assert.match(params.system, /WZ: Dokument: docDate, supplier, recipient \| Transport: vehicleReg, quantity/);
+  assert.match(params.system, /numer kwitu z góry dokumentu/);
   assert.match(params.system, /Znaki wodne aparatu/);
   assert.ok(!/\d{4}-\d{2}-\d{2}/.test(buildSystemPrompt()), "instrukcja systemowa bez dat (stabilny cache)");
 });

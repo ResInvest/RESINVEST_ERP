@@ -37,17 +37,15 @@ Kontrakt `src/providers/provider.mjs` pozwala dodać kolejny provider bez zmian 
 
 ## 3. Mapowanie pól skanera na dane ERP (do przyszłej integracji)
 
-| Pole skanera | ERP | Uwagi |
+| Dokument | Pole skanera | ERP |
 |---|---|---|
-| `docType` PZ / WZ | `operation.type` ZAKUP / SPRZEDAZ | kwit wywozowy → ZAKUP z produkcją leśną; kwit wagowy → tonaż istniejącej operacji |
-| `docNumber` | `input.docNos.PZ/WZ` (tryb ręczny) albo `input.extDoc`; kwit → `transport.runs[].kwit` | unikalność numeru sprawdza ERP |
-| `docDate` | `input.docDate` | ISO w `normalized` |
-| `supplier` / `recipient` | `purchase.supplierId` / `sale.buyerId` | przez podpowiedź z kartoteki (`erpMatches`), zawsze z potwierdzeniem |
-| `forestDistrict` / `forestRange` | `production.ndl` / `production.lesnictwo` | |
-| `product` | `productId` | |
-| `quantity` | `qty` + `unit` | jednostka wyłącznie z dokumentu |
-| `netWeight` (t) | `weightMode: "manual"` + `weightManual` | `normalized.kg / 1000` |
-| `vehicleReg`, `driver`, `carrier` | `transport.runs[].reg/driver`, `external.company`, `fleet` | |
+| Kwit wywozowy | nr kwitu (`docNumber`) | `transport.runs[].kwit` / `production.kwit` |
+| Kwit wywozowy | nadleśnictwo, leśnictwo | `production.ndl`, `production.lesnictwo` (kartoteka nadleśnictw z listą leśnictw) |
+| Kwit wywozowy — transport | nr rejestracyjny, ilość m3 | `transport.runs[].reg`, `transport.runs[].kwitM3` |
+| WZ / PZ | data | `input.docDate` |
+| WZ / PZ | dostawca / odbiorca (jeśli wpisani) | `purchase.supplierId` / `sale.buyerId` — przez podpowiedź z kartoteki, z potwierdzeniem; odbiorca = magazyn własny → MM |
+| WZ / PZ — transport | nr rejestracyjny, ilość (MP / m3 / t) | `transport.runs[].reg`, `qty` + `unit` |
+| Kwit wagowy | netto | `weightMode: "manual"` + `weightManual` |
 
 ## 4. Warunki bezpiecznej integracji (rekomendacja)
 

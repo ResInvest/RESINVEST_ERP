@@ -66,38 +66,44 @@ async function waitHealth() {
     check("pewność typu 98%", (await page.textContent("#docTypeConf")).includes("98%"));
     const val = k => page.inputValue("#f_" + k);
     const conf = k => page.textContent(`.frow[data-key="${k}"] .conf .val`);
-    check("numer 458/10/2026 · 99%", (await val("docNumber")) === "458/10/2026" && (await conf("docNumber")) === "99%");
-    check("data 03.10.2026", (await val("docDate")) === "03.10.2026");
+    const fieldKeys = async () => page.$$eval("#fields .frow", rows => rows.map(r => /** @type {HTMLElement} */ (r).dataset.key));
+    const sections = async () => page.$$eval("#fields .fsection-title", h => h.map(x => x.textContent));
+    check("WZ: tylko pola data, dostawca, odbiorca | nr rej., ilość", JSON.stringify(await fieldKeys()) === JSON.stringify(["docDate", "supplier", "recipient", "vehicleReg", "quantity"]), JSON.stringify(await fieldKeys()));
+    check("WZ: sekcje Dokument i Transport", JSON.stringify(await sections()) === JSON.stringify(["Dokument", "Transport"]));
+    check("data 03.10.2026 · 99%", (await val("docDate")) === "03.10.2026" && (await conf("docDate")) === "99%");
+    check("dostawca niewpisany → null", (await val("supplier")) === "" && (await conf("supplier")) === "—");
     check("odbiorca XYZ Sp. z o.o. · 96%", (await val("recipient")) === "XYZ Sp. z o.o." && (await conf("recipient")) === "96%");
-    check("towar Zrębka drzewna · 97%", (await val("product")) === "Zrębka drzewna" && (await conf("product")) === "97%");
+    check("nr rej. WI12345 · 91%", (await val("vehicleReg")) === "WI12345" && (await conf("vehicleReg")) === "91%");
     check("ilość 68,40 MP · 99%", (await val("quantity")) === "68,40 MP" && (await conf("quantity")) === "99%");
-    check("samochód WI12345 · 91%", (await val("vehicleReg")) === "WI12345" && (await conf("vehicleReg")) === "91%");
-    check("naczepa W12345 · 86%", (await val("trailerReg")) === "W12345" && (await conf("trailerReg")) === "86%");
-    check("kierowca Jan Kowalski · 78% (niska pewność)", (await val("driver")) === "Jan Kowalski" && (await conf("driver")) === "78%" && await page.isVisible('.frow[data-key="driver"] .conf.mid'));
-    check("dopasowanie do kartoteki ERP (kierowca)", (await page.textContent('.frow[data-key="driver"] .meta')).includes("Kartoteka ERP: Jan Kowalski"));
+    check("brak pól spoza listy (numer, towar, kierowca)", (await page.locator("#f_docNumber, #f_product, #f_driver, #f_trailerReg").count()) === 0);
     check("zdjęcie obok danych", await page.isVisible("#docImage") && (await page.evaluate(() => /** @type {HTMLImageElement} */ (document.getElementById("docImage")).naturalWidth)) === 1240);
-    check("ramki dla 9 pól", (await page.locator("#overlay .bbox").count()) === 9);
+    check("ramki tylko dla 4 odczytanych pól", (await page.locator("#overlay .bbox").count()) === 4);
 
     await page.hover('.frow[data-key="quantity"]');
     check("najechanie na pole podświetla fragment zdjęcia", await page.isVisible('#overlay .bbox.active[data-key="quantity"]'));
     const box = await page.locator('#overlay .bbox[data-key="quantity"]').boundingBox();
     const img = await page.locator("#docImage").boundingBox();
     check("ramka ilości w prawej części tabeli", !!box && !!img && box.x > img.x + img.width * 0.6 && box.y > img.y + img.height * 0.2 && box.y < img.y + img.height * 0.35);
-    await page.click('#overlay .bbox[data-key="docNumber"]', { force: true });
-    check("kliknięcie ramki przenosi do pola", (await page.evaluate(() => document.activeElement && document.activeElement.id)) === "f_docNumber");
+    await page.click('#overlay .bbox[data-key="docDate"]', { force: true });
+    check("kliknięcie ramki przenosi do pola", (await page.evaluate(() => document.activeElement && document.activeElement.id)) === "f_docDate");
     if (SHOTS) await page.screenshot({ path: path.join(SHOTS, "e2e-desktop-wz.png"), fullPage: true });
 
     // 2. korekta ręczna
     check("zapis nieaktywny bez zmian", await page.isDisabled("#btnSave"));
-    await page.fill("#f_trailerReg", "WI 1234P");
+    await page.fill("#f_vehicleReg", "WI 1234P");
     await page.fill("#reviewer", "Tester E2E");
     check("zapis aktywny po zmianie", await page.isEnabled("#btnSave"));
     await page.click("#btnSave");
     await page.waitForFunction(() => (document.getElementById("scanMeta")?.textContent || "").includes("rew. 2"));
     check("korekta zapisana (rewizja 2)", true);
-    check("pole oznaczone „ręcznie”, pewność 100%", (await page.textContent('.frow[data-key="trailerReg"] .meta')).includes("ręcznie") && (await conf("trailerReg")) === "100%");
-    check("historia korekt: było W12345 → jest WI 1234P", (await page.textContent("#corrTable tbody")).includes("W12345") && (await page.textContent("#corrTable tbody")).includes("WI 1234P"));
-    check("historia testów zawiera wynik", (await page.textContent("#histTable tbody")).includes("458/10/2026"));
+    check("pole oznaczone „ręcznie”, pewność 100%", (await page.textContent('.frow[data-key="vehicleReg"] .meta')).includes("ręcznie") && (await conf("vehicleReg")) === "100%");
+    check("historia korekt: było WI12345 → jest WI 1234P", (await page.textContent("#corrTable tbody")).includes("WI12345") && (await page.textContent("#corrTable tbody")).includes("WI 1234P"));
+    check("historia testów: data dokumentu i nr rej.", (await page.textContent("#histTable tbody")).includes("03.10.2026") && (await page.textContent("#histTable tbody")).includes("WI 1234P"));
+
+    // 2b. zmiana typu przed zapisem pokazuje pola nowego typu z pełnego odczytu
+    await page.selectOption("#docType", "KWIT_WAGOWY");
+    check("zmiana typu → pola kwitu wagowego (kierowca z odczytu AI)", (await val("driver")) === "Jan Kowalski" && (await page.locator("#f_quantity").count()) === 0);
+    await page.selectOption("#docType", "WZ");
 
     // 3. kwit uszkodzony — brak zgadywania
     await page.click("#samples button:has-text('Kwit wagowy (uszkodzony)')");
@@ -128,6 +134,10 @@ async function waitHealth() {
     await m.waitForFunction(() => /** @type {HTMLSelectElement} */ (document.getElementById("docType")).value === "KWIT_WYWOZOWY");
     const overflow = await m.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     check("brak poziomego przewijania (390 px)", overflow <= 0, "nadmiar " + overflow + " px");
+    const kwKeys = await m.$$eval("#fields .frow", rows => rows.map(r => /** @type {HTMLElement} */ (r).dataset.key));
+    check("kwit wywozowy: nr kwitu, nadleśnictwo, leśnictwo | nr rej., ilość m3", JSON.stringify(kwKeys) === JSON.stringify(["docNumber", "forestDistrict", "forestRange", "vehicleReg", "quantity"]), JSON.stringify(kwKeys));
+    check("kwit wywozowy: sekcje Kwit i Transport", JSON.stringify(await m.$$eval("#fields .fsection-title", h => h.map(x => x.textContent))) === JSON.stringify(["Kwit", "Transport"]));
+    check("kwit: KW 0045871 · 31,20 m3", (await m.inputValue("#f_docNumber")) === "KW 0045871" && (await m.inputValue("#f_quantity")) === "31,20 m3");
     check("kartoteka ERP: nadleśnictwo dopasowane", (await m.textContent('.frow[data-key="forestDistrict"] .meta')).includes("Nadleśnictwo Rudy Raciborskie"));
     const camAccept = await m.getAttribute("#cameraInput", "capture");
     check("przycisk aparatu (capture=environment)", camAccept === "environment");

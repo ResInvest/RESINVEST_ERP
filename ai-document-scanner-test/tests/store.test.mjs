@@ -41,7 +41,9 @@ test("zapis rekordu: izolacja, zamrożony wynik AI, brak plików tymczasowych", 
   assert.ok(files.includes(`${rec.id}.json`) && files.includes(`${rec.id}.png`));
   assert.ok(!files.some(f => f.endsWith(".tmp")));
   assert.ok(readdirSync(dir).includes("README-TEST-DATA.txt"));
-  assert.equal(s.list()[0].docNumber, "458/10/2026");
+  assert.equal(s.list()[0].docNumber, null, "WZ nie odczytuje numeru");
+  assert.equal(s.list()[0].docDate, "03.10.2026");
+  assert.equal(s.list()[0].vehicleReg, "WI12345");
 });
 
 test("korekta: historia było/jest, źródło manual, rewizja i ochrona przed nadpisaniem", async () => {
@@ -49,30 +51,36 @@ test("korekta: historia było/jest, źródło manual, rewizja i ochrona przed na
   const md = loadMasterData(MASTER);
   const rec = makeRecord(s);
   const ctx = { store: s, masterData: md };
-  const r2 = await applyCorrection(ctx, rec.id, { rev: 1, reviewer: "Adrian W.", fields: { driver: "Jan Kowalski", trailerReg: "WI 1234P", recipient: null } });
+  const r2 = await applyCorrection(ctx, rec.id, { rev: 1, reviewer: "Adrian W.", fields: { docDate: "03.10.2026", vehicleReg: "WI 1234P", recipient: null } });
   assert.equal(r2.rev, 2);
-  assert.equal(r2.corrections.length, 2, "kierowca bez zmiany — brak wpisu");
-  assert.deepEqual(r2.corrections.map(c => [c.field, c.was, c.now, c.by]), [["trailerReg", "W12345", "WI 1234P", "Adrian W."], ["recipient", "XYZ Sp. z o.o.", null, "Adrian W."]]);
-  assert.equal(r2.result.fields.trailerReg.source, "manual");
-  assert.equal(r2.result.fields.trailerReg.confidence, 1);
-  assert.equal(r2.aiResult.fields.trailerReg.value, "W12345", "wynik AI nie jest nadpisywany");
+  assert.equal(r2.corrections.length, 2, "data bez zmiany — brak wpisu");
+  assert.deepEqual(r2.corrections.map(c => [c.field, c.was, c.now, c.by]), [["vehicleReg", "WI12345", "WI 1234P", "Adrian W."], ["recipient", "XYZ Sp. z o.o.", null, "Adrian W."]]);
+  assert.equal(r2.result.fields.vehicleReg.source, "manual");
+  assert.equal(r2.result.fields.vehicleReg.confidence, 1);
+  assert.equal(r2.aiResult.fields.vehicleReg.value, "WI12345", "wynik AI nie jest nadpisywany");
   assert.ok(r2.result.checks.some(w => /odbiorcy/.test(w)), "po usunięciu odbiorcy — kontrola WZ");
   assert.equal(r2.erpPosted, false);
-  await assert.rejects(applyCorrection(ctx, rec.id, { rev: 1, fields: { driver: "X" } }), e => e.status === 409);
+  await assert.rejects(applyCorrection(ctx, rec.id, { rev: 1, fields: { vehicleReg: "X" } }), e => e.status === 409);
+  await assert.rejects(applyCorrection(ctx, rec.id, { rev: 2, fields: { driver: "X" } }), e => e.status === 400 && /nie jest odczytywane/.test(e.message));
   await assert.rejects(applyCorrection(ctx, rec.id, { rev: 2, fields: { hack: "x" } }), e => e.status === 400);
-  await assert.rejects(applyCorrection(ctx, rec.id, { rev: 2, fields: { driver: 5 } }), e => e.status === 400);
+  await assert.rejects(applyCorrection(ctx, rec.id, { rev: 2, fields: { vehicleReg: 5 } }), e => e.status === 400);
   await assert.rejects(applyCorrection(ctx, rec.id, { rev: 2, docType: "FAKTURA" }), e => e.status === 400);
   const r3 = await applyCorrection(ctx, rec.id, { rev: 2, docType: "PZ", markReviewed: true });
   assert.equal(r3.result.docType.value, "PZ");
   assert.equal(r3.result.docType.source, "manual");
   assert.equal(r3.status, "REVIEWED");
+  assert.equal(r3.result.fields.vehicleReg.value, "WI 1234P", "korekta ręczna zachowana po zmianie typu");
+  assert.equal(r3.result.fields.recipient.value, null, "usunięty ręcznie odbiorca nie wraca z odczytu AI");
+  const r4 = await applyCorrection(ctx, rec.id, { rev: 3, docType: "KWIT_WAGOWY" });
+  assert.equal(r4.result.fields.driver.value, "Jan Kowalski", "pola nowego typu uzupełnione z pełnego odczytu AI");
+  assert.equal(r4.result.fields.quantity.value, null, "ilość nie jest odczytywana na kwicie wagowym");
 });
 
 test("korekty równoległe: dokładnie jedna wygrywa (reszta 409)", async () => {
   const s = new ScanStore(tmp());
   const rec = makeRecord(s);
   const ctx = { store: s, masterData: null };
-  const res = await Promise.allSettled([1, 2, 3].map(i => applyCorrection(ctx, rec.id, { rev: 1, fields: { driver: "Kierowca " + i } })));
+  const res = await Promise.allSettled([1, 2, 3].map(i => applyCorrection(ctx, rec.id, { rev: 1, fields: { vehicleReg: "SK 100" + i } })));
   assert.equal(res.filter(r => r.status === "fulfilled").length, 1);
   assert.equal(res.filter(r => r.status === "rejected" && r.reason.status === 409).length, 2);
   assert.equal(s.get(rec.id).rev, 2);
