@@ -1,0 +1,131 @@
+{
+ "_opis": "Fixture providera MOCK — wynik symulowany dla przykładowego obrazu (dokument fikcyjny). Pewności są przykładowe; ramki = rzeczywiste położenie tekstu.",
+ "file": "wz-458-10-2026.png",
+ "sha256": "a00f543110bfc9b47f055dd3ebdde447b0e3bdd6dae31e18b945c95ad5bedf21",
+ "raw": {
+  "docType": {
+   "value": "WZ",
+   "confidence": 0.98,
+   "evidence": "Nagłówek „WZ — WYDANIE ZEWNĘTRZNE”."
+  },
+  "fields": {
+   "docNumber": {
+    "value": "458/10/2026",
+    "confidence": 0.99,
+    "bbox": [
+     0.13,
+     0.0987,
+     0.2607,
+     0.1184
+    ]
+   },
+   "docDate": {
+    "value": "03.10.2026",
+    "confidence": 0.99,
+    "bbox": [
+     0.4513,
+     0.0965,
+     0.5596,
+     0.116
+    ]
+   },
+   "time": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "supplier": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "recipient": {
+    "value": "XYZ Sp. z o.o.",
+    "confidence": 0.96,
+    "bbox": [
+     0.5272,
+     0.1531,
+     0.6848,
+     0.1748
+    ]
+   },
+   "product": {
+    "value": "Zrębka drzewna",
+    "confidence": 0.97,
+    "bbox": [
+     0.1772,
+     0.268,
+     0.3405,
+     0.2897
+    ]
+   },
+   "quantity": {
+    "value": "68,40 MP",
+    "confidence": 0.99,
+    "bbox": [
+     0.7159,
+     0.2644,
+     0.824,
+     0.2857
+    ]
+   },
+   "grossWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "tareWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "netWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "vehicleReg": {
+    "value": "WI12345",
+    "confidence": 0.91,
+    "bbox": [
+     0.2412,
+     0.3388,
+     0.3295,
+     0.3599
+    ]
+   },
+   "trailerReg": {
+    "value": "W12345",
+    "confidence": 0.86,
+    "bbox": [
+     0.4433,
+     0.3374,
+     0.5199,
+     0.3584
+    ]
+   },
+   "driver": {
+    "value": "Jan Kowalski",
+    "confidence": 0.78,
+    "bbox": [
+     0.2273,
+     0.3543,
+     0.3911,
+     0.38
+    ]
+   },
+   "forestDistrict": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "forestRange": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   }
+  },
+  "rawText": "WZ — WYDANIE ZEWNĘTRZNE\nNr 458/10/2026  ·  Data wystawienia: 03.10.2026\nWystawca / magazynResInvest CommoditiesMagazyn: RiC Zabrzeul. Gwarecka 16, 41-800 Zabrze\nOdbiorcaXYZ Sp. z o.o.ul. Przemysłowa 744-100 Gliwice\nLp.Nazwa towaruJ.m.Ilość\n1Zrębka drzewnaMP68,40 MP\nTransport\nSamochód: WI12345    Naczepa: W12345\nKierowca: Jan Kowalski\nWydałOdebrał (kierowca)",
+  "notes": "Podpis kierowcy odręczny."
+ }
+}

@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+~$*.xlsm
+.~lock*
+*_TEST*.xlsm
+tests_out/

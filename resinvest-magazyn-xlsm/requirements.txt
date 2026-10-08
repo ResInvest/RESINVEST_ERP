@@ -1,0 +1,5 @@
+# Narzędzia budowy i testów (Python 3.10+). Testy wymagają LibreOffice 7.4+ (pakiet python3-uno).
+olefile>=0.46
+oletools>=0.60
+openpyxl>=3.1
+lxml>=4.9
