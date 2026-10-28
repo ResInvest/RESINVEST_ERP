@@ -1,0 +1,16 @@
+{
+  "name": "resinvest-erp-eudr-demo",
+  "version": "3.12.0",
+  "private": true,
+  "description": "ResInvest ERP 3.12 — wersja demonstracyjna: zakładka EUDR (rozporządzenie o wylesianiu) i pulpit obrotu miesiąca (zakupy od firm, sprzedaż, Lasy Państwowe) w MP, m³ i t. Jeden plik HTML, działa offline.",
+  "author": "Mateusz Roesner",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "commonjs",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node --test tests/engine.test.mjs",
+    "test:e2e": "node tests/e2e.cjs",
+    "verify": "npm run build && npm test && npm run test:e2e"
+  }
+}

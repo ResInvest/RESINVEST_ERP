@@ -1,0 +1,24 @@
+{
+  "_opis": "Wzorzec: ręczny odczyt prawdziwej WZ (niebieski druk, wypełnienie odręczne). Ilość wpisana w kolumnę KTM, kolumna „Ilość wydana” pusta. Pola: numer (ręcznie — nie oceniany), data, dostawca, odbiorca; transport: nr rej., ilość.",
+  "image": "wz-niebieska-pyskowice-2026-04-15.jpg",
+  "docType": "WZ",
+  "fields": {
+    "docDate": "15.04.26r.",
+    "supplier": {
+      "value": null,
+      "alternatives": [
+        "ResInvest Commodities PL S.A."
+      ]
+    },
+    "recipient": {
+      "value": "Magazyn Kacery",
+      "uncertain": true,
+      "note": "odręczna nazwa — druga część nieczytelna; do potwierdzenia"
+    },
+    "vehicleReg": "SK 7H433",
+    "quantity": {
+      "value": "60 mp",
+      "note": "wpisane w kolumnę KTM — model powinien odczytać z obniżoną pewnością"
+    }
+  }
+}
