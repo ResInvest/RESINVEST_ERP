@@ -1,0 +1,131 @@
+{
+ "_opis": "Fixture providera MOCK — wynik symulowany dla przykładowego obrazu (dokument fikcyjny). Pewności są przykładowe; ramki = rzeczywiste położenie tekstu.",
+ "file": "kwit-wagowy-uszkodzony.png",
+ "sha256": "65e340cd767d8c72538aa7d547359745c50d318eaa37faf7c4d782e33f917d83",
+ "raw": {
+  "docType": {
+   "value": "KWIT_WAGOWY",
+   "confidence": 0.88,
+   "evidence": "Wydruk z wagi (brutto / tara), dolna część zalana."
+  },
+  "fields": {
+   "docNumber": {
+    "value": "CR/1187/26",
+    "confidence": 0.9,
+    "bbox": [
+     0.3377,
+     0.1314,
+     0.4612,
+     0.1539
+    ]
+   },
+   "docDate": {
+    "value": "29.09.2026",
+    "confidence": 0.93,
+    "bbox": [
+     0.3603,
+     0.1536,
+     0.4838,
+     0.1762
+    ]
+   },
+   "time": {
+    "value": "9:5?",
+    "confidence": 0.62,
+    "bbox": [
+     0.5932,
+     0.1577,
+     0.6468,
+     0.179
+    ]
+   },
+   "supplier": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "recipient": {
+    "value": "Ciepłownia Rybnik",
+    "confidence": 0.85,
+    "bbox": [
+     0.4061,
+     0.1763,
+     0.6111,
+     0.2003
+    ]
+   },
+   "product": {
+    "value": "zrębka leśna",
+    "confidence": 0.81,
+    "bbox": [
+     0.3704,
+     0.1976,
+     0.5172,
+     0.2205
+    ]
+   },
+   "quantity": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "grossWeight": {
+    "value": "40 120 kg",
+    "confidence": 0.94,
+    "bbox": [
+     0.3914,
+     0.2634,
+     0.5033,
+     0.2858
+    ]
+   },
+   "tareWeight": {
+    "value": "14 980 kg",
+    "confidence": 0.87,
+    "bbox": [
+     0.3907,
+     0.2853,
+     0.5025,
+     0.3076
+    ]
+   },
+   "netWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "vehicleReg": {
+    "value": "SZA 7K9O1",
+    "confidence": 0.72,
+    "bbox": [
+     0.3929,
+     0.2199,
+     0.5048,
+     0.2422
+    ]
+   },
+   "trailerReg": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "driver": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "forestDistrict": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "forestRange": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   }
+  },
+  "rawText": "KWIT WAGOWY\nCiepłownia Rybnik — waga najazdowa\nNr: CR/1187/26\nData: 29.09.2026   Godz.: 9:5?\nOdbiorca: Ciepłownia Rybnik\nTowar: zrębka leśna\nNr rej.: SZA 7K9O1\nBRUTTO:  40 120 kg\nTARA:    14 980 kg\nNETTO:   24 ### kg",
+  "notes": "Dolna część kwitu jest zalana — masa netto nieczytelna. Brak kierowcy na kwicie."
+ }
+}

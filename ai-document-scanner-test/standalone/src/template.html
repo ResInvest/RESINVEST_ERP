@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <!-- Program działa bez internetu: żadne dane nie mogą zostać wysłane na zewnątrz (connect-src bez adresów sieciowych). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob: 'wasm-unsafe-eval'; worker-src blob:; img-src blob: data:; style-src 'unsafe-inline'; connect-src blob: data:; base-uri 'none'; form-action 'none'">
+  <title>Skaner dokumentów — ResInvest ERP (próbny)</title>
+  <style>/*__STYLES__*/</style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">RI</span>
+      <div>
+        <div class="brand-name">ResInvest ERP · Skaner dokumentów</div>
+        <div class="brand-sub">Program próbny v<span id="appVersion"></span> — zdjęcie → OCR → dane · darmowy, bez internetu</div>
+      </div>
+    </div>
+    <div class="top-right">
+      <span class="pill pill-test" title="Wyniki nie są dokumentami ERP i nie zmieniają stanów magazynowych">TRYB TESTOWY · bez księgowania</span>
+      <span class="pill" id="engineState">Ładowanie OCR…</span>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card" aria-labelledby="hDoc">
+      <div class="card-head">
+        <h2 id="hDoc">Dokument</h2>
+        <div class="tools">
+          <button type="button" class="btn ghost sm" id="btnRotL" title="Obróć w lewo i rozpoznaj ponownie">↺</button>
+          <button type="button" class="btn ghost sm" id="btnRotR" title="Obróć w prawo i rozpoznaj ponownie">↻</button>
+          <button type="button" class="btn ghost sm" id="btnZoom" disabled>Powiększ</button>
+          <label class="chk"><input type="checkbox" id="chkBoxes" checked> Ramki</label>
+        </div>
+      </div>
+      <div class="upload" id="dropZone">
+        <div class="upload-row">
+          <label class="btn primary"><input type="file" id="fileInput" accept="image/*" hidden>Wybierz zdjęcie</label>
+          <label class="btn"><input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>Zrób zdjęcie</label>
+          <label class="chk" title="Dwa przebiegi OCR (oryginał i powiększenie). Rozbieżne odczyty dostają niską pewność. Wolniej (ok. 2×), ale bezpieczniej."><input type="checkbox" id="chkTwoPass" checked> Dokładny odczyt</label>
+          <label class="field-inline"><span>Typ</span>
+            <select id="hintType">
+              <option value="AUTO">Automatycznie</option>
+              <option value="KWIT_WYWOZOWY">Kwit wywozowy</option>
+              <option value="WZ">WZ</option>
+              <option value="PZ">PZ</option>
+              <option value="KWIT_WAGOWY">Kwit wagowy</option>
+            </select>
+          </label>
+        </div>
+        <p class="muted small">Zdjęcie dokumentu z bliska, prosto, przy dobrym świetle. Druk (kwit wywozowy, kwit wagowy) OCR czyta dobrze; pismo odręczne (WZ / PZ) — słabo: puste pola uzupełnij ręcznie (podpowiedzi z kartotek ERP).</p>
+        <div class="samples" id="samples"><span class="muted small">Przykłady:</span></div>
+      </div>
+      <div class="viewer">
+        <div class="viewer-empty" id="viewerEmpty">Brak zdjęcia. Wybierz plik, zrób zdjęcie lub kliknij przykład.</div>
+        <div class="stage" id="stage" hidden>
+          <img id="docImage" alt="Zdjęcie dokumentu po przygotowaniu do OCR">
+          <div class="overlay" id="overlay"></div>
+        </div>
+        <div class="busy" id="busy" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <div id="busyText">Rozpoznawanie…</div>
+          <div class="progress"><i id="busyBar"></i></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="hRes">
+      <div class="card-head">
+        <h2 id="hRes">Rozpoznanie</h2>
+        <span class="muted small" id="scanMeta"></span>
+      </div>
+      <div class="empty-state" id="resultEmpty">Wynik pojawi się po rozpoznaniu zdjęcia.</div>
+      <div id="errorBox" class="alert error" role="alert" hidden></div>
+      <form id="resultForm" hidden autocomplete="off">
+        <div class="doctype">
+          <div>
+            <div class="lbl">Typ dokumentu</div>
+            <select id="docType" aria-label="Typ dokumentu"></select>
+            <div class="muted small" id="docTypeEvidence"></div>
+          </div>
+          <div class="conf-big" id="docTypeConf"></div>
+        </div>
+        <ul class="alerts" id="alerts"></ul>
+        <div class="fields" id="fields"></div>
+        <div class="actions">
+          <label class="field-inline grow"><span>Sprawdzający</span><input id="reviewer" maxlength="80" placeholder="imię i nazwisko"></label>
+          <button type="submit" class="btn primary" id="btnSave" disabled>Zapisz w historii testów</button>
+          <button type="button" class="btn" id="btnReviewed">Oznacz jako sprawdzone</button>
+        </div>
+        <p class="muted small">Zapis trafia tylko do historii testów w tej przeglądarce. Nie powstaje dokument PZ/WZ ani ruch magazynowy w ResInvest ERP.</p>
+        <details class="more">
+          <summary>Odczytany tekst (OCR)</summary>
+          <p class="small" id="providerNotes"></p>
+          <pre class="rawtext" id="rawText"></pre>
+        </details>
+        <details class="more">
+          <summary>Historia korekt <span id="corrCount" class="muted"></span></summary>
+          <table class="tbl small" id="corrTable"><thead><tr><th>Kiedy</th><th>Kto</th><th>Pole</th><th>Było</th><th>Jest</th></tr></thead><tbody></tbody></table>
+        </details>
+      </form>
+    </section>
+  </main>
+
+  <section class="card history" aria-labelledby="hHist">
+    <div class="card-head">
+      <h2 id="hHist">Historia testów</h2>
+      <div class="tools">
+        <button type="button" class="btn ghost sm" id="btnExportCsv">Eksport CSV</button>
+        <button type="button" class="btn ghost sm" id="btnExportJson">Eksport JSON</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="tbl" id="histTable">
+        <thead><tr><th>Skan</th><th>Typ</th><th>Nr / data dok.</th><th>Nr rej.</th><th>Ilość</th><th>Status</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card history" aria-labelledby="hMaster">
+    <div class="card-head">
+      <h2 id="hMaster">Kartoteki ERP (podpowiedzi)</h2>
+      <div class="tools">
+        <label class="btn ghost sm"><input type="file" id="masterFile" accept=".json,application/json" hidden>Wczytaj z ERP (JSON)</label>
+        <button type="button" class="btn ghost sm" id="btnMasterReset">Przykładowe</button>
+      </div>
+    </div>
+    <p class="small muted" id="masterInfo"></p>
+    <p class="small muted">Kopię JSON z ResInvest ERP (dane programu) można wczytać, aby podpowiadać kontrahentów, magazyny, pojazdy i leśnictwa. Program zapisuje tylko kartoteki — bez kont, operacji i księgi.</p>
+  </section>
+
+  <footer class="foot muted small">
+    Skaner dokumentów (próbny) · OCR: Tesseract.js (open source) działający w przeglądarce · bez internetu, bez kluczy, bez opłat ·
+    Program stworzony przez Roesner Mateusz dla ResInvest Commodities.
+  </footer>
+
+  <script type="application/json" id="data-master">/*__MASTER__*/</script>
+  <!--__SAMPLES__-->
+  <script type="application/octet-stream" id="asset-worker">/*__WORKER__*/</script>
+  <script type="application/octet-stream" id="asset-core">/*__CORE__*/</script>
+  <script type="application/octet-stream" id="asset-pol">/*__POL__*/</script>
+  <script>/*__TESSERACT__*/</script>
+  <script>/*__APP__*/</script>
+</body>
+</html>
