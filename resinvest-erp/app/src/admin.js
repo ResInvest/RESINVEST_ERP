@@ -572,7 +572,7 @@
             <p class="help">${th("Jedna seria WZ (domyślnie): każda transakcja — zakup, sprzedaż, produkcja, MM, korekta, inwentaryzacja, bilans otwarcia — dostaje kolejny numer WZ/NNN/MM/RRRR. Numery nadane wcześniej nie zmieniają się.")}</p>
             <label class="inline-opt"><input type="checkbox" id="cfg-selfreg" ${S.config.allowSelfRegistration ? "checked" : ""}> ${th("Samodzielna rejestracja z ekranu logowania")}</label>
             <p class="help">${th("Wyłączona (zalecane): konta zakłada wyłącznie administrator — zaproszeniem e-mail. Włączona: zgłoszenie czeka na nadanie roli i magazynu przez administratora.")}</p>
-            <p class="help">${esc(t("Dozwolone domeny e-mail: {d} (config/app.config.json).", { d: (S.config.companyDomains || []).map(d => "@" + d).join(", ") }))}</p>
+            <p class="help">${esc(t("Dozwolone domeny e-mail: {d} (serwer: COMPANY_DOMAINS w server.env; „*” = dowolna domena).", { d: (S.config.companyDomains || []).map(d => "@" + d).join(", ") || t("dowolne") }))}</p>
             <div><a class="btn sm" href="#/role">${ic("shield", 13)} ${th("Role i uprawnienia")}</a> <a class="btn sm" href="#/audyt">${ic("clock", 13)} ${th("Dziennik audytu")}</a></div></div></div>` : ""}
           ${srv ? `<div class="card"><div class="card-h"><h3>${th("Kopie serwera (SQLite)")}</h3><span class="spacer"></span><button class="btn sm" type="button" id="srv-bk" ${App.can("data.backup") ? "" : "disabled"}>${ic("db", 13)} ${th("Utwórz kopię teraz")}</button></div><div id="srv-bk-list"><div class="empty">…</div></div></div>` : ""}
           ${App.can("users.manage") ? `<div class="card" id="clean-card"><div class="card-h"><h3>${th("Start pracy na czysto")}</h3></div><div class="card-b stack">

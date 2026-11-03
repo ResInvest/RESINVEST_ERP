@@ -1,0 +1,16 @@
+{
+  "_opis": "Wariant FIRMA: konta wyłącznie w domenie firmy (@resinvest.group). Poczta: Microsoft 365 (SMTP, STARTTLS 587). Konto startowe administratora: magazyn@resinvest.group (hasło startowe, zmiana przy pierwszym logowaniu).",
+  "id": "firma",
+  "suffix": "Firma",
+  "name": "Firma — konta @resinvest.group",
+  "companyDomains": "resinvest.group",
+  "initialAdminEmail": "magazyn@resinvest.group",
+  "mail": {
+    "EMAIL_TRANSPORT": "smtp",
+    "EMAIL_FROM": "ResInvest ERP <magazyn@resinvest.group>",
+    "SMTP_HOST": "smtp.office365.com",
+    "SMTP_PORT": "587",
+    "SMTP_SECURE": "starttls",
+    "SMTP_USER": "magazyn@resinvest.group"
+  }
+}

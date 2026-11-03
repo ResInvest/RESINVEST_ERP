@@ -1,5 +1,5 @@
 ﻿; =========================================================================
-;  ResInvest ERP 3.3 · instalator Windows (Inno Setup 7; zgodny z Inno Setup 6.3+)
+;  ResInvest ERP 3.12 · instalator Windows (Inno Setup 7; zgodny z Inno Setup 6.3+)
 ;  Kodowanie pliku: UTF-8 z BOM (wymagane dla polskich i czeskich znaków — Inno Setup 7
 ;  przerywa kompilację przy bajtach niezgodnych ze stroną kodową pliku).
 ;
@@ -7,7 +7,14 @@
 ;    powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
 ;  Skrypt: buduje ResInvest_ERP.html, generuje dane przykładowe, pobiera
 ;  środowisko Node.js (node.exe, weryfikacja SHA-256) do installer\runtime
-;  i kompiluje ten plik.  Wynik: installer\Output\ResInvestERP_Setup_3.11.0.exe
+;  i kompiluje ten plik dla każdego wariantu (/DEditionId=firma|gmail|otwarta).
+;  Wynik: installer\Output\ResInvestERP_Serwer_Setup_3.12.0_<Wariant>.exe
+;
+;  Warianty (installer\editions\*.json → tools\make-edition.mjs → installer\build\<wariant>\):
+;   * firma   — konta tylko @resinvest.group, poczta Microsoft 365 (SMTP),
+;   * gmail   — konta @gmail.com / @googlemail.com, poczta Gmail (SMTP, hasło aplikacji),
+;   * otwarta — tryb firmowy bez ograniczenia domeny (dowolny adres e-mail), poczta SMTP.
+;  Wszystkie warianty mają ten sam AppId: zmiana wariantu = aktualizacja w miejscu, dane zostają.
 ;
 ;  Składniki:
 ;   * Program (tryb lokalny)   — samodzielny plik HTML; dane w przeglądarce,
@@ -21,8 +28,13 @@
 ;                                — tworzony z .env.example tylko przy pierwszej instalacji.
 ; =========================================================================
 
+#ifndef EditionId
+  #define EditionId "firma"
+#endif
+#include AddBackslash(SourcePath) + "build\" + EditionId + "\edition.iss"
+
 #define AppName "ResInvest ERP"
-#define AppVersion "3.11.0"
+#define AppVersion "3.12.0"
 #define AppPublisher "ResInvest Commodities"
 #define AppURL "http://localhost:8080/"
 #define ServerPort "8080"
@@ -31,7 +43,8 @@
 AppId={{8C1B7E52-3E0B-4B7A-9E0D-5B2D6A1F4C10}
 AppName={#AppName}
 AppVersion={#AppVersion}
-AppVerName={#AppName} {#AppVersion}
+AppVerName={#AppName} Serwer {#AppVersion} ({#EditionName})
+AppComments=Wariant: {#EditionName}; domeny kont: {#EditionDomains}
 AppPublisher={#AppPublisher}
 AppCopyright=Copyright (c) 2026 Mateusz Roesner — program stworzony dla ResInvest Commodities
 VersionInfoCompany=ResInvest Commodities
@@ -42,14 +55,14 @@ DefaultGroupName=ResInvest ERP
 DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
 OutputDir=Output
-OutputBaseFilename=ResInvestERP_Setup_{#AppVersion}
+OutputBaseFilename=ResInvestERP_Serwer_Setup_{#AppVersion}_{#EditionSuffix}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
-UninstallDisplayName={#AppName} {#AppVersion}
+UninstallDisplayName={#AppName} Serwer {#AppVersion} ({#EditionName})
 SetupIconFile=..\app\assets\icons\ric.ico
 UninstallDisplayIcon={app}\ric.ico
 CloseApplications=yes
@@ -147,7 +160,7 @@ Source: "..\ResInvest_ERP.html"; DestDir: "{app}"; Components: app; Flags: ignor
 Source: "..\README.md"; DestDir: "{app}"; Components: app; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Components: app; Flags: ignoreversion
 Source: "..\app\assets\icons\ric.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\config\app.config.json"; DestDir: "{app}\config"; Components: app; Flags: ignoreversion
+Source: "build\{#EditionId}\app.config.json"; DestDir: "{app}\config"; Components: app; Flags: ignoreversion
 Source: "..\data\sample_data.json"; DestDir: "{app}\data"; Components: app; Flags: ignoreversion
 Source: "..\docs\*.md"; DestDir: "{app}\docs"; Components: app; Flags: ignoreversion
 Source: "..\tests\resinvest_demo_scenarios.md"; DestDir: "{app}\docs"; Components: app; Flags: ignoreversion
@@ -156,10 +169,12 @@ Source: "..\app\assets\fonts\LICENSE-OFL.txt"; DestDir: "{app}\docs"; DestName: 
 Source: "..\server\*.mjs"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
 Source: "..\app\src\*.js"; DestDir: "{app}\app\src"; Components: server; Flags: ignoreversion
 Source: "..\package.json"; DestDir: "{app}"; Components: server; Flags: ignoreversion
-Source: "..\config\server.config.json"; DestDir: "{app}\config"; Components: server; Flags: onlyifdoesntexist uninsneveruninstall
+Source: "build\{#EditionId}\server.config.json"; DestDir: "{app}\config"; Components: server; Flags: onlyifdoesntexist uninsneveruninstall
+; wariant instalacji (domeny kont) — nadpisywany zawsze; server.env administratora ma pierwszeństwo
+Source: "build\{#EditionId}\edition.env"; DestDir: "{app}\config"; Components: server; Flags: ignoreversion
 Source: "..\.env.example"; DestDir: "{app}\config"; Components: server; Flags: ignoreversion
 ; plik z kluczem poczty — tylko przy pierwszej instalacji; aktualizacja nie nadpisuje, odinstalowanie nie usuwa
-Source: "..\.env.example"; DestDir: "{commonappdata}\ResInvestERP"; DestName: "server.env"; Components: server; Flags: onlyifdoesntexist uninsneveruninstall
+Source: "build\{#EditionId}\server.env"; DestDir: "{commonappdata}\ResInvestERP"; DestName: "server.env"; Components: server; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "runtime\node.exe"; DestDir: "{app}\runtime"; Components: server; Flags: ignoreversion
 Source: "runtime\LICENSE-node.txt"; DestDir: "{app}\runtime"; Components: server; Flags: ignoreversion skipifsourcedoesntexist
 Source: "scripts\*.cmd"; DestDir: "{app}"; Components: server; Flags: ignoreversion

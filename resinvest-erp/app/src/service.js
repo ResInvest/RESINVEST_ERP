@@ -95,6 +95,8 @@
     "roles.save": { perm: "roles.assign", run: (s, a, c) => R.Roles.save(s, str(a.role), a.perms, c) },
     "roles.reset": { perm: "roles.assign", run: (s, a, c) => R.Roles.reset(s, str(a.role), c) },
     "settings.save": { perm: "settings.edit", run: (s, a, c) => R.Settings.save(s, a.settings || {}, c) },
+    /** 3.12: przeliczniki miesiąca po zamknięciu okresu — pozostawienie albo zmiana (jedna decyzja na miesiąc). */
+    "factors.decide": { perm: "factors.edit", run: (s, a, c) => R.Factors.decide(s, a, c) },
     /* ---- dane ---- */
     "data.backupLogged": { perm: "data.backup", run: (s, a, c) => { s.rev += 1; R.audit(s, c, { entity: "system", entityId: "backup", opNo: N_("kopia"), event: "backup", action: N_("Pobranie kopii zapasowej"), before: null, after: { rewizja: s.rev, format: str(a.format) || "json" } }); return { ok: true }; } },
     "data.import": { perm: "data.import", run: (s, a, c) => replaceState(s, a.state, c, "import", N_("Import kopii zapasowej")) },

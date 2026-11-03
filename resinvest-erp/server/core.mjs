@@ -87,13 +87,32 @@ export function parseEnv(text) {
   }
   return out;
 }
-/** Kolejność: .env (katalog programu) → config/server.env → <dataDir>/server.env → zmienne procesu. */
+/**
+ * Kolejność: .env (katalog programu) → config/edition.env (wariant instalacji, nadpisywany przez instalator)
+ * → config/server.env → <dataDir>/server.env → zmienne procesu. Późniejsze wygrywają: ustawienia administratora
+ * w server.env zawsze mają pierwszeństwo przed wartościami wariantu.
+ */
 export function loadEnv(dataDir) {
-  const files = [join(ROOT, ".env"), join(ROOT, "config", "server.env"), dataDir ? join(dataDir, "server.env") : null].filter(Boolean);
+  const files = [join(ROOT, ".env"), join(ROOT, "config", "edition.env"), join(ROOT, "config", "server.env"), dataDir ? join(dataDir, "server.env") : null].filter(Boolean);
   const env = {}, used = [];
   for (const f of files) if (existsSync(f)) { Object.assign(env, parseEnv(readFileSync(f, "utf8"))); used.push(f); }
-  for (const [k, v] of Object.entries(process.env)) if (/^(RESEND_|AGENTMAIL_|EMAIL_|SMTP_|APP_URL|SUPABASE_)/.test(k)) env[k] = v;
+  for (const [k, v] of Object.entries(process.env)) if (/^(RESEND_|AGENTMAIL_|EMAIL_|SMTP_|APP_URL|SUPABASE_|COMPANY_DOMAINS$)/.test(k)) env[k] = v;
   return { env, files: used };
+}
+
+/**
+ * 3.12: domeny adresów e-mail dozwolonych przy logowaniu, rejestracji i zakładaniu kont — z server.env (wariant instalacji).
+ * COMPANY_DOMAINS nieustawione → bez zmian (wartość z danych), „*” → dowolna domena, lista po przecinku → tylko te domeny.
+ * Wynik: null (nieustawione) | { list } | { error }.
+ */
+export function parseDomains(value) {
+  if (value === undefined || value === null || String(value).trim() === "") return null;
+  const v = String(value).trim().toLowerCase();
+  if (v === "*") return { list: [] };
+  const list = [...new Set(v.split(/[\s,;]+/).map(d => d.replace(/^@/, "")).filter(Boolean))];
+  const bad = list.filter(d => !/^(?=.{3,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(d));
+  if (bad.length) return { error: `COMPANY_DOMAINS: nieprawidłowa domena: ${bad.join(", ")}` };
+  return { list };
 }
 
 /* ---------------- konfiguracja ---------------- */

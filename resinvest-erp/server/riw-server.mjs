@@ -20,7 +20,7 @@ import { gzipSync } from "node:zlib";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { networkInterfaces } from "node:os";
-import { ROOT, Store, ROWS, loadConfig, loadEnv, makeLogger, verifyPassword, I18N, R, AuthLib, Service } from "./core.mjs";
+import { ROOT, Store, ROWS, loadConfig, loadEnv, parseDomains, makeLogger, verifyPassword, I18N, R, AuthLib, Service } from "./core.mjs";
 import { mailConfig, mailInfo, sendMail, compose, sendRaw } from "./mail.mjs";
 
 const [major, minor] = process.versions.node.split(".").map(Number);
@@ -320,7 +320,7 @@ async function handleApi(req, res, url) {
     const origin = req.headers.origin;
     if (origin && origin !== `${tls ? "https" : "http"}://${req.headers.host}`) return json(req, res, 403, { ok: false, error: t("Żądanie odrzucone (inne pochodzenie)") });
   }
-  if (path === "/api/health") return json(req, res, 200, { ok: true, app: "resinvest-erp", mode: "server", version: VERSION, setup: !store.hasAccounts(), integrity: store.integrity.ok, host: req.headers.host, selfRegistration: !!(store.state && store.state.config.allowSelfRegistration) });
+  if (path === "/api/health") return json(req, res, 200, { ok: true, app: "resinvest-erp", mode: "server", version: VERSION, setup: !store.hasAccounts(), integrity: store.integrity.ok, host: req.headers.host, selfRegistration: !!(store.state && store.state.config.allowSelfRegistration), companyDomains: store.state ? (store.state.config.companyDomains || []) : ((globalThis.RIW_CONFIG && globalThis.RIW_CONFIG.companyDomains) || []) });
   if (path === "/api/setup" && method === "POST") {
     if (store.hasAccounts()) return json(req, res, 409, { ok: false, error: t("Serwer jest już skonfigurowany") });
     const b = await readBody(req);
@@ -647,6 +647,24 @@ async function handler(req, res) {
   }
 }
 
+// 3.12: domeny adresów e-mail z server.env (wariant instalacji: firma / Gmail / bez ograniczeń) — nowa baza i istniejące dane
+const domainsEnv = parseDomains(env.COMPANY_DOMAINS);
+if (domainsEnv && domainsEnv.error) log("ERROR", domainsEnv.error + " — pozostają domeny zapisane w danych");
+else if (domainsEnv) {
+  globalThis.RIW_CONFIG = Object.assign({}, globalThis.RIW_CONFIG, { companyDomains: domainsEnv.list });
+  const cur = store.state && store.state.config.companyDomains;
+  if (store.state && JSON.stringify(cur || []) !== JSON.stringify(domainsEnv.list)) {
+    const r = store.applyChange("system.companyDomains", s => {
+      const before = { domeny: (s.config.companyDomains || []).join(", ") || "dowolne" };
+      s.config = Object.assign({}, s.config, { companyDomains: domainsEnv.list });
+      s.rev += 1;
+      R.audit(s, { user: null, source: N_("Konfiguracja serwera (server.env)") }, { entity: "system", entityId: "settings", opNo: "—", event: "settings", code: "SETTINGS_CHANGED",
+        act: R.Lx(N_("Zmiana konfiguracji systemu")), before, after: { domeny: domainsEnv.list.join(", ") || "dowolne" } });
+      return { ok: true };
+    }, { domains: domainsEnv.list });
+    log(r && r.ok ? "INFO" : "ERROR", r && r.ok ? `Domeny e-mail kont: ${domainsEnv.list.map(d => "@" + d).join(", ") || "dowolne"} (COMPANY_DOMAINS)` : "COMPANY_DOMAINS: zapis nieudany — " + (r && r.error));
+  }
+}
 // pusta baza + initialAdmin w konfiguracji → konto startowe administratora (jednorazowo, przed przyjęciem żądań)
 if (!store.hasAccounts() && cfg.initialAdmin && cfg.initialAdmin.email) {
   const b = store.bootstrap(cfg.initialAdmin);

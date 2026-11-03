@@ -25,7 +25,7 @@
   /** Tekst do zapisania w danych: struktura {k, p} (tłumaczona przy wyświetlaniu). */
   const Lx = (k, p) => ({ k, p: p || {} });
 
-  const VERSION = "3.11.0";
+  const VERSION = "3.12.0";
   const SCHEMA = 9;
   const Q = 6;                 // precyzja wewnętrzna ilości
   const EPS = 1e-6;
@@ -234,12 +234,13 @@
     "users.read": N_("Użytkownicy — podgląd"), "users.manage": N_("Użytkownicy — zapraszanie, edycja, blokowanie, hasła"),
     "roles.assign": N_("Role i uprawnienia — zmiana"), "warehouses.edit": N_("Magazyny — dodawanie i edycja"),
     "settings.edit": N_("Konfiguracja systemu"), "data.backup": N_("Kopia zapasowa"), "data.import": N_("Import kopii"),
-    "planner.edit": N_("Planer zakupów — wpisywanie planu dnia"), "notifications.manage": N_("Powiadomienia i poczta — zgody, dziennik wysyłki")
+    "planner.edit": N_("Planer zakupów — wpisywanie planu dnia"), "notifications.manage": N_("Powiadomienia i poczta — zgody, dziennik wysyłki"),
+    "factors.edit": N_("Przeliczniki miesiąca — pozostawienie albo zmiana po zamknięciu okresu")
   };
   const CREATE_PERMS = ["receipts.create", "issues.create", "production.create", "mm.create"];
   const ROLE_DEFAULTS = {
     admin: ["*"],
-    kierownik: [...CREATE_PERMS, "mm.receive", "op.approve", "documents.cancel", "documents.delete", "documents.correct", "inventory.correct", "production.correct", "sales.correct", "purchases.correct", "inv.open", "inv.count", "inv.close", "fleet.edit", "master.edit", "planner.edit", "report.view", "reports.export", "history.read", "users.read"],
+    kierownik: [...CREATE_PERMS, "mm.receive", "op.approve", "documents.cancel", "documents.delete", "documents.correct", "inventory.correct", "production.correct", "sales.correct", "purchases.correct", "inv.open", "inv.count", "inv.close", "factors.edit", "fleet.edit", "master.edit", "planner.edit", "report.view", "reports.export", "history.read", "users.read"],
     magazynier: [...CREATE_PERMS, "mm.receive", "inv.count", "report.view", "history.read"],
     obserwator: ["report.view", "history.read"],
     audytor: ["report.view", "reports.export", "history.read", "audit.read", "users.read"]
@@ -488,7 +489,7 @@
     config = Object.fromEntries(Object.entries(config || {}).filter(([k]) => !INSTALL_KEYS.includes(k) && !k.startsWith("_")));
     return {
       schema: SCHEMA, version: VERSION, rev: 0,
-      config: Object.assign({ m3_mp: 4, mp_t: 0.33, woodTPerM3: 0.952, t_gj: 8.5, currency: "zł", kmRateDefault: 5, chipRateDefault: 10, wagonMPDefault: 120, maxWagons: 60, companyDomains: ["resinvest.group"], requireApproval: false, allowSelfRegistration: false, mmMode: "two", docNumbering: "wz" }, config || {}),
+      config: Object.assign({ m3_mp: 4, mp_t: 0.33, woodTPerM3: 0.952, t_gj: 8.5, currency: "zł", kmRateDefault: 5, chipRateDefault: 10, wagonMPDefault: 120, maxWagons: 60, companyDomains: ["resinvest.group"], requireApproval: false, allowSelfRegistration: false, mmMode: "two", docNumbering: "wz", factorHistory: [] }, config || {}),
       warehouses: [], users: [], products: [], partners: [], carriers: [], extraTypes: [],
       fleet: { vehicles: [], drivers: [], chippers: [], operators: [] },
       operations: [], drafts: [], ledger: [], inventory: [], audit: [], seq: {}, rolePerms: {}, plans: [], notices: [], templates: [],
@@ -597,6 +598,9 @@
     if (s.schema !== SCHEMA) return { error: t("Nieobsługiwana wersja schematu: {a} (oczekiwano {b})", { a: from, b: SCHEMA }) };
     // 3.11: szablony operacji — kolekcja opcjonalna (bez zmiany schematu; starsze dane i kopie zapasowe — pusta lista)
     if (!Array.isArray(s.templates)) s.templates = [];
+    // 3.12: historia przeliczników miesięcznych (bez zmiany schematu); rola zamykająca okresy decyduje o przelicznikach
+    if (s.config && !Array.isArray(s.config.factorHistory)) s.config.factorHistory = [];
+    for (const [role, list] of Object.entries(s.rolePerms || {})) if (Array.isArray(list) && list.includes("inv.close") && !list.includes("factors.edit")) s.rolePerms[role] = list.concat("factors.edit");
     return { state: s, from, to: SCHEMA, notes };
   }
 
@@ -2797,6 +2801,67 @@
     }
   };
 
+  /**
+   * 3.12: przeliczniki miesiąca. Po zamknięciu miesiąca M (inwentaryzacja w dowolnym magazynie) osoba z prawem
+   * „factors.edit” decyduje o przelicznikach na miesiąc M+1: zostawia obecne albo wpisuje inne. Decyzja jest jedna
+   * na miesiąc (wspólna dla firmy), zapisana w config.factorHistory i w dzienniku audytu.
+   * Nowe wartości działają od chwili decyzji: operacje już zapisane zachowują masy i tonaże wyliczone przy zapisie
+   * (księga, dokumenty); produkty z własnym przelicznikiem w kartotece nadal używają własnego.
+   */
+  const Factors = {
+    KEYS: {
+      m3_mp: { label: N_("1 m³ drewna = MP zrębki"), min: 1, max: 10 },
+      mp_t: { label: N_("Masa 1 MP zrębki [t]"), min: 0.05, max: 1.5 },
+      woodTPerM3: { label: N_("Masa 1 m³ drewna [t]"), min: 0.2, max: 1.5 },
+      t_gj: { label: N_("Energia 1 t biomasy [GJ]"), min: 1, max: 25 }
+    },
+    current(state) { const c = state.config, o = {}; for (const k of Object.keys(this.KEYS)) o[k] = c[k]; return o; },
+    history(state) { return Array.isArray(state.config.factorHistory) ? state.config.factorHistory : []; },
+    decided(state, ym) { return this.history(state).find(h => h.ym === ym) || null; },
+    /** Ostatni miesiąc zamknięty w którymkolwiek magazynie (RRRR-MM) albo null. */
+    lastClosed(state) { return state.inventory.filter(p => p.status === "ZAMKNIETA").map(p => p.ym).sort().pop() || null; },
+    /**
+     * Miesiąc czekający na decyzję: następny po ostatnim zamkniętym, o ile nie jest z przyszłości i nie ma już decyzji
+     * (ani decyzji na późniejszy miesiąc). Wynik: { ym, closedYm } albo null.
+     */
+    pending(state, today) {
+      const closed = this.lastClosed(state);
+      if (!closed) return null;
+      const ym = Dates.addMonths(closed, 1);
+      if (ym > Dates.ym(today || Dates.localToday())) return null;
+      if (this.history(state).some(h => h.ym >= ym)) return null;
+      return { ym, closedYm: closed };
+    },
+    /** Produkty z własnym przelicznikiem (kartoteka) — zmiana wartości firmowych ich nie dotyczy. */
+    overridden(state) { return state.products.filter(p => Number(p.mpPerM3) > 0 || Number(p.tPerUnit) > 0 || Number(p.tPerM3) > 0).map(p => p.name); },
+    decide(state, input, ctx) {
+      const user = ctx && ctx.user, a = input || {};
+      if (!can(user, "factors.edit")) return { ok: false, error: t("Przeliczniki zmienia kierownik albo administrator"), code: "FORBIDDEN" };
+      const p = this.pending(state, ctx && ctx.today);
+      if (!p) return { ok: false, error: t("Brak miesiąca oczekującego na decyzję — najpierw zamknij poprzedni miesiąc w inwentaryzacji") };
+      if (a.ym && a.ym !== p.ym) return { ok: false, error: t("Decyzja dotyczy miesiąca {ym}", { ym: p.ym }) };
+      const prev = this.current(state), next = Object.assign({}, prev), changed = [];
+      if (!a.keep) {
+        for (const [k, d] of Object.entries(this.KEYS)) {
+          if (a.values == null || a.values[k] === undefined || str(a.values[k]) === "") continue;
+          const r = NumParse.parse(a.values[k]);
+          if (!r.ok) return { ok: false, error: t("{f}: {e}", { f: t(d.label), e: r.error }), field: k };
+          if (r.value < d.min || r.value > d.max) return { ok: false, error: t("{f}: dozwolone od {a} do {b}", { f: t(d.label), a: fmtQ(d.min), b: fmtQ(d.max) }), field: k };
+          const v = round(r.value, 4);
+          if (Math.abs(v - prev[k]) > 1e-9) { next[k] = v; changed.push(k); }
+        }
+      }
+      const entry = { ym: p.ym, closedYm: p.closedYm, decision: changed.length ? "change" : "keep", values: next, prev, changed, note: str(a.note).slice(0, 300), at: nowIso(ctx), by: user.name, userId: user.id };
+      for (const k of changed) state.config[k] = next[k];
+      state.config.factorHistory = this.history(state).concat([entry]).slice(-240);
+      state.rev += 1;
+      audit(state, ctx, { entity: "system", entityId: "factors", opNo: p.ym, event: "settings", code: changed.length ? "FACTORS_CHANGED" : "FACTORS_KEPT",
+        act: changed.length ? Lx(N_("Przeliczniki na {ym}: zmienione"), { ym: p.ym }) : Lx(N_("Przeliczniki na {ym}: bez zmian"), { ym: p.ym }),
+        before: Object.fromEntries(changed.map(k => [k, prev[k]])), after: Object.fromEntries(changed.map(k => [k, next[k]])), source: (ctx && ctx.source) || N_("Inwentaryzacja") });
+      return { ok: true, entry };
+    }
+  };
+
   /* ------------------------------------------------------------------ */
   /* Raporty                                                             */
   /* ------------------------------------------------------------------ */
@@ -3049,7 +3114,7 @@
     PROD_TYPES, MAX_EXT_COMPANIES, DIFF_REASONS, SUPPLIER_KINDS, partnerKind, ndlName, blankRun, blankExtRun, blankExtra, CORRECTION_REASONS,
     CHIPPER_OWNERS, VEHICLE_OWNERS, BODY_TYPES, DIM_LIMITS, compartmentMP, vehicleCapacityMP, WEIGHT_SOURCES, DEFAULT_EXTRA_TYPES, EXTRA_UNITS, MAX_EXTRAS, extrasText, docNoTaken, suggestDocNo, deleteOperation, DOC_NO_TYPES, NO_MODES, docNoModeOf, DOC_SERIES, WAREHOUSE_DOCS, DOC_NUMBERING, unifiedNumbering, seriesNoOf, TRANSPORT_MODES, VEHICLE_TYPES, ASSET_STATUS, INV_STATUS, HISTORY_TYPES, REPORT_COLS, uid, clone, byId,
     PRODUCT_CATS, PARTNER_ROLES, CAT_UNIT, THEMES, THEME_REGISTRY, ROLE_INFO, ROLE_DEFAULTS, CREATE_PERMS, USER_STATUS, statusOf, applyRoles, permsOf, whAccess, canAccessWh,
-    normalizeEmail, validateCompanyEmail, Roles, Settings, Lx, EMAIL_RE, companyEmail, nipValid, trReason, auditText, loginFrom, migrate, I18N,
+    normalizeEmail, validateCompanyEmail, Roles, Settings, Factors, Lx, EMAIL_RE, companyEmail, nipValid, trReason, auditText, loginFrom, migrate, I18N,
     submitOperation, approvePending, rejectPending, canApprove, planSummary,
     MM_MODES, MM_STATES, MM_DIFF_REASONS, mmMode, mmState, planReceive, receiveTransfer, mmInTransit, draftWhId,
     emptyState, validateStateShape, Stock, lockedMonth, isLocked, blankDraft, planOperation, commitOperation, saveDraft, deleteDraft,

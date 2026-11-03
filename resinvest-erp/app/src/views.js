@@ -1238,6 +1238,34 @@
   /* ================================================================== */
   /* Inwentaryzacja                                                       */
   /* ================================================================== */
+  /**
+   * 3.12: decyzja o przelicznikach na nowy miesiąc (po zamknięciu poprzedniego w inwentaryzacji).
+   * „Zostaw obecne” zapisuje decyzję bez zmian; „Zapisz nowe” zmienia wartości od chwili decyzji.
+   */
+  const FactorsDialog = {
+    open() {
+      const S = Store.state, p = R.Factors.pending(S, App.today());
+      if (!p) { Toast.info(t("Brak decyzji do podjęcia"), t("Przeliczniki na bieżący miesiąc zostały już ustalone.")); return; }
+      const cur = R.Factors.current(S), ovr = R.Factors.overridden(S);
+      const rows = Object.entries(R.Factors.KEYS).map(([k, d]) => `<div class="field"><label for="fx-${k}">${th(d.label)}</label>
+        <input class="ctrl num-in" id="fx-${k}" data-fx="${k}" inputmode="decimal" value="${esc(fmtQ(cur[k], 4))}"><small class="dim">${esc(t("obecnie {v} · zakres {a}–{b}", { v: fmtQ(cur[k], 4), a: fmtQ(d.min), b: fmtQ(d.max) }))}</small></div>`).join("");
+      const m = Modal.open({ id: "factors-dialog", wide: true, title: t("Przeliczniki na {m}", { m: Dates.label(p.ym) }), sub: esc(t("Miesiąc {c} jest zamknięty. Zostaw obecne przeliczniki albo wpisz inne — obowiązują od teraz.", { c: Dates.label(p.closedYm) })),
+        body: `<div class="grid g2">${rows}</div>
+          <div class="field mt3"><label for="fx-note">${th("Uwagi (np. pomiar wilgotności, nowy kontrakt)")}</label><input class="ctrl" id="fx-note" maxlength="300"></div>
+          <div class="info-line mt3">${ic("alert", 15)}<span>${th("Operacje już zapisane zachowują masy i tonaże wyliczone przy zapisie. Nowe wartości dotyczą nowych operacji i wyliczeń orientacyjnych.")}${ovr.length ? " " + esc(t("Własny przelicznik w kartotece mają: {p} — zmiana ich nie dotyczy.", { p: ovr.join(", ") })) : ""}</span></div>
+          <div class="msg hidden mt2" id="fx-msg"></div>`,
+        footer: `<button class="btn ghost" type="button" data-later>${th("Później")}</button><span class="spacer"></span><button class="btn" type="button" data-keep>${ic("check", 15)} ${th("Zostaw obecne")}</button><button class="btn primary" type="button" data-save>${th("Zapisz nowe przeliczniki")}</button>` });
+      const send = async args => {
+        const res = await Store.exec("factors.decide", Object.assign({ ym: p.ym, note: $("#fx-note", m.el).value }, args), N_("Inwentaryzacja — przeliczniki miesiąca"));
+        if (res.ok) { m.close(); Toast.ok(res.entry.decision === "change" ? t("Zapisano nowe przeliczniki na {ym}", { ym: p.ym }) : t("Przeliczniki na {ym} bez zmian", { ym: p.ym })); App.render(); }
+        else { const msg = $("#fx-msg", m.el); msg.textContent = res.error; msg.className = "msg mt2"; const f = res.field && $(`#fx-${res.field}`, m.el); if (f) { f.classList.add("invalid"); f.focus(); } }
+      };
+      $("[data-later]", m.el).onclick = () => m.close();
+      $("[data-keep]", m.el).onclick = () => send({ keep: true });
+      $("[data-save]", m.el).onclick = () => { const values = {}; $$("[data-fx]", m.el).forEach(i => { values[i.dataset.fx] = i.value; }); send({ keep: false, values }); };
+    }
+  };
+
   Views.inwentaryzacja = {
     html() {
       const S = Store.state, wh = App.wh();
@@ -1269,6 +1297,12 @@
           ${!closed ? `<div class="card-b"><p class="help">${th("Wpisz stan z natury w jednostce magazynowej produktu. Enter lub Tab zapisuje pozycję. Zamknięcie księguje różnice dokumentem IN i blokuje okres.")}</p></div>` : ""}
         </div>`;
       }
+      const fp = R.Factors.pending(S, App.today()), cur = R.Factors.current(S), last = R.Factors.history(S).slice(-1)[0];
+      const factorsCard = `<div class="card" id="inv-factors"><div class="card-h"><h3>${th("Przeliczniki miesiąca")}</h3>${fp ? `<span class="badge warn">${esc(t("decyzja na {ym}", { ym: fp.ym }))}</span>` : ""}</div><div class="card-b">
+          <dl class="money-list">${Object.entries(R.Factors.KEYS).map(([k, d]) => `<dt>${th(d.label)}</dt><dd data-factor="${k}">${esc(fmtQ(cur[k], 4))}</dd>`).join("")}</dl>
+          <p class="help mt2">${fp ? esc(t("Miesiąc {c} jest zamknięty — zostaw przeliczniki na {ym} albo wpisz inne.", { c: fp.closedYm, ym: fp.ym }))
+            : last ? esc(t("Ostatnia decyzja: {ym} — {d} ({u}).", { ym: last.ym, d: last.decision === "change" ? t("zmienione") : t("bez zmian"), u: last.by })) : th("Decyzja o przelicznikach pojawi się po zamknięciu miesiąca.")}</p>
+          ${fp && App.can("factors.edit") ? `<button class="btn primary mt3" type="button" id="inv-factors-go" style="width:100%">${ic("edit", 15)} ${th("Przeliczniki na nowy miesiąc")}</button>` : ""}</div></div>`;
       return `<div class="page-head"><div class="titles"><h2>${th("Inwentaryzacja i zamknięcie miesiąca")}</h2>
           <p>${t("Magazyn <b>{w}</b>. Każdy miesiąc to osobny okres: OTWARTA → ZAMKNIĘTA. Zamknięcie zachowuje wszystkie dane okresu, a raport miesiąca pokazuje status „okres zamknięty”.", { w: esc(wh.name) })}${locked ? " " + t("Zamknięte do: <b>{ym}</b>.", { ym: esc(locked) }) : ""}</p></div></div>
         <div class="grid inv-grid" id="inv-grid">
@@ -1276,6 +1310,7 @@
             <div class="card"><div class="card-h"><h3>${th("Otwórz okres")}</h3></div><div class="card-b">
               <div class="field"><label for="inv-ym">${th("Miesiąc")}</label><input class="ctrl" type="month" id="inv-ym" value="${esc(Dates.ym(App.today()))}" max="${esc(Dates.ym(App.today()))}"></div>
               <button class="btn primary mt3" type="button" id="inv-open" style="width:100%" ${App.can("inv.open") ? "" : "disabled"}>${th("Otwórz okres")}</button></div></div>
+            ${factorsCard}
             <div class="card"><div class="card-h"><h3>${th("Okresy")}</h3></div>
               ${list.length ? `<div class="tbl-wrap"><table class="tbl" id="inv-list"><tbody>${list.map(x => `<tr class="clickable ${x.ym === sel ? "sel" : ""}" data-ym="${esc(x.ym)}"><td><b>${esc(x.ym)}</b><br><small class="dim">${esc(Dates.label(x.ym))}</small></td><td class="r"><span class="badge ${x.status === "OTWARTA" ? "warn" : "ok"}">${esc(t(R.INV_STATUS[x.status]))}</span>${x.auto ? `<br><small class="dim">${th("automatycznie")}</small>` : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">${th("Brak okresów.")}</div>`}
             </div>
@@ -1295,8 +1330,11 @@
       const cl = $("#inv-close", page);
       if (cl) cl.onclick = async () => {
         const r = await Modal.confirm({ title: t("Zamknąć okres {ym}?", { ym }), text: t("Różnice zostaną zaksięgowane dokumentem IN, a okres przejdzie w tryb tylko do odczytu. Dane okresu pozostają bez zmian. Tej czynności nie można cofnąć."), ok: t("Zamknij okres"), danger: true });
-        if (r.ok) act("inv.close", { ym }, res => t("Okres {ym} zamknięty", { ym }) + (res.docNo ? ` · ${res.docNo}` : ""));
+        if (r.ok) act("inv.close", { ym }, res => t("Okres {ym} zamknięty", { ym }) + (res.docNo ? ` · ${res.docNo}` : ""))
+          .then(res => { if (res.ok && App.can("factors.edit") && R.Factors.pending(Store.state, App.today())) FactorsDialog.open(); });
       };
+      const fg = $("#inv-factors-go", page);
+      if (fg) fg.onclick = () => FactorsDialog.open();
       $$("[data-count]", page).forEach(inp => {
         const commit = () => {
           const pid = inp.dataset.count;
@@ -1547,6 +1585,6 @@
 
   root.OpDetail = OpDetail;
   root.ReceiveDialog = ReceiveDialog;
-  Object.assign(UI, { xlsxTable, tradeCsv, pName, partnerName, opPartnerId, opTypeLabel, TYPE_BADGE, opProduct, opQty, opValue, qtyByUnit, allDocuments, docContent, Printer, printButtons, docModel, OpDetail, DocPreview, CancelDialog, ReceiveDialog, mmBadge, Tip, sparkline, hbar, opsTable, bindOps, drill, drillAttr, bindDrill, periodControls, bindPeriod, rangeOf, renderTable, auditLine, searchInput, bindSearch });
+  Object.assign(UI, { FactorsDialog, xlsxTable, tradeCsv, pName, partnerName, opPartnerId, opTypeLabel, TYPE_BADGE, opProduct, opQty, opValue, qtyByUnit, allDocuments, docContent, Printer, printButtons, docModel, OpDetail, DocPreview, CancelDialog, ReceiveDialog, mmBadge, Tip, sparkline, hbar, opsTable, bindOps, drill, drillAttr, bindDrill, periodControls, bindPeriod, rangeOf, renderTable, auditLine, searchInput, bindSearch });
   root.RIWViews = { allDocuments, docModel, kwitModel, historyModel, Reports, Printer, CancelDialog, DocPreview, OpDetail };
 })(typeof globalThis !== "undefined" ? globalThis : this);

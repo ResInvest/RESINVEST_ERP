@@ -10,3 +10,4 @@ server.env
 config/server.env
 # wiadomości zapisane przez transport „file”
 mail-outbox/
+installer/build/

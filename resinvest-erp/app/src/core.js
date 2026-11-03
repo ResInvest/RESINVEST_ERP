@@ -534,14 +534,15 @@
     { id: "dodatkowe", label: N_("Dodatkowe operacje"), icon: "layers" },
     { id: "kontrahenci", label: N_("Kontrahenci"), icon: "users" },
     { id: "magazyny", label: N_("Magazyny"), icon: "building" },
-    { group: N_("System") },
+    { group: N_("Ustawienia") },
     { id: "uzytkownicy", label: N_("Użytkownicy"), icon: "key", perm: "users.read" },
     { id: "role", label: N_("Role i uprawnienia"), icon: "shield", perm: "users.read" },
     { id: "audyt", label: N_("Dziennik audytu"), icon: "clock", perm: "audit.read" },
-    { id: "powiadomienia", label: N_("Powiadomienia"), icon: "bell" },
-    { id: "poczta", label: N_("Poczta"), icon: "mail", perm: "notifications.manage" },
+    { group: N_("System") },
+    { id: "profil", label: N_("Mój profil"), icon: "user" },
     { id: "administracja", label: N_("Administracja"), icon: "building" },
-    { id: "profil", label: N_("Mój profil"), icon: "user" }
+    { id: "poczta", label: N_("Poczta"), icon: "mail", perm: "notifications.manage" },
+    { id: "powiadomienia", label: N_("Powiadomienia"), icon: "bell" }
   ];
   const HIDDEN_ROUTES = { nowa: { label: N_("Nowa operacja"), parent: "operacje" }, korekta: { label: N_("Korekta dokumentu"), parent: "operacje" } };
   /** Adresy administracyjne (zgodne ze specyfikacją) → widoki programu. */
@@ -799,7 +800,9 @@
       this.route = route; this.params = params;
       document.body.classList.remove("nav-open");
       const active = HIDDEN_ROUTES[route] ? HIDDEN_ROUTES[route].parent : route;
-      $("#nav").innerHTML = NAV.filter(n => !n.perm || this.can(n.perm)).map(n => n.group ? `<div class="sb-group">${esc(t(n.group))}</div>` :
+      // grupa bez żadnej pozycji dostępnej dla roli (np. „Ustawienia” u magazyniera) nie jest pokazywana
+      const visible = NAV.filter(n => !n.perm || this.can(n.perm)).filter((n, i, a) => !n.group || (a[i + 1] && !a[i + 1].group));
+      $("#nav").innerHTML = visible.map(n => n.group ? `<div class="sb-group">${esc(t(n.group))}</div>` :
         `<a class="nav-item" href="#/${n.id}" data-nav="${n.id}" title="${esc(t(n.label))}" ${n.id === active ? 'aria-current="page"' : ""}><span class="ic">${ic(n.icon, 17)}</span><span class="nl">${esc(t(n.label))}</span>${this.navBadge(n.id)}</a>`).join("");
       this.refreshChrome();
       $("#top-new").classList.toggle("hidden", !this.can("op.create") || route === "nowa");
@@ -870,6 +873,16 @@
       if (this.screen !== "login") this.loginScreen();
     },
     selfRegistration() { return Store.mode === "server" ? !!(ServerBackend.info && ServerBackend.info.selfRegistration) : !!(Store.state && Store.state.config.allowSelfRegistration); },
+    /**
+     * 3.12: domeny adresów e-mail kont. Dane (po zalogowaniu) → serwer przed zalogowaniem (/api/health — wariant instalacji)
+     * → konfiguracja wbudowana. Pusta lista = dowolna domena. Kontrola w przeglądarce to wygoda — rozstrzyga serwer.
+     */
+    companyDomains() {
+      if (Store.state && Store.state.config && Array.isArray(Store.state.config.companyDomains)) return Store.state.config.companyDomains;
+      if (Store.mode === "server" && ServerBackend.info && Array.isArray(ServerBackend.info.companyDomains)) return ServerBackend.info.companyDomains;
+      const c = root.RIW_CONFIG && root.RIW_CONFIG.companyDomains;
+      return Array.isArray(c) ? c : ["resinvest.group"];
+    },
     /** Okno ekranu publicznego (wspólny układ z ekranem logowania). */
     frame(id, title, lead, inner) {
       document.getElementById("app").innerHTML = `<div class="auth" id="${id}">${this.side()}
@@ -897,7 +910,7 @@
       f.onsubmit = async e => {
         e.preventDefault();
         const err = $("#fp-err"), email = $("#fp-email").value.trim();
-        const em = R.validateCompanyEmail(email, ((Store.state && Store.state.config) || root.RIW_CONFIG || {}).companyDomains || ["resinvest.group"]);
+        const em = R.validateCompanyEmail(email, this.companyDomains());
         if (!em.ok) { err.innerHTML = ic("alert", 15) + `<span>${esc(em.error)}</span>`; err.classList.remove("hidden"); return; }
         $("#fp-submit").disabled = true;
         const r = await ServerBackend.api("POST", "/api/auth/forgot", { email: em.email });
@@ -990,7 +1003,7 @@
       const reg = opts.tab === "register" && this.selfRegistration();
       document.title = (reg ? t("Rejestracja") : t("Logowanie")) + " · ResInvest ERP";
       const local = Store.mode === "local";
-      const domains = ((Store.state && Store.state.config && Store.state.config.companyDomains) || ["resinvest.group"]).map(d => "@" + d).join(", ");
+      const domains = this.companyDomains().map(d => "@" + d).join(", ");
       const demo = local && Store.state ? Store.state.users.filter(u => AuthLib.DEMO_LOGINS.includes(u.login) && u.active !== false && AuthLib.LocalAuth.info(u.id).demo) : [];
       const testAdm = local ? ((root.RIW_CONFIG && root.RIW_CONFIG.startup && root.RIW_CONFIG.startup.testAdmin) || null) : null;
       // pierwsze uruchomienie (czysta baza): podpowiedź konta administratora — bez hasła na ekranie
@@ -1065,7 +1078,7 @@
         const btn = $("#lg-submit");
         btn.disabled = true; err.classList.add("hidden");
         let res;
-        const em = R.validateCompanyEmail(login.value, ((Store.state && Store.state.config) || root.RIW_CONFIG || {}).companyDomains || ["resinvest.group"]);
+        const em = R.validateCompanyEmail(login.value, this.companyDomains());
         if (!pass.value.trim()) { btn.disabled = false; err.innerHTML = ic("alert", 15) + `<span>${esc(t("Podaj e-mail służbowy i hasło"))}</span>`; err.classList.remove("hidden"); return; }
         if (!em.ok) { btn.disabled = false; err.innerHTML = ic("alert", 15) + `<span>${esc(em.error)}</span>`; err.classList.remove("hidden"); login.focus(); return; }
         login.value = em.email;

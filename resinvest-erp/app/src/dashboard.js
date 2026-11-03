@@ -172,6 +172,8 @@
       const regs = App.can("users.manage") ? S.users.filter(x => x.selfRegistered && R.statusOf(x) === "INVITED").length : 0;
       if (regs) alerts.push({ cls: "warn", href: "#/uzytkownicy", title: tp("{n} zgłoszenie rejestracji|{n} zgłoszenia rejestracji|{n} zgłoszeń rejestracji", regs), text: t("Nadaj rolę i magazyn albo odrzuć zgłoszenie.") });
       if (Store.mode === "local" && root.RIW_Auth && root.RIW_Auth.LocalAuth.info(u.id).demo) alerts.push({ cls: "info", href: "#/profil", title: t("Hasło startowe konta"), text: t("Konto używa hasła demonstracyjnego — zmień je w „Mój profil” przed pracą na prawdziwych danych.") });
+      const fxPending = App.can("factors.edit") ? R.Factors.pending(S, today) : null;
+      if (fxPending) alerts.push({ cls: "warn", href: "#/inwentaryzacja", title: t("Przeliczniki na {ym}", { ym: fxPending.ym }), text: t("Miesiąc {c} zamknięty — zostaw obecne przeliczniki albo wpisz inne (Inwentaryzacja).", { c: fxPending.closedYm }) });
       if (openPrev) alerts.push({ cls: "", href: "#/inwentaryzacja", title: tp("{n} niezamknięty okres|{n} niezamknięte okresy|{n} niezamkniętych okresów", openPrev), text: t("Zamknij poprzednie miesiące — do tego czasu dokumenty z tych okresów można zmieniać.") });
       if (!per) alerts.push({ cls: "info", href: "#/inwentaryzacja", title: t("Okres {ym} nie jest otwarty", { ym }), text: t("Otwórz okres inwentaryzacji bieżącego miesiąca, aby przygotować zamknięcie.") });
       else alerts.push({ cls: per.status === "OTWARTA" ? "info" : "ok", href: "#/inwentaryzacja", title: t("Okres {ym}: {s}", { ym, s: t(R.INV_STATUS[per.status]) }), text: t("Po zamknięciu okresu dokumenty z tego miesiąca są tylko do odczytu — zmiany wyłącznie korektą z bieżącą datą.") });

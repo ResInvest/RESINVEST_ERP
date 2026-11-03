@@ -46,6 +46,35 @@ Program nie korzysta z bibliotek zewnętrznych pobieranych z sieci (CDN) — wsz
 (dołączony dekoder kodów QR jsQR 1.4.0, licencja Apache-2.0: `app/vendor/jsQR.LICENSE`). Internet jest potrzebny tylko
 serwerowi do wysyłki e-maili (Resend); bez poczty zaproszenia zapisują się jako pliki `.eml`.
 
+## Nowe w 3.12.0
+* **Menu → nowa grupa „Ustawienia”**: *Użytkownicy*, *Role i uprawnienia*, *Dziennik audytu*. W grupie **„System”** zostają
+  *Mój profil*, *Administracja*, *Poczta*, *Powiadomienia*. Grupa, w której rola nie ma żadnej pozycji (np. magazynier
+  w „Ustawieniach”), nie jest pokazywana.
+* **Przeliczniki miesiąca.** Po zamknięciu miesiąca w **Inwentaryzacji** otwiera się okno *Przeliczniki na <następny miesiąc>*:
+  **Zostaw obecne** albo **Zapisz nowe przeliczniki**. Można zmienić 1 m³ = MP, masę 1 MP, masę 1 m³ drewna i energię 1 t;
+  każda wartość ma dozwolony zakres. Decyzja zapada raz na miesiąc dla całej firmy, z uwagą. Trafia do historii
+  (`config.factorHistory`) i do dziennika audytu (`FACTORS_KEPT` / `FACTORS_CHANGED`). Decyduje kierownik albo administrator
+  (nowe uprawnienie `factors.edit`; role zmienione wcześniej dostają je automatycznie, jeśli zamykają okresy).
+  Operacje już zapisane zachowują masy i tonaże z chwili zapisu. Produkty z własnym przelicznikiem w kartotece nie zmieniają się.
+  Karta *Przeliczniki miesiąca* w Inwentaryzacji pokazuje bieżące wartości i ostatnią decyzję; na pulpicie jest
+  przypomnienie, dopóki decyzja nie zapadnie.
+* **ResInvest ERP Serwer — trzy warianty instalatora Windows** (ten sam program, SQLite, kopie automatyczne, logowanie
+  z sesją serwerową). Opis: [`docs/INSTALATORY_3_12.md`](docs/INSTALATORY_3_12.md).
+
+  | Instalator | Konta (e-mail) | Poczta (`EMAIL_TRANSPORT=smtp`) |
+  |---|---|---|
+  | `ResInvestERP_Serwer_Setup_3.12.0_Firma.exe` | tylko `@resinvest.group` | Microsoft 365 (`smtp.office365.com:587`) |
+  | `ResInvestERP_Serwer_Setup_3.12.0_Gmail.exe` | `@gmail.com`, `@googlemail.com` | Gmail (`smtp.gmail.com:465`, hasło aplikacji) |
+  | `ResInvestERP_Serwer_Setup_3.12.0_BezOgraniczen.exe` | dowolna domena (tryb firmowy bez ograniczenia) | dowolny SMTP |
+
+  Domeny ustawia nowa zmienna serwera `COMPANY_DOMAINS` (lista albo `*`). Wariant zapisuje ją w `config\edition.env`,
+  a `server.env` administratora ma pierwszeństwo. Zmiana przy starcie serwera trafia do dziennika audytu.
+  Ekran logowania dostaje domeny z serwera (`/api/health`) jeszcze przed zalogowaniem.
+* **Plan logowania kontem Microsoft 365 i Google** (OIDC, MFA, dostęp warunkowy, poczta OAuth po wycofaniu SMTP AUTH
+  z hasłem): [`docs/LOGOWANIE_M365_GOOGLE_PLAN.md`](docs/LOGOWANIE_M365_GOOGLE_PLAN.md).
+* Testy: `tests/features312.test.mjs` (przeliczniki, menu), `tests/editions312.test.mjs` (warianty, `COMPANY_DOMAINS`
+  na działającym serwerze), `tests/e2e312.cjs` (przeglądarka: menu, okno przeliczników, telefon).
+
 ## Nowe w 3.11.0
 * **Nowy pojazd, kierowca, rębak i operator wprost z operacji** — jak przy firmach zewnętrznych: pole „wybierz z listy
   albo wpisz” (pozycje na stanie i wcześniej używane, także wycofane). Nowa pozycja trafia do kartoteki Floty **przy
@@ -484,7 +513,7 @@ Różnice:
 
 ## Instalacja (Windows)
 
-Uruchom **`ResInvestERP_Setup_3.5.0.exe`** (budowanie — niżej) i wybierz:
+Uruchom instalator wariantu — **`ResInvestERP_Serwer_Setup_3.12.0_Firma.exe`**, `…_Gmail.exe` albo `…_BezOgraniczen.exe` ([opis wariantów](docs/INSTALATORY_3_12.md); budowanie — niżej) — i wybierz:
 
 * **Pełna instalacja** — program + serwer. Instalator dołącza środowisko Node.js (`runtime\node.exe`),
   tworzy folder danych `C:\ProgramData\ResInvestERP` i skróty w menu Start:
@@ -557,7 +586,7 @@ operacje każdego rodzaju, MM Zabrze → Brąszewice (dwuetapowe: wysłanie i pr
 | **Konta i dostęp** | zaproszenia e-mail, reset hasła, statusy kont, role z edytowalnymi uprawnieniami, magazyn domyślny + dostępne, izolacja danych magazynów, dziennik audytu z IP |
 | **Bezpieczeństwo** | role i macierz uprawnień sprawdzane w silniku przy każdej komendzie (na serwerze — po stronie serwera), hasła z solą, blokady, sesje, CSRF, CSP, dziennik zmian z łańcuchem skrótów |
 
-## Przeliczniki (`config/app.config.json`)
+## Przeliczniki (`config/app.config.json`, od 3.12 — decyzja co miesiąc w Inwentaryzacji)
 
 | Przelicznik | Wartość |
 |---|---|
@@ -568,6 +597,8 @@ operacje każdego rodzaju, MM Zabrze → Brąszewice (dwuetapowe: wysłanie i pr
 | PKS, łupina nerkowca | tylko t |
 
 Masa i energia są orientacyjne i nie zmieniają ilości na stanie. Jednostek różnych produktów się nie sumuje.
+Od 3.12 wartości z tabeli są początkowe: po zamknięciu każdego miesiąca kierownik zostawia je albo wpisuje inne
+(Inwentaryzacja → *Przeliczniki na nowy miesiąc*; historia decyzji w dzienniku audytu).
 Symbol **MP** (metr przestrzenny zrębki) jest taki sam we wszystkich językach — tak jak na dokumentach.
 
 ## Serwer — konfiguracja i obsługa
@@ -660,7 +691,8 @@ Plik `.iss` jest zapisany w UTF-8 z BOM (polskie i czeskie znaki w Inno Setup 7)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
-# → installer\Output\ResInvestERP_Setup_3.5.0.exe   (skrypt uruchamia też testy; -SkipTests pomija)
+# → installer\Output\ResInvestERP_Serwer_Setup_3.12.0_{Firma,Gmail,BezOgraniczen}.exe
+#   (skrypt uruchamia też testy; -SkipTests pomija; -Editions firma — tylko wybrany wariant)
 ```
 
 Bez Windows (serwer budowania Linux): `bash installer/build-installer-wine.sh` — ten sam plik `.iss`,

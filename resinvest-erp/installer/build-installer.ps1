@@ -1,10 +1,12 @@
-﻿# Buduje ResInvest ERP 3.3 i instalator Windows.  Uruchom z katalogu resinvest-erp:
-#   powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 [-NodeVersion 22.22.2] [-SkipTests]
+﻿# Buduje ResInvest ERP 3.12 i instalatory Windows ResInvest ERP Serwer (warianty: firma, gmail, otwarta).
+# Uruchom z katalogu resinvest-erp:
+#   powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 [-NodeVersion 22.22.2] [-SkipTests] [-Editions firma,gmail,otwarta]
 # Wymagania: Node.js >= 22.13 (do budowania), Inno Setup 7 lub 6 (ISCC.exe), dostęp do nodejs.org
 # (pobranie node.exe dołączanego do instalatora — suma SHA-256 sprawdzana z SHASUMS256.txt).
 param(
   [string]$NodeVersion = "22.22.2",
-  [switch]$SkipTests
+  [switch]$SkipTests,
+  [string[]]$Editions = @("firma", "gmail", "otwarta")
 )
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
@@ -18,7 +20,7 @@ if ($LASTEXITCODE -ne 0) { throw "Niekompletne tłumaczenia (tools/i18n-extract.
 
 if (-not $SkipTests) {
   Write-Host "== 2/4 Testy jednostkowe i integracyjne"
-  node --test tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs
+  node --test tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs
   if ($LASTEXITCODE -ne 0) { throw "Testy nie przeszły — instalator nie zostanie zbudowany" }
 }
 
@@ -65,6 +67,11 @@ foreach ($k in @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inno
 $iscc = $cands | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 if (-not $iscc) { throw "Nie znaleziono ISCC.exe (Inno Setup 7 lub 6). Pobierz: https://jrsoftware.org/isdl.php" }
 Write-Host "Kompilator: $iscc"
-& $iscc "installer\ResInvestERP.iss"
-if ($LASTEXITCODE -ne 0) { throw "Kompilacja instalatora nieudana" }
-Write-Host "Gotowe: installer\Output\ResInvestERP_Setup_3.11.0.exe"
+foreach ($ed in $Editions) {
+  Write-Host "-- wariant: $ed"
+  node tools/make-edition.mjs $ed
+  if ($LASTEXITCODE -ne 0) { throw "Pliki wariantu $ed nieudane" }
+  & $iscc "/DEditionId=$ed" "installer\ResInvestERP.iss"
+  if ($LASTEXITCODE -ne 0) { throw "Kompilacja instalatora ($ed) nieudana" }
+}
+Get-ChildItem "installer\Output\ResInvestERP_Serwer_Setup_*.exe" | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name }
