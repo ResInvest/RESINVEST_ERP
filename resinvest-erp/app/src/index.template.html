@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="@@DEFAULT_THEME@@" data-edition="@@EDITION@@">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="description" content="ResInvest ERP 3.7 — obrót i magazynowanie biomasy drzewnej: zakupy, planer zakupów, produkcja zrębki, sprzedaż, transport, inwentaryzacja, raporty z wysyłką e-mailem, powiadomienia, flota własna i zewnętrzna, audyt. PL · CS · EN.">
+<meta name="generator" content="ResInvest ERP build @@VERSION@@ · @@BUILT@@">
+<title>ResInvest ERP</title>
+<link rel="icon" type="image/svg+xml" href="@@ICON_SVG@@">
+<link rel="apple-touch-icon" href="@@ICON_PNG@@">
+<meta name="theme-color" content="#1E4634">
+<script>
+/* Przed pierwszym malowaniem: motyw (bez „mignięcia” jasnego tła) i decyzja o intro (ekran z pierwszą klatką filmu). */
+(function () {
+  var d = document.documentElement, th = null, intro = true;
+  try { th = localStorage.getItem("riw.theme"); intro = localStorage.getItem("riw.intro") !== "0"; } catch (e) {}
+  if (/^(pearl|graphite|azure|ultra|premium|glass|aurum|waga)$/.test(th || "")) d.setAttribute("data-theme", th);
+  if (intro && !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) d.className += " intro-boot";
+})();
+</script>
+<style>
+/*@@STYLES@@*/
+</style>
+</head>
+<body>
+<!-- Intro: pierwsza klatka filmu widoczna od razu; film i przyciski dołącza intro.js -->
+<div id="splash" class="splash boot"><img class="splash-poster" alt="" aria-hidden="true" src="@@INTRO_POSTER@@"></div>
+<div id="app"></div>
+<noscript><p style="padding:24px;font:16px sans-serif">ResInvest ERP wymaga włączonej obsługi JavaScript. · ResInvest ERP requires JavaScript.</p></noscript>
+<script>
+/* Film intro (H.264 + AAC) osadzony przez tools/build.mjs — nie edytować ręcznie. */
+var INTRO_SRC = "@@INTRO_MEDIA@@";
+var INTRO_POSTER = "@@INTRO_POSTER@@";
+/* Edycja Premium: zdjęcie ekranu startowego (pusty napis w edycji standardowej). */
+var RIW_HERO = "@@HERO@@";
+</script>
+<script>
+/* Konfiguracja z config/app.config.json */
+var RIW_CONFIG = @@CONFIG@@;
+</script>
+<script>
+/* Czcionki PDF (ResInvestDocSans — podzbiór Liberation Sans, SIL OFL 1.1) */
+var RIW_FONTS = @@FONTS@@;
+</script>
+<!--@@SCRIPTS@@-->
+<script>
+"use strict";
+/* Start: intro (muzyka możliwie natychmiast), równolegle aplikacja — logowanie lub pulpit. */
+try { Intro.play(); } catch (e) { console.error(e); }
+App.init().catch(function (e) { console.error(e); document.getElementById("app").innerHTML = '<p style="padding:24px">' + String(e && e.message || e) + '</p>'; });
+</script>
+</body>
+</html>

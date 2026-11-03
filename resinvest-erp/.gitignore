@@ -1,0 +1,12 @@
+# dane serwera (baza SQLite, kopie, logi) — nigdy w repozytorium
+data-server/
+# środowisko Node.js pobierane przy budowie instalatora
+installer/runtime/
+installer/Output/
+node_modules/
+# sekrety środowiska (klucze Resend itd.) — nigdy w repozytorium; wzór: .env.example
+.env
+server.env
+config/server.env
+# wiadomości zapisane przez transport „file”
+mail-outbox/

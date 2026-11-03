@@ -1,0 +1,28 @@
+{
+  "name": "resinvest-erp",
+  "version": "3.11.0",
+  "private": true,
+  "description": "ResInvest ERP 3.7 — motyw Szkło, rejestracja użytkowników z potwierdzeniem e-mail i zatwierdzeniem, czysta baza z kontem startowym administratora; zakup z produkcją i sprzedażą bezpośrednią z lasu, flota własna i zewnętrzna, wysyłka dokumentów i raportów e-mailem (PDF w załączniku), znak RiC; planer zakupów, powiadomienia w programie i e-mail z kolejką ponowień, poczta; obrót i magazynowanie biomasy drzewnej: logowanie e-mailem firmowym, zaproszenia i reset hasła (Resend), role i uprawnienia, izolacja magazynów, przesunięcia MM dwuetapowe (w drodze → przyjęcie), praca wielostanowiskowa (serwer Node.js + SQLite), PL/CS/EN, 5 motywów (Perła, Grafit, Azure, Ultra Dark, Light Premium), dokumenty, korekty, inwentaryzacja, raporty, druk i PDF",
+  "author": "Mateusz Roesner",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "sample-data": "node tools/export-sample-data.mjs",
+    "i18n": "node tools/i18n-extract.mjs",
+    "themes": "node tools/theme-contrast.mjs",
+    "server": "node --disable-warning=ExperimentalWarning server/riw-server.mjs",
+    "server:check": "node --disable-warning=ExperimentalWarning server/riw-server.mjs --check",
+    "server:backup": "node --disable-warning=ExperimentalWarning server/riw-server.mjs --backup-now",
+    "check": "node --check app/src/i18n.js && node --check app/src/engine.js && node --check app/src/planner.js && node --check app/src/trade.js && node --check app/src/fleetrep.js && node --check app/src/notify.js && node --check app/src/planner-view.js && node --check app/src/notify-view.js && node --check app/src/service.js && node --check app/src/seed.js && node --check app/src/auth.js && node --check app/src/pdf.js && node --check app/src/office.js && node --check app/src/intro.js && node --check app/src/core.js && node --check app/src/form.js && node --check app/src/quick.js && node --check app/src/views.js && node --check app/src/dashboard.js && node --check app/src/admin.js && node --check server/core.mjs && node --check server/riw-server.mjs && node --check server/mail.mjs",
+    "test:unit": "node --test tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/pdf.test.mjs tests/platform.test.mjs",
+    "test:server": "node --test tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs",
+    "test:auth": "node --test tests/auth.test.mjs",
+    "test:e2e": "node tests/e2e.cjs && node tests/e2e-server.cjs",
+    "test": "npm run check && npm run i18n && npm run themes && npm run build && npm run test:unit && npm run test:server && npm run test:e2e",
+    "build:premium": "node tools/build.mjs --edition premium"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

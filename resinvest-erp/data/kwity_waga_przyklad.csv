@@ -1,0 +1,4 @@
+Nr kwitu;Data;Godzina;Nr rej.;Kierowca;Towar;Brutto [kg];Tara [kg];Netto [kg]
+7101;23.09.2026;07:42;SGL 4T821;Jan Kowalski;Zrębka leśna;40 120;14 300;25 820
+7102;23.09.2026;09:15;SZA 12345;Piotr Nowak;Zrębka leśna;39 860;14 480;25 380
+7103;23.09.2026;11:03;WGM 77001;Adam Nowicki;Zrębka leśna;38 120;14 300;23 820
