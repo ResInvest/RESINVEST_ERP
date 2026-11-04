@@ -73,7 +73,8 @@ export function makeEdition(id, outDir) {
   writeFileSync(join(out, "edition.iss"), "\ufeff" + [
     `#define EditionId "${ed.id}"`, `#define EditionSuffix "${ed.suffix}"`, `#define EditionName "${q(ed.name)}"`,
     `#define EditionDomains "${q(domains.length ? domains.map(d => "@" + d).join(", ") : "dowolne")}"`,
-    `#define EditionShare "${q(ed.shareDir || "")}"`, ""].join("\r\n"));
+    `#define EditionShare "${q(ed.shareDir || "")}"`,
+    `#define EditionAdmin "${q(srv.initialAdmin.email || "")}"`, `#define EditionAdminPassword "${q(srv.initialAdmin.password || "")}"`, ""].join("\r\n"));
   return { id: ed.id, out, domains, initialAdmin: srv.initialAdmin.email };
 }
 

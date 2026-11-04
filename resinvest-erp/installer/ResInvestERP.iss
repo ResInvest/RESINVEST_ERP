@@ -73,6 +73,18 @@ Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
 Name: "czech"; MessagesFile: "compiler:Languages\Czech.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
+[Messages]
+; ostatni ekran kreatora: jak zalogować się pierwszy raz (zależnie od wariantu)
+#if EditionAdmin != ""
+polish.FinishedLabel=Instalacja zakończona. Po kliknięciu „Zakończ” serwer uruchomi się i otworzy program (http://localhost:8080).%n%nPierwsze logowanie:%n   e-mail:  {#EditionAdmin}%n   hasło:  {#EditionAdminPassword}%nProgram poprosi o ustawienie własnego hasła.%n%nInne komputery w sieci: http://<adres tego komputera>:8080
+czech.FinishedLabel=Instalace dokončena. Po kliknutí na „Dokončit“ se spustí server a otevře program (http://localhost:8080).%n%nPrvní přihlášení:%n   e-mail:  {#EditionAdmin}%n   heslo:  {#EditionAdminPassword}%nProgram vás požádá o nastavení vlastního hesla.
+english.FinishedLabel=Setup is complete. After you click Finish the server starts and opens the program (http://localhost:8080).%n%nFirst sign-in:%n   e-mail:  {#EditionAdmin}%n   password:  {#EditionAdminPassword}%nYou will be asked to set your own password.
+#else
+polish.FinishedLabel=Instalacja zakończona. Po kliknięciu „Zakończ” serwer uruchomi się i otworzy program (http://localhost:8080).%n%nPierwsze uruchomienie: utwórz konto administratora (adres {#EditionDomains}) na ekranie, który się pojawi.
+czech.FinishedLabel=Instalace dokončena. Po kliknutí na „Dokončit“ se spustí server a otevře program (http://localhost:8080).%n%nPrvní spuštění: vytvořte účet administrátora (adresa {#EditionDomains}).
+english.FinishedLabel=Setup is complete. After you click Finish the server starts and opens the program (http://localhost:8080).%n%nFirst start: create the administrator account ({#EditionDomains}) on the screen that appears.
+#endif
+
 [CustomMessages]
 polish.CompLocal=Program — tryb lokalny (jedno stanowisko)
 czech.CompLocal=Program — místní režim (jedno pracoviště)

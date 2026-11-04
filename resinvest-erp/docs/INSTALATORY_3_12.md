@@ -71,5 +71,7 @@ Definicje wariantów: `installer/editions/*.json`. Nowy wariant to nowy plik JSO
 - Kompilacja trzech instalatorów: Inno Setup 6.4.1 pod Wine, po ok. 28 MB każdy.
 - Cicha instalacja każdego wariantu (`/VERYSILENT`) pod Wine: „Installation process succeeded”. Sprawdzone pliki: `edition.env`, `server.env` (`EMAIL_TRANSPORT=smtp`, preset SMTP, puste hasła), `app.config.json`, `server.config.json`, `runtime\node.exe`, serwer i silnik.
 - Serwer uruchomiony z katalogu po instalacji: wersja 3.12.0, domeny zgodne z wariantem. Wariant Gmail startuje z ekranem pierwszej konfiguracji.
-- Pod Wine nie powstał skrót autostartu (w prefiksie Wine brak folderu Autostart). W Windows ten folder istnieje — do potwierdzenia przy instalacji na Windows.
-- **Instalacji na prawdziwym Windows w tej sesji nie wykonano** — zalecana próba na komputerze testowym przed wdrożeniem.
+- Instalacja interaktywna wariantu *Bez ograniczeń* (`/LANG=polish`, Wine pod Xvfb, 04.11.2026): licencja → folder → składniki → zadania → instalacja → ekran końcowy z danymi pierwszego logowania (`magazyn@resinvest.group` / `Admin1234`). Powstało 9 skrótów w Menu Start (także z polskimi znakami), skrót na pulpicie i skrót autostartu.
+- Serwer uruchomiony skrótem instalatora (`ResInvestERP-Serwer.cmd` → dołączony `runtime\node.exe` 22.22.2): wersja 3.12.0, `companyDomains: []` (dowolna domena), logowanie kontem startowym z wymuszoną zmianą hasła, baza `C:\ProgramData\ResInvestERP\resinvest.sqlite`, kopia przy starcie w `backups`.
+- Uwagi dotyczące samego Wine (nie Windows): skróty z polskimi znakami wymagają w Linuksie locale UTF-8 (`LANG=C.UTF-8`), inaczej Wine zgłasza `IPersistFile::Save 0x80070002`; w dzienniku instalacji pojawia się „Exception while setting permissions” (Wine nie obsługuje uprawnień NTFS dla `[Dirs]`).
+- **Instalacji na prawdziwym Windows w tej sesji nie wykonano** — zalecana próba na komputerze testowym przed wdrożeniem (`installer/test-windows/Uruchom-test.cmd`).
