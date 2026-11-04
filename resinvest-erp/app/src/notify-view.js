@@ -17,6 +17,13 @@
   const N = R.Notify;
   const th = s => esc(t(s));
   const SRC = N_("Powiadomienia");
+  /** 3.13: gotowe ustawienia popularnych dostawców poczty (formularz Konfiguracja poczty). */
+  const MAIL_PRESETS = {
+    m365: { label: N_("Microsoft 365"), host: "smtp.office365.com", port: 587, secure: "starttls", help: N_("Microsoft 365: login = adres skrzynki, hasło skrzynki. Administrator M365 musi włączyć „Uwierzytelniony SMTP” dla tej skrzynki; przy MFA — hasło aplikacji.") },
+    gmail: { label: N_("Gmail"), host: "smtp.gmail.com", port: 465, secure: "ssl", help: N_("Gmail: login = adres Gmail, hasło = hasło aplikacji (16 liter) z myaccount.google.com → Bezpieczeństwo → Hasła aplikacji. Wymaga weryfikacji dwuetapowej.") },
+    outlook: { label: N_("Outlook.com"), host: "smtp-mail.outlook.com", port: 587, secure: "starttls", help: N_("Outlook.com / Hotmail: login = adres skrzynki; przy weryfikacji dwuetapowej — hasło aplikacji.") },
+    other: { label: N_("Inny serwer"), host: undefined, port: 0, secure: "", help: N_("Dane serwera SMTP poda dostawca poczty (home.pl, OVH, nazwa.pl, własny serwer): adres, port 465 SSL albo 587 STARTTLS, login i hasło.") }
+  };
 
   const mine = () => (Store.state.notices || []).filter(n => n.userId === Store.userId).slice().sort((a, b) => a.ts < b.ts ? 1 : -1);
   const unread = () => mine().filter(n => !n.read).length;
@@ -163,15 +170,45 @@
       const cnt = k => st[k] || 0;
       const channel = `<div class="card mb4" id="mail-channel"><div class="card-h"><h3>${th("Kanał wysyłki")}</h3></div><div class="card-b">
           <dl class="money-list"><dt>${th("Transport")}</dt><dd><b id="mail-transport">${th(TRANSPORT[mi.transport] || mi.transport || "—")}</b></dd><dt>${th("Nadawca")}</dt><dd>${esc(mi.from || "—")}</dd><dt>${th("Skonfigurowano")}</dt><dd>${mi.configured ? th("tak") : `<span class="neg">${th("nie — brak klucza API / hasła SMTP")}</span>`}</dd></dl>
-          ${mi.transport === "file" ? `<div class="info-line warn mt2">${ic("alert", 15)}<span>${esc(t("Wiadomości NIE są wysyłane — zapisywane jako pliki .eml w {d}. Ustaw EMAIL_TRANSPORT i klucz w server.env.", { d: mi.outDir || "mail-outbox" }))}</span></div>` : ""}</div></div>`;
+          ${mi.transport === "file" ? `<div class="info-line warn mt2">${ic("alert", 15)}<span>${esc(t("Wiadomości NIE są wysyłane — zapisywane jako pliki .eml w {d}. Ustaw EMAIL_TRANSPORT i klucz w server.env.", { d: mi.outDir || "mail-outbox" }))}</span></div>` : ""}
+          ${mi.problem ? `<div class="info-line err mt2" id="mail-problem">${ic("alert", 15)}<span><b>${esc(mi.problem)}</b>${mi.hint ? `<br>${esc(t(mi.hint))}` : ""}</span></div>` : ""}
+          ${mi.fromNote ? `<p class="help mt2">${esc(mi.fromNote)}</p>` : ""}</div></div>` + this.configHtml(d.settings);
       const tiles = `<div class="grid g4 mb4" id="mail-stats">${["QUEUED", "SENT", "FAILED", "DEAD"].map(k => `<div class="kpi"><div class="k-t">${th(STATUS[k])}</div><div class="k-v">${cnt(k)}</div></div>`).join("")}</div>`;
       const rows = (d.rows || []).map(m => `<tr data-mail-id="${m.id}"><td data-l="${th("Utworzono")}" class="nowrap">${esc(Dates.ts(m.ts))}</td><td data-l="${th("Rodzaj")}">${th(TEMPLATE[m.template] || m.template)}</td><td data-l="${th("Do")}">${esc(m.to)}</td><td data-l="${th("Temat")}">${esc(m.subject || "—")}</td>
-        <td data-l="${th("Status")}">${statusBadge(m.status)}</td><td data-l="${th("Próby")}" class="r">${m.attempts || 0}</td><td data-l="${th("Ostatni błąd")}" class="small">${esc(m.error || "")}</td><td data-l="${th("Następna próba")}" class="nowrap">${m.status === "FAILED" && m.nextAt ? esc(Dates.ts(m.nextAt)) : "—"}</td>
+        <td data-l="${th("Status")}">${statusBadge(m.status)}</td><td data-l="${th("Próby")}" class="r">${m.attempts || 0}</td><td data-l="${th("Ostatni błąd")}" class="small">${esc(m.error || "")}${m.hint ? `<div class="dim">${esc(t(m.hint))}</div>` : ""}</td><td data-l="${th("Następna próba")}" class="nowrap">${m.status === "FAILED" && m.nextAt ? esc(Dates.ts(m.nextAt)) : "—"}</td>
         <td class="r">${(m.status === "FAILED" || m.status === "DEAD") && m.retryable ? `<button class="btn sm" type="button" data-retry="${m.id}">${ic("refresh", 13)} ${th("Ponów")}</button>` : ""}</td></tr>`).join("");
       return head + channel + tiles + `<div class="card" id="mail-log"><div class="toolbar">
           <div class="field"><label for="mail-status">${th("Status")}</label><select class="ctrl" id="mail-status"><option value="">${th("Wszystkie")}</option>${["QUEUED", "SENT", "FAILED", "DEAD"].map(s => `<option value="${s}" ${f.status === s ? "selected" : ""}>${th(STATUS[s])}</option>`).join("")}</select></div></div>
         ${rows ? `<div class="tbl-wrap"><table class="tbl stack" id="mail-table"><thead><tr><th>${th("Utworzono")}</th><th>${th("Rodzaj")}</th><th>${th("Do")}</th><th>${th("Temat")}</th><th>${th("Status")}</th><th class="r">${th("Próby")}</th><th>${th("Ostatni błąd")}</th><th>${th("Następna próba")}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty">${th("Brak wiadomości.")}</div>`}
         <p class="help" style="padding:8px 16px">${th("Treść wysłanej wiadomości jest usuwana z bazy. Wiadomości z jednorazowym linkiem (zaproszenie, reset hasła) nie są przechowywane i nie można ich ponowić — wyślij nowe z modułu Użytkownicy.")}</p></div>`;
+    },
+    /**
+     * 3.13: konfiguracja poczty z programu (administrator). Zapis w C:\\ProgramData\\ResInvestERP\\server.env, działa od razu —
+     * bez edycji pliku i bez restartu serwera. Hasło tylko do zapisu (serwer nie odsyła go do przeglądarki).
+     */
+    configHtml(sv) {
+      if (!sv || !App.user() || App.user().role !== "admin") return "";
+      const P = MAIL_PRESETS, cur = Object.keys(P).find(k => P[k].host && P[k].host === sv.host) || (sv.host ? "other" : "");
+      return `<div class="card mb4" id="mail-config"><div class="card-h"><h3>${th("Konfiguracja poczty")}</h3></div><div class="card-b stack">
+        <p class="muted">${th("Wybierz dostawcę, wpisz skrzynkę, z której program wysyła zaproszenia, reset hasła i powiadomienia, zapisz i wyślij test. Ustawienia działają od razu — bez restartu serwera.")}</p>
+        <div class="seg" role="group" aria-label="${th("Dostawca poczty")}" id="mc-presets">${Object.entries(P).map(([k, x]) => `<button type="button" data-mc-preset="${k}" aria-pressed="${k === cur}">${esc(t(x.label))}</button>`).join("")}</div>
+        <div class="grid g2">
+          <div class="field"><label for="mc-host">${th("Serwer SMTP")}</label><input class="ctrl" id="mc-host" value="${esc(sv.host || "")}" placeholder="smtp.office365.com" autocomplete="off"></div>
+          <div class="grid g2"><div class="field"><label for="mc-port">${th("Port")}</label><input class="ctrl" id="mc-port" inputmode="numeric" value="${esc(sv.port || "")}"></div>
+            <div class="field"><label for="mc-secure">${th("Szyfrowanie")}</label><select class="ctrl" id="mc-secure">${[["starttls", "STARTTLS (587)"], ["ssl", "SSL/TLS (465)"], ["none", t("brak (przekaźnik w sieci firmy)")]].map(([v, l]) => `<option value="${v}" ${sv.secure === v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></div></div>
+          <div class="field"><label for="mc-user">${th("Login (adres skrzynki)")}</label><input class="ctrl" id="mc-user" value="${esc(sv.user || "")}" autocomplete="off" placeholder="magazyn@firma.pl"></div>
+          <div class="field"><label for="mc-pass">${th("Hasło")}</label><input class="ctrl" id="mc-pass" type="password" autocomplete="new-password" placeholder="${esc(sv.hasPass ? t("zapisane — wpisz, aby zmienić") : t("nie ustawiono"))}">
+            <div class="help" id="mc-pass-help">${th("Gmail: hasło aplikacji (16 liter). Microsoft 365: hasło skrzynki; przy MFA — hasło aplikacji.")}</div></div>
+          <div class="field"><label for="mc-from">${th("Nadawca (opcjonalnie)")}</label><input class="ctrl" id="mc-from" value="${esc(sv.from || "")}" placeholder="ResInvest ERP <magazyn@firma.pl>"></div>
+          <div class="field"><label for="mc-app">${th("Adres programu w linkach e-mail")}</label><input class="ctrl" id="mc-app" value="${esc(sv.appUrl || "")}" placeholder="${esc(sv.appUrlEffective || "")}">
+            <div class="help">${esc(t("Puste = {u}. Wpisz adres, pod którym inni otwierają program (stała nazwa albo IP serwera).", { u: sv.appUrlEffective || "" }))}</div></div>
+        </div>
+        ${(sv.overridden || []).length ? `<div class="info-line warn">${ic("alert", 15)}<span>${esc(t("Zmienne systemowe Windows mają pierwszeństwo przed zapisem z programu: {k}.", { k: sv.overridden.join(", ") }))}</span></div>` : ""}
+        <div class="row wrap"><button class="btn primary" type="button" id="mc-save">${ic("check", 15)} ${th("Zapisz konfigurację")}</button>
+          <input class="ctrl" id="mc-to" style="max-width:260px" placeholder="${esc(App.user().email || App.user().login)}" aria-label="${th("Adres testowy")}">
+          <button class="btn" type="button" id="mc-test">${ic("mail", 15)} ${th("Wyślij test")}</button></div>
+        <div id="mc-result"></div>
+        <p class="help">${esc(t("Plik ustawień: {f}", { f: sv.envFile || "server.env" }))}</p></div></div>`;
     },
     /** Tryb OFFLINE: powiadomienia przygotowane w programie (bez wysyłki e-mail). */
     localHtml() {
@@ -196,6 +233,40 @@
       const dr = $("#mail-drain", page); if (dr) dr.onclick = () => act("/api/mail/drain", {}, t("Kolejka przetworzona"));
       const ts = $("#mail-test", page); if (ts) ts.onclick = () => act("/api/mail/test", {}, t("Wysłano wiadomość testową"));
       $$("[data-retry]", page).forEach(b => b.onclick = () => act("/api/mail/retry", { id: Number(b.dataset.retry) }, t("Wiadomość ponowiona")));
+      this.bindConfig(page);
+    },
+    bindConfig(page) {
+      const box = $("#mail-config", page); if (!box) return;
+      const out = $("#mc-result", box);
+      const show = (ok, title, detail, hint) => { out.innerHTML = `<div class="info-line ${ok ? "ok" : "err"}">${ic(ok ? "check" : "alert", 15)}<span><b>${esc(title)}</b>${detail ? `<br><span class="mono small">${esc(detail)}</span>` : ""}${hint ? `<br>${esc(t(hint))}` : ""}</span></div>`; };
+      $$("[data-mc-preset]", box).forEach(b => b.onclick = () => {
+        const p = MAIL_PRESETS[b.dataset.mcPreset];
+        $$("[data-mc-preset]", box).forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+        if (p.host !== undefined) $("#mc-host", box).value = p.host;
+        if (p.port) $("#mc-port", box).value = p.port;
+        if (p.secure) $("#mc-secure", box).value = p.secure;
+        $("#mc-pass-help", box).textContent = t(p.help);
+        $("#mc-host", box).focus();
+      });
+      const form = () => ({ transport: "smtp", host: $("#mc-host", box).value.trim(), port: Number($("#mc-port", box).value) || 0, secure: $("#mc-secure", box).value,
+        user: $("#mc-user", box).value.trim(), pass: $("#mc-pass", box).value, from: $("#mc-from", box).value.trim(), appUrl: $("#mc-app", box).value.trim() });
+      $("#mc-save", box).onclick = async e => {
+        const btn = e.currentTarget; btn.disabled = true;
+        const r = await ServerBackend.api("POST", "/api/mail/config", form());
+        btn.disabled = false;
+        if (!r || !r.ok) return show(false, t("Nie zapisano"), (r && r.error) || t("Nieprawidłowa odpowiedź serwera"));
+        $("#mc-pass", box).value = "";
+        if (ServerBackend.info) ServerBackend.info.mailReady = !!r.mail.configured && r.mail.transport !== "file";
+        Toast.ok(t("Zapisano konfigurację poczty"), r.mail.configured ? t("Wyślij test, aby sprawdzić połączenie.") : r.mail.problem);
+        this.data = null; App.render();
+      };
+      $("#mc-test", box).onclick = async e => {
+        const btn = e.currentTarget; btn.disabled = true; show(true, t("Wysyłanie…"));
+        const r = await ServerBackend.api("POST", "/api/mail/test", { to: $("#mc-to", box).value.trim() });
+        btn.disabled = false;
+        if (r && r.ok) show(true, r.message || t("Wysłano wiadomość testową"));
+        else show(false, (r && r.error) || t("Wysyłka nieudana"), r && r.detail, r && r.hint);
+      };
     }
   };
 

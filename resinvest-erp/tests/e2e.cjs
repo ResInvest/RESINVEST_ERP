@@ -116,21 +116,51 @@ async function fillForestDirect(page) {
     const card = await page.evaluate(() => getComputedStyle(document.querySelector(".card, .kpi")).backgroundColor);
     // edycja Premium startuje w motywie „Złota biomasa” (karty w kolorze kości słoniowej)
     check(PREMIUM ? "Premium: motyw „Złota biomasa” domyślnie — jasne tło, karty kość słoniowa" : "§19 Jasny motyw: jasne tło, białe karty", lum(bg) > 0.85 && card === (PREMIUM ? "rgb(255, 253, 248)" : "rgb(255, 255, 255)") && (!PREMIUM || await page.evaluate(() => document.documentElement.dataset.theme === "aurum")), { bg, card });
-    // 3.2: pięć motywów — przełączanie z profilu, zapis w profilu użytkownika, Ctrl+D przez całą piątkę
-    await go(page, "profil"); await page.waitForSelector(".theme-cards");
-    check("3.2 Motywy: 8 kart w ustawieniach (Perła, Grafit, Graphite Azure, Ultra Dark, Light Premium, Szkło, Złota biomasa, Stacja wagowa)", (await page.$$eval("[data-ptheme]", l => l.map(x => x.dataset.ptheme).join(","))) === "pearl,graphite,azure,ultra,premium,glass,aurum,waga");
+    // 3.13: język i motyw tylko w Ustawienia → Wygląd i język (bez przycisków w górnym pasku)
+    check("3.13 Górny pasek bez wyboru języka i motywu", await page.evaluate(() => !document.querySelector("#lang-btn") && !document.querySelector("#theme-btn")));
+    check("3.13 Menu: Ustawienia → Wygląd i język", await page.evaluate(() => !!document.querySelector('#nav [data-nav="wyglad"]')));
+    await go(page, "wyglad"); await page.waitForSelector(".theme-cards");
+    check("3.13 Motywy: 12 kart w Ustawieniach (8 dotychczasowych, Office 98 / 2003 / 2007, Własny)", (await page.$$eval("[data-ptheme]", l => l.map(x => x.dataset.ptheme).join(","))) === "pearl,graphite,azure,ultra,premium,glass,aurum,waga,office98,office2003,office2007,custom");
     const themeLook = async id => { await page.click(`[data-ptheme="${id}"]`); await page.waitForTimeout(200); return page.evaluate(() => ({ th: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor, cs: document.documentElement.style.colorScheme, saved: RIW_DEBUG.store.state.users.find(u => u.id === RIW_DEBUG.store.userId).theme })); };
     const ul = await themeLook("ultra");
     check("3.2 Ultra Dark: czarne tło (OLED), schemat ciemny, zapis w profilu", ul.th === "ultra" && ul.bg === "rgb(0, 0, 0)" && ul.cs === "dark" && ul.saved === "ultra", ul);
     const pr = await themeLook("premium");
     check("3.2 Light Premium: tło kość słoniowa, schemat jasny, granat marki", pr.th === "premium" && pr.bg === "rgb(247, 244, 238)" && pr.cs === "light" && (await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--brand").trim())) === "#1B2A4A", pr);
-    const cyc = []; for (let i = 0; i < 8; i++) { await page.keyboard.press("Control+d"); await page.waitForTimeout(80); cyc.push(await page.evaluate(() => document.documentElement.dataset.theme)); }
-    check("3.2 Ctrl+D przełącza przez osiem motywów", cyc.join(",") === "glass,aurum,waga,pearl,graphite,azure,ultra,premium", cyc);
+    const cyc = []; for (let i = 0; i < 12; i++) { await page.keyboard.press("Control+d"); await page.waitForTimeout(80); cyc.push(await page.evaluate(() => document.documentElement.dataset.theme)); }
+    check("3.2 Ctrl+D przełącza przez dwanaście motywów", cyc.join(",") === "glass,aurum,waga,office98,office2003,office2007,custom,pearl,graphite,azure,ultra,premium", cyc);
     const wg = await themeLook("waga");
     check("3.11 Stacja wagowa: granatowa belka górna, stalowe tło, schemat jasny, zapis w profilu", wg.th === "waga" && wg.cs === "light" && wg.saved === "waga" && (await page.evaluate(() => getComputedStyle(document.querySelector(".topbar")).backgroundImage)).includes("gradient"), wg);
     const gl = await themeLook("glass");
     check("3.7 Szkło: pastelowe tło z gradientem, szklane karty z rozmyciem, zielona marka, zapis w profilu", gl.th === "glass" && gl.cs === "light" && gl.saved === "glass" && await page.evaluate(() => { const c = getComputedStyle(document.querySelector(".card, .theme-cards") || document.body); return getComputedStyle(document.body).backgroundImage.includes("radial-gradient") && getComputedStyle(document.documentElement).getPropertyValue("--brand").trim() === "#1F7F45"; }) && await page.evaluate(() => /blur/.test(getComputedStyle(document.querySelector(".sidebar")).backdropFilter)), gl);
-    await themeLook("pearl"); await go(page, "pulpit"); await page.waitForSelector("#kpi-wood");
+    // 3.13: Office 98 / 2003 / 2007
+    const o98 = await themeLook("office98");
+    check("3.13 Office 98: szare okna, granatowe paski tytułu, kanciaste przyciski, zapis w profilu", o98.th === "office98" && o98.saved === "office98" && await page.evaluate(() => getComputedStyle(document.querySelector(".card")).backgroundColor === "rgb(192, 192, 192)" && getComputedStyle(document.querySelector(".card-h")).backgroundImage.includes("gradient") && getComputedStyle(document.querySelector(".btn")).borderRadius === "0px"), o98);
+    const o03 = await themeLook("office2003");
+    check("3.13 Office 2003: niebieski gradient paska, pomarańczowe zaznaczenie w menu", o03.th === "office2003" && await page.evaluate(() => getComputedStyle(document.querySelector(".topbar")).backgroundImage.includes("gradient") && getComputedStyle(document.querySelector('.sidebar .nav-item[aria-current="page"]')).backgroundImage.includes("gradient")), o03);
+    const o07 = await themeLook("office2007");
+    check("3.13 Office 2007: wstążka (gradient paska), granatowe nagłówki", o07.th === "office2007" && (await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--text-head").trim())) === "#15428B", o07);
+    // 3.13: motyw własny — trzy kolory z pełnej palety, czytelny tekst dobrany automatycznie, zapis w profilu
+    await page.fill('[data-tc-hex="bg"]', "#1B1F2A"); await page.fill('[data-tc-hex="accent"]', "#FF7A00"); await page.fill('[data-tc-hex="bar"]', "#F5E6C8");
+    await page.click("#tc-apply"); await page.waitForTimeout(250);
+    const cu = await page.evaluate(() => { const cs = getComputedStyle(document.documentElement), u = RIW_DEBUG.store.state.users.find(x => x.id === RIW_DEBUG.store.userId);
+      return { th: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor, scheme: document.documentElement.style.colorScheme, sb: getComputedStyle(document.querySelector(".sidebar")).backgroundColor,
+        navInk: getComputedStyle(document.querySelector(".sidebar .nav-item")).color, brand: cs.getPropertyValue("--brand").trim(), saved: u.theme, colors: u.themeColors, ls: localStorage.getItem("riw.themeVars") || "" }; });
+    check("3.13 Motyw własny: tło #1B1F2A (ciemny schemat), menu #F5E6C8 z ciemnym tekstem, akcent pomarańczowy, zapis w profilu i dla pierwszego malowania",
+      cu.th === "custom" && cu.bg === "rgb(27, 31, 42)" && cu.scheme === "dark" && cu.sb === "rgb(245, 230, 200)" && cu.navInk === "rgb(17, 17, 17)" && cu.brand === "#FF7A00" && cu.saved === "custom" && cu.colors && cu.colors.accent === "#FF7A00" && cu.ls.includes("--bg:#1B1F2A"), cu);
+    const contrastAll = await page.evaluate(() => {
+      const { Clr, customThemeVars } = RIWUI, bad = [];
+      const pal = ["#FFFFFF", "#000000", "#FF0000", "#FFFF00", "#00FF00", "#0000FF", "#808080", "#F5E6C8", "#1B1F2A", "#FF7A00", "#7F00FF", "#00CED1"];
+      for (const bg of pal) for (const accent of pal) for (const bar of ["#FFFFFF", "#000000", "#FF0000", "#14213A"]) {
+        const v = customThemeVars({ bg, accent, bar }).vars;
+        const r = [Clr.contrast(v["--text"], v["--surface"]), Clr.contrast(v["--brand"], v["--surface"]), Clr.contrast(v["--brand-ink"], v["--brand"]), Clr.contrast(v["--bar-ink"], v["--bar"]), Clr.contrast(v["--text-3"], v["--surface"])];
+        if (r[0] < 4.5 || r[1] < 3 || r[2] < 3 || r[3] < 4.5 || r[4] < 4.5) bad.push({ bg, accent, bar, r: r.map(x => x.toFixed(2)) });
+      }
+      return bad;
+    });
+    check("3.13 Motyw własny: każda kombinacja 12×12×4 kolorów czytelna (tekst ≥ 4,5:1, akcent ≥ 3:1, napisy na przyciskach i w menu)", contrastAll.length === 0, contrastAll.slice(0, 5));
+    await themeLook("pearl");
+    check("3.13 Powrót do motywu z rejestru usuwa kolory własne", await page.evaluate(() => !document.documentElement.style.getPropertyValue("--bg") && getComputedStyle(document.body).backgroundColor === "rgb(238, 242, 239)"));
+    await go(page, "pulpit"); await page.waitForSelector("#kpi-wood");
 
     /* ------------- pulpit ------------- */
     check("§13 Pulpit: KPI stanów z ≈ t i ≈ GJ", nb(await page.textContent("#kpi-wood .k-v")).replace(/ /g, "") === "817m³" && nb(await page.textContent("#kpi-wood")).includes("≈ 778 t · ≈ 6 611 GJ"), nb(await page.textContent("#kpi-wood")));

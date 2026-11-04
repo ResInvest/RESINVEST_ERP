@@ -117,10 +117,13 @@
     /** Ekran z pierwszą klatką z szablonu — usuwany, gdy intro nie będzie odtwarzane. */
     dropBootSplash() { const b = document.getElementById("splash"); if (b && b.classList.contains("boot")) b.remove(); },
 
+    /**
+     * 3.13: intro startuje zawsze przy uruchomieniu programu (także przy „ograniczeniu animacji” w Windows) —
+     * chyba że administrator wyłączył je w Administracja → Preferencje programu. Wyłączone intro → sam ekran ładowania.
+     */
     play(opts = {}) {
       if (this.active) return Promise.resolve("busy");
-      if (!opts.force && !this.enabled()) { this.dropBootSplash(); return Promise.resolve("off"); }
-      if (!opts.force && this.reducedMotion()) { this.dropBootSplash(); return Promise.resolve("reduced"); }
+      if (!opts.force && !this.enabled()) { Splash.loading(); return Promise.resolve("off"); }
       this.active = true;
       const st = DBG.intro = { phase: "playing", source: "video", music: this.musicOn(), audible: false, blocked: false, result: null, startedAt: Date.now(), disposed: null };
 
@@ -244,8 +247,10 @@
           if (done) return; done = true;
           if (!life) document.removeEventListener("keydown", onKey, true);
           dispose();
-          el.classList.add("out");
           st.phase = "done"; st.result = how;
+          // 3.13: baza jeszcze się wczytuje — ten sam ekran zostaje jako ekran ładowania (splash) do gotowości programu
+          if (!Splash.isReady()) { this.active = false; st.phase = "loading"; Splash.adopt(el); resolve(how); return; }
+          el.classList.add("out");
           setTimeout(() => { el.remove(); this.active = false; st.phase = "removed"; resolve(how); }, 260);
         };
         const onKey = e => { if (e.key === "Escape" || e.key === "Enter") { e.preventDefault(); e.stopPropagation(); finish("skip"); } };
@@ -284,8 +289,74 @@
     }
   };
 
+  /**
+   * 3.13: ekran ładowania (splash) — od pierwszego malowania do chwili, gdy program jest gotowy
+   * (połączenie z serwerem, wczytanie bazy, kontrola spójności, ekran logowania albo pulpit).
+   * Intro gra na tym samym ekranie; gdy skończy się wcześniej, zostaje plansza z postępem ładowania.
+   * Po zalogowaniu (wczytanie danych użytkownika) — Splash.during(obietnica) pokazuje ten sam ekran, gdy trwa to dłużej niż chwilę.
+   */
+  const Splash = {
+    _ready: false, _text: "", _el: null, _shownAt: 0,
+    MIN_MS: 600,
+    isReady() { return this._ready; },
+    /** Bieżący etap ładowania (tekst na ekranie). */
+    status(text) {
+      this._text = text || "";
+      DBG.splash = Object.assign(DBG.splash || {}, { text: this._text });
+      const n = this._el && this._el.querySelector("[data-load-text]");
+      if (n) n.textContent = this._text;
+    },
+    _markup() { return `<div class="splash-load" role="status" aria-live="polite"><span class="splash-spin" aria-hidden="true"></span><span data-load-text>${esc(this._text || t("Uruchamianie programu…"))}</span></div>`; },
+    /** Ekran po intro (albo zamiast niego) — plansza firmowa i postęp ładowania. */
+    adopt(el) {
+      this._el = el; this._shownAt = this._shownAt || Date.now();
+      el.classList.remove("boot", "is-playing", "out");
+      el.classList.add("no-video", "loading");
+      el.setAttribute("role", "dialog"); el.setAttribute("aria-label", t("Wczytywanie ResInvest ERP"));
+      el.querySelectorAll("video,.splash-ctl,.splash-note,.splash-bar").forEach(x => x.remove());
+      if (!el.querySelector(".splash-brand")) el.insertAdjacentHTML("beforeend", `<div class="splash-brand" aria-hidden="true"><div class="mark">RiC</div><h2>ResInvest Commodities</h2><p>${esc(t("ERP · obrót i magazynowanie biomasy drzewnej"))}</p></div>`);
+      if (!el.querySelector(".splash-load")) el.querySelector(".splash-brand").insertAdjacentHTML("beforeend", this._markup());
+      DBG.splash = Object.assign(DBG.splash || {}, { visible: true, mode: "loading" });
+      if (this._ready) this._hide();
+    },
+    /** Ekran ładowania bez filmu (intro wyłączone albo ponowne wczytanie danych). */
+    loading() {
+      if (this._ready && !this._forced) return;
+      let el = document.getElementById("splash");
+      if (!el) {
+        el = document.createElement("div"); el.id = "splash"; el.className = "splash";
+        el.innerHTML = `<img class="splash-poster" alt="" aria-hidden="true" src="${typeof root.INTRO_POSTER === "string" ? root.INTRO_POSTER : ""}">`;
+        document.body.appendChild(el);
+      }
+      this.adopt(el);
+    },
+    /** Program gotowy — ekran ładowania znika (intro, jeśli jeszcze gra, kończy się normalnie albo „Pomiń”). */
+    ready() {
+      this._ready = true; this._forced = false;
+      DBG.splash = Object.assign(DBG.splash || {}, { ready: true });
+      if (this._el && !Intro.active) this._hide();
+    },
+    _hide() {
+      const el = this._el; if (!el) return;
+      this._el = null;
+      const wait = Math.max(0, this.MIN_MS - (Date.now() - this._shownAt));
+      setTimeout(() => { el.classList.add("out"); setTimeout(() => { el.remove(); DBG.splash = Object.assign(DBG.splash || {}, { visible: false }); }, 260); }, wait);
+      this._shownAt = 0;
+    },
+    /** Ekran ładowania na czas operacji (np. wczytanie bazy po zalogowaniu) — pokazany, gdy trwa dłużej niż 250 ms. */
+    async during(promise, text) {
+      if (Intro.active) return promise;
+      let shown = false;
+      const timer = setTimeout(() => { shown = true; this._ready = false; this._forced = true; this.status(text); this.loading(); }, 250);
+      try { return await promise; }
+      finally { clearTimeout(timer); if (shown) this.ready(); }
+    }
+  };
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
   root.Intro = Intro;
+  root.Splash = Splash;
   DBG.introModule = Intro;
   // buforowanie filmu od razu — równolegle z wczytywaniem reszty programu (tylko gdy intro zostanie pokazane)
-  try { if (Intro.enabled() && !Intro.reducedMotion()) Intro.preload(); } catch (e) {}
+  try { if (Intro.enabled()) Intro.preload(); } catch (e) {}
 })(typeof globalThis !== "undefined" ? globalThis : this);

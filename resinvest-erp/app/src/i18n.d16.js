@@ -138,7 +138,6 @@
   "Ponowienie wiadomości e-mail #{n}": ["Opakování e-mailu #{n}", "Retry of e-mail #{n}"],
   "Wysłano: {a}, nieudane: {b}": ["Odesláno: {a}, neúspěšné: {b}", "Sent: {a}, failed: {b}"],
   "Wiadomość testowa na adres {e}": ["Testovací zpráva na adresu {e}", "Test message to {e}"],
-  "Wysyłka nieudana — szczegóły w dzienniku poczty.": ["Odeslání se nezdařilo — podrobnosti v deníku pošty.", "Sending failed — details in the mail log."],
   "Wiadomość wysłana na adres {e}.": ["Zpráva odeslána na adresu {e}.", "Message sent to {e}."],
 
   /* --- planer: dni tygodnia, widoki, wskaźniki --- */

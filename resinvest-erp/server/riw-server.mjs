@@ -14,14 +14,14 @@
    ========================================================================= */
 import { createServer as createHttp } from "node:http";
 import { createServer as createHttps } from "node:https";
-import { readFileSync, existsSync, copyFileSync, createReadStream, statSync, renameSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, copyFileSync, createReadStream, statSync, renameSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { networkInterfaces } from "node:os";
 import { ROOT, Store, ROWS, loadConfig, loadEnv, parseDomains, makeLogger, verifyPassword, I18N, R, AuthLib, Service } from "./core.mjs";
-import { mailConfig, mailInfo, sendMail, compose, sendRaw } from "./mail.mjs";
+import { mailConfig, mailInfo, mailHint, sendMail, compose, sendRaw } from "./mail.mjs";
 
 const [major, minor] = process.versions.node.split(".").map(Number);
 if (major < 22 || (major === 22 && minor < 13)) { console.error(`ResInvest ERP Serwer wymaga Node.js 22.13 lub nowszego (jest ${process.versions.node}).`); process.exit(1); }
@@ -34,7 +34,7 @@ const log = makeLogger(join(cfg.dataDir, "logs"));
 const HTML_FILE = join(ROOT, "ResInvest_ERP.html");
 const VERSION = R.VERSION;
 const { env, files: envFiles } = loadEnv(cfg.dataDir);
-const mailCfg = mailConfig(env, cfg.dataDir);
+let mailCfg = mailConfig(env, cfg.dataDir);           // 3.13: przeładowywane po zmianie w Poczta → Konfiguracja poczty
 // 3.12: druga kopia bazy w folderze firmy (udział sieciowy) — lista folderów rozdzielona średnikiem
 cfg.backup.copyTo = String(env.BACKUP_COPY_TO || "").split(";").map(x => x.trim()).filter(Boolean);
 const HOURS = { invite: Number(env.INVITE_HOURS) || 72, reset: Number(env.RESET_HOURS) || 1, confirm: Number(env.CONFIRM_HOURS) || 48 };
@@ -74,9 +74,10 @@ if (arg("--mail-test")) {
 }
 
 /* ---------------- HTTP ---------------- */
+// connect-src data: — intro zamienia osadzony film na Blob przez fetch(data:) (bez połączeń sieciowych; 3.13)
 const SEC_HEADERS = {
   "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer",
-  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 };
 const tls = cfg.tls && cfg.tls.cert && cfg.tls.key && existsSync(cfg.tls.cert) && existsSync(cfg.tls.key);
 const COOKIE = "riw_sid";
@@ -188,26 +189,90 @@ function mailLimited(key, max, minutes) {
   return arr.length > max;
 }
 const whName = id => (R.byId(store.state.warehouses, id) || {}).name || "";
+
+/* ---------------- 3.13: konfiguracja poczty z programu (zapis w <dane>/server.env, bez restartu) ---------------- */
+const MAIL_KEYS = ["EMAIL_TRANSPORT", "SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM", "EMAIL_REPLY_TO", "APP_URL"];
+/** Ustawienia do formularza — bez hasła (tylko informacja, czy jest zapisane). */
+function mailSettings() {
+  return { transport: mailCfg.transport, host: mailCfg.smtp.host, port: mailCfg.smtp.port, secure: mailCfg.smtp.secure, user: mailCfg.smtp.user, hasPass: !!mailCfg.smtp.pass,
+    from: String(env.EMAIL_FROM || ""), replyTo: String(env.EMAIL_REPLY_TO || ""), appUrl: String(env.APP_URL || ""), appUrlEffective: appUrl(),
+    envFile: join(cfg.dataDir, "server.env"), overridden: MAIL_KEYS.filter(k => process.env[k] !== undefined && process.env[k] !== "") };
+}
+/** Wartość dla pliku .env — w cudzysłowie, gdy zawiera spację, # albo cudzysłów (parser server.env zdejmuje cudzysłowy). */
+function envValue(v) {
+  const x = String(v == null ? "" : v);
+  if (/[\r\n]/.test(x)) return null;
+  if (!/[\s#"']/.test(x)) return x;
+  if (!x.includes('"')) return `"${x}"`;
+  if (!x.includes("'")) return `'${x}'`;
+  return null;
+}
+function setEnvLine(text, key, value) {
+  const re = new RegExp(`^[ \\t]*(?:#[ \\t]*)?${key}[ \\t]*=.*$`, "m");
+  const active = new RegExp(`^[ \\t]*${key}[ \\t]*=.*$`, "m");
+  const line = `${key}=${value}`;
+  if (active.test(text)) return text.replace(active, () => line);              // funkcja: „$” w haśle bez specjalnego znaczenia
+  if (re.test(text)) return text.replace(re, () => line);
+  return `${text.replace(/\s*$/, "")}\r\n${line}\r\n`;
+}
+function saveMailConfig(b) {
+  const transport = ["smtp", "resend", "agentmail", "file"].includes(b.transport) ? b.transport : "smtp";
+  const port = Number(b.port) || 0, secure = ["ssl", "starttls", "none"].includes(b.secure) ? b.secure : "";
+  const host = String(b.host || "").trim(), user = String(b.user || "").trim(), from = String(b.from || "").trim(), app = String(b.appUrl || "").trim().replace(/\/+$/, "");
+  if (transport === "smtp") {
+    if (!/^[A-Za-z0-9.-]{3,253}$/.test(host)) return { ok: false, error: t("Podaj adres serwera SMTP (np. smtp.office365.com)") };
+    if (!(port > 0 && port < 65536)) return { ok: false, error: t("Nieprawidłowy port SMTP") };
+    if (user && !/^[^\s]{1,254}$/.test(user)) return { ok: false, error: t("Nieprawidłowy login SMTP") };
+  }
+  if (from && !R.EMAIL_RE.test(addr(from))) return { ok: false, error: t("Nieprawidłowy adres nadawcy") };
+  if (app && !/^https?:\/\/[^\s/]+(:\d+)?$/i.test(app)) return { ok: false, error: t("Adres programu zaczyna się od „http” lub „https”, potem nazwa lub IP serwera i port (bez ścieżki)") };
+  const values = { EMAIL_TRANSPORT: transport, SMTP_HOST: host, SMTP_PORT: port ? String(port) : "", SMTP_SECURE: secure, SMTP_USER: user, EMAIL_FROM: from, APP_URL: app };
+  const passChanged = typeof b.pass === "string" && b.pass !== "";
+  if (passChanged) values.SMTP_PASS = b.pass;
+  if (b.clearPass) values.SMTP_PASS = "";
+  const file = join(cfg.dataDir, "server.env");
+  let text = existsSync(file) ? readFileSync(file, "utf8") : "# ResInvest ERP Serwer — ustawienia administratora (zapisane z programu: Poczta → Konfiguracja poczty)\r\n";
+  for (const [k, v] of Object.entries(values)) {
+    const ev = envValue(v);
+    if (ev === null) return { ok: false, error: t("Wartość pola {k} zawiera niedozwolone znaki", { k }) };
+    text = setEnvLine(text, k, ev);
+  }
+  mkdirSync(cfg.dataDir, { recursive: true });
+  const tmp = file + ".tmp";
+  writeFileSync(tmp, text.replace(/\r?\n/g, "\r\n")); renameSync(tmp, file);
+  const fresh = loadEnv(cfg.dataDir).env;
+  for (const k of MAIL_KEYS) { if (fresh[k] === undefined) delete env[k]; else env[k] = fresh[k]; }
+  mailCfg = mailConfig(env, cfg.dataDir);
+  return { ok: true, info: mailInfo(mailCfg), file, passChanged: passChanged || !!b.clearPass, overridden: MAIL_KEYS.filter(k => process.env[k] !== undefined && process.env[k] !== "") };
+}
+const addr = s => { const m = /<([^>]+)>/.exec(String(s)); return (m ? m[1] : String(s)).trim(); };
 /** Wysyłka z szablonu + zapis w kolejce `outbox`. Komunikat dla użytkownika bez szczegółów technicznych. */
 async function mailTo(template, u, data, email) {
   const to = email || u.email || u.login;
   const r = await sendMail(mailCfg, template, to, Object.assign({ name: u.name, email: to }, data), log);
   store.logMail(template, to, u.id, r, mailCfg.transport);
-  return r.ok ? { ok: true, transport: mailCfg.transport, file: r.file || "" } : { ok: false, error: t("Nie udało się wysłać wiadomości e-mail. Sprawdź konfigurację poczty (dziennik serwera) i spróbuj ponownie.") };
+  // 3.13: szczegół i wskazówka trafiają tylko do administratora (wywołanie z panelu); ekran logowania dostaje komunikat ogólny
+  return r.ok ? { ok: true, transport: mailCfg.transport, file: r.file || "" } : { ok: false, error: t("Nie udało się wysłać wiadomości e-mail. Sprawdź konfigurację poczty (dziennik serwera) i spróbuj ponownie."), detail: r.error || "", hint: r.hint || mailHint(r.error) };
 }
 /** Zaproszenie: nowy token (poprzednie tracą ważność), e-mail, wpis audytu. Błąd wysyłki — konto zostaje INVITED. */
 async function sendInvite(u, actor, meta) {
   const token = store.createToken(u.id, "invite", HOURS.invite, u.email, actor && actor.id);
-  const m = await mailTo("invite", u, { link: `${appUrl()}/#/invite/accept?token=${token}`, hours: HOURS.invite, role: (R.ROLES[u.role] || {}).code, warehouse: whName(u.whId) });
-  if (!m.ok) store.dropTokens(u.id, "invite");
+  const link = `${appUrl()}/#/invite/accept?token=${token}`;
+  const m = await mailTo("invite", u, { link, hours: HOURS.invite, role: (R.ROLES[u.role] || {}).code, warehouse: whName(u.whId) });
+  // 3.13: e-mail nie wyszedł → link zaproszenia dostaje administrator (może go przekazać sam: Teams, SMS, wydruk).
+  // Administrator i tak może założyć konto z hasłem tymczasowym — link nie daje mu nowych uprawnień.
+  if (!m.ok && actor) m.link = link;
+  else if (!m.ok) store.dropTokens(u.id, "invite");
   store.auditEvent({ entityId: u.id, opNo: u.login, code: m.ok ? "INVITE_SENT" : "INVITE_EMAIL_FAILED",
     act: R.Lx(m.ok ? N_("Wysłanie zaproszenia e-mail: {l}") : N_("Wysłanie zaproszenia nieudane: {l}"), { l: u.login }), before: null, after: { email: u.login, wysylka: m.ok ? mailCfg.transport : "błąd" }, source: N_("Administracja — użytkownicy") }, meta, actor);
   return m;
 }
 async function sendConfirm(u, actor, meta) {
   const token = store.createToken(u.id, "confirm", HOURS.confirm, u.email, actor && actor.id);
-  const m = await mailTo("confirm", u, { link: `${appUrl()}/#/confirm-email?token=${token}`, hours: HOURS.confirm });
-  if (!m.ok) store.dropTokens(u.id, "confirm");
+  const link = `${appUrl()}/#/confirm-email?token=${token}`;
+  const m = await mailTo("confirm", u, { link, hours: HOURS.confirm });
+  if (!m.ok && actor) m.link = link;                        // jak przy zaproszeniu — tylko gdy wysyła administrator
+  else if (!m.ok) store.dropTokens(u.id, "confirm");
   store.auditEvent({ entityId: u.id, opNo: u.login, code: m.ok ? "EMAIL_CONFIRMATION_SENT" : "EMAIL_CONFIRMATION_FAILED", act: R.Lx(N_("Wysłanie prośby o potwierdzenie adresu: {l}"), { l: u.login }), before: null, after: { wysylka: m.ok ? mailCfg.transport : "błąd" }, source: N_("Administracja — użytkownicy") }, meta, actor);
   return m;
 }
@@ -322,7 +387,7 @@ async function handleApi(req, res, url) {
     const origin = req.headers.origin;
     if (origin && origin !== `${tls ? "https" : "http"}://${req.headers.host}`) return json(req, res, 403, { ok: false, error: t("Żądanie odrzucone (inne pochodzenie)") });
   }
-  if (path === "/api/health") return json(req, res, 200, { ok: true, app: "resinvest-erp", mode: "server", version: VERSION, setup: !store.hasAccounts(), integrity: store.integrity.ok, host: req.headers.host, selfRegistration: !!(store.state && store.state.config.allowSelfRegistration), companyDomains: store.state ? (store.state.config.companyDomains || []) : ((globalThis.RIW_CONFIG && globalThis.RIW_CONFIG.companyDomains) || []) });
+  if (path === "/api/health") return json(req, res, 200, { ok: true, app: "resinvest-erp", mode: "server", version: VERSION, setup: !store.hasAccounts(), integrity: store.integrity.ok, host: req.headers.host, selfRegistration: !!(store.state && store.state.config.allowSelfRegistration), mailReady: !mailInfo(mailCfg).problem && mailCfg.transport !== "file", companyDomains: store.state ? (store.state.config.companyDomains || []) : ((globalThis.RIW_CONFIG && globalThis.RIW_CONFIG.companyDomains) || []) });
   if (path === "/api/setup" && method === "POST") {
     if (store.hasAccounts()) return json(req, res, 409, { ok: false, error: t("Serwer jest już skonfigurowany") });
     const b = await readBody(req);
@@ -352,6 +417,7 @@ async function handleApi(req, res, url) {
     broadcast(store.state.rev, null);
     const u = R.byId(store.state.users, r.userId);
     const mail = u ? await sendConfirm(u, null, metaOf(req)) : { ok: false };
+    if (!mail.ok) log("WARN", `Rejestracja ${u ? u.login : ""}: e-mail potwierdzający nie wyszedł (${mail.detail || "—"}). Administrator może wysłać go ponownie z modułu Użytkownicy.`);
     return json(req, res, 200, { ok: true, confirm: true, mail: { ok: !!mail.ok, transport: mail.transport || "" } });
   }
   /* ---- linki z e-maili (bez sesji): zaproszenie, reset hasła, potwierdzenie adresu ---- */
@@ -596,7 +662,7 @@ async function handleApi(req, res, url) {
     if (path === "/api/mail/outbox" && method === "GET") {
       const st = String(url.searchParams.get("status") || "");
       const o = store.outbox(["QUEUED", "SENDING", "SENT", "FAILED", "DEAD"].includes(st) ? st : "", 300);
-      return json(req, res, 200, { ok: true, rows: o.rows, stats: o.stats, mail: mailInfo(mailCfg) });
+      return json(req, res, 200, { ok: true, rows: o.rows.map(x => Object.assign({}, x, x.error ? { hint: mailHint(x.error) } : {})), stats: o.stats, mail: mailInfo(mailCfg), settings: mailSettings() });
     }
     if (method !== "POST") return json(req, res, 404, { ok: false, error: t("Nie znaleziono") });
     const b = await readBody(req, 64 * 1024), meta = metaOf(req);
@@ -607,12 +673,24 @@ async function handleApi(req, res, url) {
       return json(req, res, 200, { ok: true, message: t("Wysłano: {a}, nieudane: {b}", { a: r.sent, b: r.failed }) });
     }
     if (path === "/api/mail/test") {
-      const to = user.email || user.login;
+      // 3.13: wysyłka od razu (bez kolejki) — administrator widzi wynik i wskazówkę w tym samym oknie
+      const to = String(b.to || "").trim().toLowerCase() || user.email || user.login;
+      if (!R.EMAIL_RE.test(to)) return json(req, res, 400, { ok: false, error: t("Nieprawidłowy adres e-mail") });
       const msg = compose("test", to, { name: user.name, transport: mailInfo(mailCfg).transport, by: user.name });
-      store.enqueueMail("test", to, user.id, msg.subject, { html: msg.html, text: msg.text }, null);
-      store.auditEvent({ entityId: user.id, opNo: to, code: "MAIL_TEST", act: R.Lx(N_("Wiadomość testowa na adres {e}"), { e: to }), before: null, after: { transport: mailCfg.transport }, entity: "system", event: "settings", source: N_("Poczta") }, meta, user);
-      const r = await drainMail();
-      return json(req, res, 200, { ok: true, message: r.failed ? t("Wysyłka nieudana — szczegóły w dzienniku poczty.") : t("Wiadomość wysłana na adres {e}.", { e: to }) });
+      const r = await sendRaw(mailCfg, msg, log);
+      store.logMail("test", to, user.id, r, mailCfg.transport);
+      store.auditEvent({ entityId: user.id, opNo: to, code: "MAIL_TEST", act: R.Lx(N_("Wiadomość testowa na adres {e}"), { e: to }), before: null, after: { transport: mailCfg.transport, wynik: r.ok ? "wysłano" : "błąd" }, entity: "system", event: "settings", source: N_("Poczta") }, meta, user);
+      if (!r.ok) return json(req, res, 200, { ok: false, error: t("Wysyłka nieudana"), detail: r.error, hint: r.hint || "" });
+      return json(req, res, 200, { ok: true, message: mailCfg.transport === "file" ? t("Poczta nieskonfigurowana — wiadomość zapisano jako plik {f}.", { f: r.file || "" }) : t("Wiadomość wysłana na adres {e}.", { e: to }) });
+    }
+    if (path === "/api/mail/config") {
+      if (user.role !== "admin") return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Konfigurację poczty zmienia wyłącznie administrator.") });
+      const r = saveMailConfig(b);
+      if (!r.ok) return json(req, res, 400, r);
+      store.auditEvent({ entityId: "mail", opNo: "server.env", code: "SETTINGS_CHANGED", act: R.Lx(N_("Konfiguracja poczty: {h}"), { h: r.info.smtp ? `${r.info.smtp.host}:${r.info.smtp.port}` : r.info.transport }),
+        before: null, after: Object.assign({ transport: r.info.transport, nadawca: r.info.from, link: appUrl() }, r.info.smtp ? { serwer: r.info.smtp.host, port: r.info.smtp.port, login: r.info.smtp.user, haslo: r.passChanged ? "zmienione" : "bez zmian" } : {}), entity: "system", event: "settings", source: N_("Poczta") }, meta, user);
+      log("INFO", `Konfiguracja poczty zmieniona przez ${user.login}: ${r.info.transport}${r.info.smtp ? " " + r.info.smtp.host + ":" + r.info.smtp.port : ""}${r.info.configured ? "" : " (niepełna: " + r.info.problem + ")"}`);
+      return json(req, res, 200, { ok: true, mail: r.info, appUrl: appUrl(), envFile: r.file, overridden: r.overridden });
     }
     if (path === "/api/mail/drain") { const r = await drainMail(); return json(req, res, 200, { ok: true, message: t("Wysłano: {a}, nieudane: {b}", { a: r.sent, b: r.failed }) }); }
     return json(req, res, 404, { ok: false, error: t("Nie znaleziono") });

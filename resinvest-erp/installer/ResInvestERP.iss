@@ -8,7 +8,7 @@
 ;  Skrypt: buduje ResInvest_ERP.html, generuje dane przykładowe, pobiera
 ;  środowisko Node.js (node.exe, weryfikacja SHA-256) do installer\runtime
 ;  i kompiluje ten plik dla każdego wariantu (/DEditionId=firma|gmail|otwarta).
-;  Wynik: installer\Output\ResInvestERP_Serwer_Setup_3.12.0_<Wariant>.exe
+;  Wynik: installer\Output\ResInvestERP_Serwer_Setup_3.13.0_<Wariant>.exe
 ;
 ;  Warianty (installer\editions\*.json → tools\make-edition.mjs → installer\build\<wariant>\):
 ;   * firma   — konta tylko @resinvest.group, poczta Microsoft 365 (SMTP),
@@ -34,7 +34,7 @@
 #include AddBackslash(SourcePath) + "build\" + EditionId + "\edition.iss"
 
 #define AppName "ResInvest ERP"
-#define AppVersion "3.12.0"
+#define AppVersion "3.13.0"
 #define AppPublisher "ResInvest Commodities"
 #define AppURL "http://localhost:8080/"
 #define ServerPort "8080"
@@ -76,13 +76,13 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Messages]
 ; ostatni ekran kreatora: jak zalogować się pierwszy raz (zależnie od wariantu)
 #if EditionAdmin != ""
-polish.FinishedLabel=Instalacja zakończona. Po kliknięciu „Zakończ” serwer uruchomi się i otworzy program (http://localhost:8080).%n%nPierwsze logowanie:%n   e-mail:  {#EditionAdmin}%n   hasło:  {#EditionAdminPassword}%nProgram poprosi o ustawienie własnego hasła.%n%nInne komputery w sieci: http://<adres tego komputera>:8080
-czech.FinishedLabel=Instalace dokončena. Po kliknutí na „Dokončit“ se spustí server a otevře program (http://localhost:8080).%n%nPrvní přihlášení:%n   e-mail:  {#EditionAdmin}%n   heslo:  {#EditionAdminPassword}%nProgram vás požádá o nastavení vlastního hesla.
-english.FinishedLabel=Setup is complete. After you click Finish the server starts and opens the program (http://localhost:8080).%n%nFirst sign-in:%n   e-mail:  {#EditionAdmin}%n   password:  {#EditionAdminPassword}%nYou will be asked to set your own password.
+polish.FinishedLabel=Instalacja zakończona. Po kliknięciu „Zakończ” serwer uruchomi się i otworzy program (http://localhost:8080).%n%nPierwsze logowanie:%n   e-mail:  {#EditionAdmin}%n   hasło:  {#EditionAdminPassword}%nProgram poprosi o ustawienie własnego hasła.%n%nPoczta (zaproszenia, reset hasła): w programie Poczta → Konfiguracja poczty.%nInne komputery w sieci: http://<adres tego komputera>:8080
+czech.FinishedLabel=Instalace dokončena. Po kliknutí na „Dokončit“ se spustí server a otevře program (http://localhost:8080).%n%nPrvní přihlášení:%n   e-mail:  {#EditionAdmin}%n   heslo:  {#EditionAdminPassword}%nProgram vás požádá o nastavení vlastního hesla.%n%nPošta (pozvánky, obnova hesla): v programu Pošta → Nastavení pošty.
+english.FinishedLabel=Setup is complete. After you click Finish the server starts and opens the program (http://localhost:8080).%n%nFirst sign-in:%n   e-mail:  {#EditionAdmin}%n   password:  {#EditionAdminPassword}%nYou will be asked to set your own password.%n%nE-mail (invitations, password reset): in the program Mail → E-mail settings.
 #else
-polish.FinishedLabel=Instalacja zakończona. Po kliknięciu „Zakończ” serwer uruchomi się i otworzy program (http://localhost:8080).%n%nPierwsze uruchomienie: utwórz konto administratora (adres {#EditionDomains}) na ekranie, który się pojawi.
-czech.FinishedLabel=Instalace dokončena. Po kliknutí na „Dokončit“ se spustí server a otevře program (http://localhost:8080).%n%nPrvní spuštění: vytvořte účet administrátora (adresa {#EditionDomains}).
-english.FinishedLabel=Setup is complete. After you click Finish the server starts and opens the program (http://localhost:8080).%n%nFirst start: create the administrator account ({#EditionDomains}) on the screen that appears.
+polish.FinishedLabel=Instalacja zakończona. Po kliknięciu „Zakończ” serwer uruchomi się i otworzy program (http://localhost:8080).%n%nPierwsze uruchomienie: utwórz konto administratora (adres {#EditionDomains}) na ekranie, który się pojawi.%n%nPoczta (zaproszenia, reset hasła): w programie Poczta → Konfiguracja poczty.
+czech.FinishedLabel=Instalace dokončena. Po kliknutí na „Dokončit“ se spustí server a otevře program (http://localhost:8080).%n%nPrvní spuštění: vytvořte účet administrátora (adresa {#EditionDomains}).%n%nPošta: v programu Pošta → Nastavení pošty.
+english.FinishedLabel=Setup is complete. After you click Finish the server starts and opens the program (http://localhost:8080).%n%nFirst start: create the administrator account ({#EditionDomains}) on the screen that appears.%n%nE-mail: in the program Mail → E-mail settings.
 #endif
 
 [CustomMessages]
@@ -131,9 +131,9 @@ english.LnkCheck=Database integrity check
 polish.LnkData=Folder danych serwera
 czech.LnkData=Složka dat serveru
 english.LnkData=Server data folder
-polish.LnkEnv=Konfiguracja poczty i adresu (server.env)
-czech.LnkEnv=Nastavení pošty a adresy (server.env)
-english.LnkEnv=E-mail and address settings (server.env)
+polish.LnkEnv=Ustawienia serwera (server.env)
+czech.LnkEnv=Nastavení serveru (server.env)
+english.LnkEnv=Server settings (server.env)
 polish.LnkShare=Folder firmy (udział sieciowy)
 czech.LnkShare=Složka firmy (síťová sdílená složka)
 english.LnkShare=Company folder (network share)
@@ -236,6 +236,10 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /FI ""WINDOWTITLE eq ResInvest ERP Serwer*"""; Flags: runhidden; RunOnceId: "stop"; Components: server
 
 [InstallDelete]
+; 3.13: skrót do server.env ma nową nazwę (poczta ustawiana w programie: Poczta → Konfiguracja poczty)
+Type: files; Name: "{group}\Konfiguracja poczty i adresu (server.env).lnk"
+Type: files; Name: "{group}\Nastavení pošty a adresy (server.env).lnk"
+Type: files; Name: "{group}\E-mail and address settings (server.env).lnk"
 ; 3.12: skróty z wersji 3.11 z długą kreską w nazwie (zastąpione nazwami z „-”)
 Type: files; Name: "{group}\ResInvest ERP Serwer — uruchom.lnk"
 Type: files; Name: "{group}\ResInvest ERP (serwer) — otwórz w przeglądarce.lnk"

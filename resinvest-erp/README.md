@@ -46,6 +46,41 @@ Program nie korzysta z bibliotek zewnętrznych pobieranych z sieci (CDN) — wsz
 (dołączony dekoder kodów QR jsQR 1.4.0, licencja Apache-2.0: `app/vendor/jsQR.LICENSE`). Internet jest potrzebny tylko
 serwerowi do wysyłki e-maili (Resend); bez poczty zaproszenia zapisują się jako pliki `.eml`.
 
+## Nowe w 3.13.0
+* **Poczta działa po instalacji bez edycji plików.** Diagnoza i plan: [`docs/POCZTA_I_INSTALATORY_PLAN_3_13.md`](docs/POCZTA_I_INSTALATORY_PLAN_3_13.md).
+  * Instalatory 3.12 zostawiały puste hasło SMTP (wariant „Bez ograniczeń” także pusty serwer), więc każda wysyłka
+    (zaproszenie, potwierdzenie rejestracji, reset hasła) kończyła się błędem.
+  * Nowa karta **Poczta → Konfiguracja poczty** (administrator):
+    * gotowe ustawienia dla Microsoft 365, Gmail, Outlook.com i innego serwera;
+    * zapis do `C:\ProgramData\ResInvestERP\server.env` bez restartu serwera;
+    * hasło tylko do zapisu (serwer nie odsyła go do przeglądarki);
+    * **Wyślij test** z wynikiem od razu.
+  * Każdy błąd wysyłki ma wskazówkę dla administratora: Microsoft 365 `5.7.139` (włącz „Uwierzytelniony SMTP”),
+    Gmail `5.7.8` (hasło aplikacji), `5.7.60` (nadawca = skrzynka), sieć, port, certyfikat.
+  * Gdy e-mail nie wyjdzie, konto i tak powstaje, a administrator dostaje **link zaproszenia do przekazania** („Kopiuj link”).
+  * Poprawki:
+    * pusty `SMTP_HOST` nie oznacza już obcego serwera Resend;
+    * spacje w haśle aplikacji Gmail są usuwane;
+    * nadawca dla M365/Gmail = zalogowana skrzynka.
+  * Pulpit administratora ostrzega, dopóki poczta nie jest skonfigurowana.
+* **Język i motyw tylko w Ustawieniach.** Nowa pozycja **Ustawienia → Wygląd i język** jest dostępna dla każdego użytkownika.
+  Z górnego paska i z ekranu logowania usunięto przełączniki języka i motywu. Ekran logowania używa ostatnich ustawień
+  przeglądarki albo języka systemu. Skrót Ctrl+D (kolejny motyw) działa dalej.
+* **Nowe motywy:**
+  * **Office 98** (szare okna, granatowe paski tytułu, wypukłe przyciski);
+  * **Office 2003** (niebieski Luna, pomarańczowe zaznaczenie);
+  * **Office 2007** (wstążka);
+  * **Własny — trzy kolory z pełnej palety** (tło, akcent, menu boczne). Program dobiera kolor tekstu i odcienie automatycznie,
+    z kontrastem tekstu ≥ 4,5:1 i akcentu ≥ 3:1, sprawdzonym na 576 kombinacjach. Kolory zapisują się w profilu użytkownika.
+* **Ekran startowy (splash) od pierwszej klatki do wczytania bazy.**
+  * Intro startuje od razu, także przy „ograniczeniu animacji” w Windows.
+  * Gdy intro skończy się albo zostanie pominięte, zanim baza się wczyta, zostaje ekran ładowania z etapem:
+    „Łączenie z serwerem…”, „Wczytywanie bazy danych…”, „Przygotowanie pulpitu…”.
+  * Ten sam ekran pojawia się przy dłuższym wczytywaniu bazy po zalogowaniu.
+  * Wyłączenie intro (Administracja) zostawia sam ekran ładowania.
+* Testy: `tests/mail313.test.mjs`, `tests/e2e313.cjs` (splash, poczta, link zaproszenia, telefon); rozszerzone
+  `tests/e2e.cjs` (12 motywów, motyw własny, kontrast) i `tests/e2e312.cjs`.
+
 ## Nowe w 3.12.0
 * **Menu → nowa grupa „Ustawienia”**: *Użytkownicy*, *Role i uprawnienia*, *Dziennik audytu*. W grupie **„System”** zostają
   *Mój profil*, *Administracja*, *Poczta*, *Powiadomienia*. Grupa, w której rola nie ma żadnej pozycji (np. magazynier

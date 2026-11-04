@@ -40,13 +40,14 @@ const go = (page, r) => page.evaluate(x => { location.hash = "#/" + x; }, r).the
     const a = await session(browser, "magazyn@resinvest.group");
     const nav = await navList(a.page);
     const i = nav.indexOf("#Ustawienia");
-    check("administrator: „Ustawienia” → Użytkownicy, Role i uprawnienia, Dziennik audytu; „System” → Mój profil, Administracja, Poczta, Powiadomienia",
-      i > 0 && JSON.stringify(nav.slice(i)) === JSON.stringify(["#Ustawienia", "uzytkownicy", "role", "audyt", "#System", "profil", "administracja", "poczta", "powiadomienia"]), nav.slice(i));
+    check("administrator: „Ustawienia” → Wygląd i język (3.13), Użytkownicy, Role i uprawnienia, Dziennik audytu; „System” → Mój profil, Administracja, Poczta, Powiadomienia",
+      i > 0 && JSON.stringify(nav.slice(i)) === JSON.stringify(["#Ustawienia", "wyglad", "uzytkownicy", "role", "audyt", "#System", "profil", "administracja", "poczta", "powiadomienia"]), nav.slice(i));
     await shot(a.page, "312-menu-admin");
     await a.ctx.close();
     const m = await session(browser, "adrian.wojciechowski@resinvest.group");
     const navM = await navList(m.page);
-    check("magazynier: grupa „Ustawienia” bez pozycji jest ukryta, „System” zostaje", !navM.includes("#Ustawienia") && navM.includes("#System") && navM.includes("profil"), navM);
+    // 3.13: każdy użytkownik ma „Ustawienia → Wygląd i język” (język i motyw); konta, role i audyt — tylko z uprawnieniem
+    check("magazynier: „Ustawienia” tylko z „Wygląd i język” (bez kont, ról i audytu), „System” zostaje", JSON.stringify(navM.slice(navM.indexOf("#Ustawienia"), navM.indexOf("#System"))) === JSON.stringify(["#Ustawienia", "wyglad"]) && navM.includes("profil"), navM);
     await m.ctx.close();
 
     /* ---------------- przeliczniki miesiąca ---------------- */

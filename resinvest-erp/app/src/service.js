@@ -89,7 +89,7 @@
     /* ---- użytkownicy (profil; hasło — Auth hosta) ---- */
     "user.save": { perm: "users.manage", run: (s, a, c) => R.Users.save(s, a.rec, c) },
     "user.remove": { perm: "users.manage", run: (s, a, c) => R.Users.remove(s, a.id, c) },
-    "me.prefs": { run: (s, a, c) => R.Users.setPrefs(s, { lang: a.lang, theme: a.theme }, c) },
+    "me.prefs": { run: (s, a, c) => R.Users.setPrefs(s, { lang: a.lang, theme: a.theme, themeColors: a.themeColors }, c) },
     "me.warehouse": { run: (s, a, c) => R.Users.setMyWarehouse(s, a.whId, c) },
     /* ---- role, uprawnienia, konfiguracja (administrator) ---- */
     "roles.save": { perm: "roles.assign", run: (s, a, c) => R.Roles.save(s, str(a.role), a.perms, c) },

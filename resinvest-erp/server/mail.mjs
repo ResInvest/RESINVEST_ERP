@@ -87,6 +87,7 @@ export const TEMPLATES = {
 };
 
 /* ---------------- konfiguracja ---------------- */
+const addr = s => { const m = /<([^>]+)>/.exec(s); return (m ? m[1] : s).trim(); };
 export function mailConfig(env, dataDir) {
   const resendKey = String(env.RESEND_API_KEY || "").trim(), amKey = String(env.AGENTMAIL_API_KEY || "").trim();
   let transport = String(env.EMAIL_TRANSPORT || "").trim().toLowerCase();
@@ -94,19 +95,31 @@ export function mailConfig(env, dataDir) {
   if (!["resend", "smtp", "agentmail", "file"].includes(transport)) transport = "file";
   const key = transport === "agentmail" ? amKey : resendKey;
   const amInbox = String(env.AGENTMAIL_INBOX || "").trim().toLowerCase();
-  const smtpHost = String(env.SMTP_HOST || "smtp.resend.com").trim(), smtpPort = Number(env.SMTP_PORT || 465) || 465;
+  // 3.13: smtp.resend.com tylko gdy jest klucz Resend — pusty SMTP_HOST oznacza „nie skonfigurowano”, a nie cudzy serwer
+  const smtpHost = String(env.SMTP_HOST || (resendKey ? "smtp.resend.com" : "")).trim(), smtpPort = Number(env.SMTP_PORT || 465) || 465;
   const isResend = /(^|\.)resend\.com$/i.test(smtpHost);
   let secure = String(env.SMTP_SECURE || "").trim().toLowerCase();
   if (!["ssl", "starttls", "none"].includes(secure)) secure = smtpPort === 465 ? "ssl" : "starttls";
+  const user = String(env.SMTP_USER || (isResend ? "resend" : "")).trim();
+  let pass = String(env.SMTP_PASS || (isResend ? resendKey : ""));
+  // Gmail pokazuje hasło aplikacji w grupach „abcd efgh ijkl mnop” — spacje nie są częścią hasła
+  if (/(^|\.)(gmail|googlemail)\.com$/i.test(smtpHost) && /^[a-z]{4}( [a-z]{4}){3}$/i.test(pass.trim())) pass = pass.replace(/\s+/g, "");
+  let from = String(env.EMAIL_FROM || "ResInvest ERP <no-reply@resinvest.group>").trim(), fromNote = "";
+  // Microsoft 365 / Outlook / Gmail wysyłają tylko jako zalogowana skrzynka (inaczej 5.7.60 SendAsDenied albo podmiana nadawcy)
+  if (transport === "smtp" && /@/.test(user) && /(office365|outlook|hotmail|live|gmail|googlemail)\.com$/i.test(smtpHost) && addr(from).toLowerCase() !== user.toLowerCase()) {
+    const name = (/^(.*)<[^>]+>\s*$/.exec(from) || [])[1];
+    fromNote = `EMAIL_FROM ${addr(from)} ≠ SMTP_USER — nadawca ustawiony na ${user}`;
+    from = `${(name || "ResInvest ERP").trim()} <${user}>`;
+  }
   return {
-    transport, key,
+    transport, key, fromNote,
     agentmail: { inbox: amInbox, apiUrl: String(env.AGENTMAIL_API_URL || "https://api.agentmail.to").replace(/\/+$/, "") },
-    from: String(env.EMAIL_FROM || "ResInvest ERP <no-reply@resinvest.group>").trim(),
+    from,
     replyTo: String(env.EMAIL_REPLY_TO || "").trim(),
     smtp: {
       host: smtpHost, port: smtpPort, secure,
-      user: String(env.SMTP_USER || (isResend ? "resend" : "")).trim(),
-      pass: String(env.SMTP_PASS || (isResend ? resendKey : "")),
+      user,
+      pass,
       ehlo: String(env.SMTP_EHLO || hostname() || "resinvest-erp").trim().replace(/[^A-Za-z0-9.-]/g, "") || "resinvest-erp",
       envelopeFrom: String(env.SMTP_ENVELOPE_FROM || "").trim(),
       rejectUnauthorized: String(env.SMTP_TLS_REJECT_UNAUTHORIZED || "true").trim().toLowerCase() !== "false",
@@ -121,20 +134,47 @@ export function mailProblem(c) {
   if (c.transport === "file") return "";
   if (c.transport === "agentmail") return !c.key ? "brak klucza AGENTMAIL_API_KEY" : !c.agentmail.inbox ? "brak AGENTMAIL_INBOX (adres skrzynki nadawcy)" : "";
   if (c.transport === "resend") return c.key ? "" : "brak klucza RESEND_API_KEY";
-  if (!c.smtp.host) return "brak SMTP_HOST";
+  if (!c.smtp.host) return "brak SMTP_HOST (adres serwera poczty)";
   if (c.smtp.user && !c.smtp.pass) return "brak hasła SMTP_PASS";
   if (!c.smtp.user && c.smtp.secure !== "none") return "brak SMTP_USER (logowanie do serwera poczty)";
   return "";
 }
 /** Opis konfiguracji bez sekretów (panel administratora, raport startowy). */
 export const mailInfo = c => Object.assign({ transport: c.transport, from: c.transport === "agentmail" ? c.agentmail.inbox : c.from,
-  configured: !mailProblem(c), problem: mailProblem(c), outDir: c.transport === "file" ? c.outDir : "" },
+  configured: !mailProblem(c), problem: mailProblem(c), hint: mailHint(mailProblem(c)), fromNote: c.fromNote || "", outDir: c.transport === "file" ? c.outDir : "" },
   c.transport === "smtp" ? { smtp: { host: c.smtp.host, port: c.smtp.port, secure: c.smtp.secure, user: c.smtp.user, auth: !!c.smtp.user } } : {});
+
+/**
+ * 3.13: błąd wysyłki → wskazówka dla administratora (co zrobić). Kody odpowiedzi Microsoft 365, Gmail i błędy sieci.
+ * Pusty napis = brak znanej wskazówki.
+ */
+const N_ = s => s;                                         // tekst do tłumaczenia (przeglądarka tłumaczy wskazówkę na język użytkownika)
+export function mailHint(error) {
+  const e = String(error || "");
+  if (!e) return "";
+  const rules = [
+    [/brak hasła SMTP_PASS/i, N_("Wpisz hasło skrzynki w Poczta → Konfiguracja poczty (Gmail: hasło aplikacji, Microsoft 365: hasło skrzynki albo hasło aplikacji przy MFA).")],
+    [/brak SMTP_USER/i, N_("Wpisz login skrzynki (pełny adres e-mail) w Poczta → Konfiguracja poczty.")],
+    [/brak SMTP_HOST/i, N_("Wybierz dostawcę poczty (Microsoft 365, Gmail, inny serwer) w Poczta → Konfiguracja poczty.")],
+    [/5\.7\.139|SmtpClientAuthentication is disabled|basic authentication is disabled/i, N_("Microsoft 365 blokuje logowanie SMTP. Administrator Microsoft 365 musi włączyć „Uwierzytelniony SMTP” dla tej skrzynki (Centrum administracyjne → Użytkownicy → skrzynka → Poczta → Zarządzaj aplikacjami poczty e-mail) i nie może być włączone „Security defaults”. Przy MFA użyj hasła aplikacji.")],
+    [/5\.7\.60|SendAsDenied/i, N_("Skrzynka może wysyłać tylko we własnym imieniu: adres nadawcy musi być taki sam jak login SMTP.")],
+    [/5\.7\.57|not authenticated to send/i, N_("Serwer wymaga logowania: uzupełnij login i hasło skrzynki.")],
+    [/5\.7\.8|BadCredentials|Username and Password not accepted|Application-specific password required|534[ -]5\.7\.9/i, N_("Gmail odrzucił hasło. Włącz weryfikację dwuetapową na koncie Google i utwórz hasło aplikacji (myaccount.google.com → Bezpieczeństwo → Hasła aplikacji) — wpisz je zamiast zwykłego hasła.")],
+    [/5\.7\.3|535|authentication (unsuccessful|failed)|AUTH \(logowanie\)/i, N_("Serwer poczty odrzucił login lub hasło. Sprawdź login (pełny adres e-mail) i hasło; przy włączonym MFA potrzebne jest hasło aplikacji.")],
+    [/ENOTFOUND|EAI_AGAIN|getaddrinfo/i, N_("Nie znaleziono serwera poczty — sprawdź adres serwera SMTP i połączenie komputera z internetem.")],
+    [/ECONNREFUSED/i, N_("Serwer poczty odmówił połączenia — sprawdź port (587 STARTTLS albo 465 SSL).")],
+    [/ETIMEDOUT|przekroczony czas|ECONNRESET/i, N_("Brak odpowiedzi serwera poczty — zapora, antywirus lub sieć firmowa blokuje port 587/465. Sprawdź z działem IT.")],
+    [/certificate|self.signed|unable to verify|CERT_/i, N_("Nie można zweryfikować certyfikatu serwera poczty — najczęściej antywirus przechwytuje połączenia SSL. Dodaj wyjątek dla node.exe albo dla serwera SMTP.")],
+    [/nie oferuje STARTTLS/i, N_("Zmień szyfrowanie: port 465 → SSL, port 587 → STARTTLS.")],
+    [/RESEND_API_KEY|AGENTMAIL/i, N_("Uzupełnij klucz API dostawcy w Poczta → Konfiguracja poczty albo wybierz SMTP.")]
+  ];
+  const hit = rules.find(([re]) => re.test(e));
+  return hit ? hit[1] : "";
+}
 
 /* ---------------- wysyłka ---------------- */
 const b64 = s => Buffer.from(String(s), "utf8").toString("base64");
 const encHeader = s => /^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${b64(s)}?=`;
-const addr = s => { const m = /<([^>]+)>/.exec(s); return (m ? m[1] : s).trim(); };
 const encFrom = s => { const m = /^(.*)<([^>]+)>\s*$/.exec(s); return m ? `${encHeader(m[1].trim())} <${m[2]}>` : s; };
 const replyOf = (c, msg) => msg.replyTo || c.replyTo || "";
 function mime(c, msg) {
@@ -295,7 +335,7 @@ export async function sendRaw(c, msg, log) {
     return Object.assign({ ok: true, subject: msg.subject }, r);
   } catch (e) {
     if (log) log("ERROR", `E-mail „${msg.template}” → ${msg.to} nieudany (${c.transport}): ${e.message}`);
-    return { ok: false, error: e.message, subject: msg.subject };
+    return { ok: false, error: e.message, hint: mailHint(e.message), subject: msg.subject };
   }
 }
 

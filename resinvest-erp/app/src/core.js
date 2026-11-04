@@ -171,21 +171,79 @@
    * malowania przed logowaniem). Zmiana: jeden atrybut data-theme na <html> — wszystkie kolory to tokeny CSS,
    * więc przełączenie jest natychmiastowe, bez przeładowania i bez utraty stanu ekranu.
    */
+  /** 3.13: etap ładowania na ekranie startowym (splash) — gdy moduł intro jest wczytany. */
+  const splash = text => { try { if (root.Splash) root.Splash.status(text); } catch (e) { /* bez ekranu startowego */ } };
   const THEME_LIST = R.THEME_REGISTRY;
+  /**
+   * 3.13: kolory — mieszanie, jasność i kontrast (WCAG) do motywu własnego. Z trzech kolorów użytkownika
+   * (tło, akcent, menu boczne) powstaje pełny zestaw tokenów; akcent jest przyciemniany/rozjaśniany,
+   * aż osiągnie kontrast 3:1 z kartą, a tekst na przyciskach i w menu dobiera się automatycznie (biały / czarny).
+   */
+  const Clr = {
+    rgb(h) { const n = parseInt(String(h).slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; },
+    hex(c) { return "#" + c.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("").toUpperCase(); },
+    mix(a, b, k) { const x = Clr.rgb(a), y = Clr.rgb(b); return Clr.hex(x.map((v, i) => v + (y[i] - v) * k)); },
+    lum(h) { const c = Clr.rgb(h).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; },
+    contrast(a, b) { const x = Clr.lum(a), y = Clr.lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); },
+    ink(bg) { return Clr.contrast(bg, "#FFFFFF") >= Clr.contrast(bg, "#111111") ? "#FFFFFF" : "#111111"; },
+    rgba(h, a) { const c = Clr.rgb(h); return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
+  };
+  /** Tokeny CSS motywu własnego z trzech kolorów { bg, accent, bar }. */
+  function customThemeVars(cs) {
+    const c = R.themeColors(cs) || R.DEFAULT_THEME_COLORS;
+    const bg = c.bg, dark = Clr.lum(bg) < 0.18, text = dark ? "#EEF2F6" : "#141C24";
+    const surface = dark ? Clr.mix(bg, "#FFFFFF", 0.07) : Clr.mix(bg, "#FFFFFF", 0.82);
+    let brand = c.accent;
+    for (let i = 0; i < 12 && Clr.contrast(brand, surface) < 3; i++) brand = Clr.mix(brand, text, 0.15);
+    const bar = c.bar, barInk = Clr.ink(bar);
+    // tekst pomocniczy: tak jasny/ciemny, jak się da, ale z kontrastem ≥ min (np. tło nasycone #0000FF)
+    const fit = (k, min) => { let x = Clr.mix(text, surface, k); while (k > 0 && Clr.contrast(x, surface) < min) { k = Math.max(0, k - 0.04); x = Clr.mix(text, surface, k); } return x; };
+    const text2 = fit(0.25, 6), text3 = fit(0.36, 4.6);
+    const v = {
+      "--bg": bg, "--bg-grad": "none", "--surface": surface, "--surface-2": Clr.mix(surface, bg, 0.45), "--surface-3": Clr.mix(surface, text, 0.07),
+      "--field": dark ? Clr.mix(bg, "#000000", 0.18) : "#FFFFFF", "--row-alt": Clr.mix(surface, bg, 0.25),
+      "--border": Clr.mix(surface, text, 0.16), "--border-strong": Clr.mix(surface, text, 0.3), "--border-hover": Clr.mix(surface, text, 0.48),
+      "--text": text, "--text-head": dark ? "#FFFFFF" : "#0B1218", "--text-2": text2, "--text-3": text3,
+      "--brand": brand, "--brand-2": Clr.mix(brand, dark ? "#FFFFFF" : "#000000", 0.12), "--brand-ink": Clr.ink(brand), "--brand-soft": Clr.mix(surface, brand, 0.12),
+      "--brand-line": Clr.mix(surface, brand, 0.4), "--brand-ring": Clr.rgba(brand, 0.22), "--focus": brand,
+      "--chart-a": brand, "--chart-grid": Clr.mix(surface, text, 0.1),
+      "--hero": `linear-gradient(125deg,${Clr.mix(bar, "#000000", 0.25)} 0%,${bar} 55%,${Clr.mix(bar, brand, 0.45)} 100%)`, "--hero-ink": barInk, "--hero-dim": Clr.rgba(barInk, 0.75),
+      "--bar": bar, "--bar-ink": barInk, "--bar-sel": Clr.rgba(barInk, 0.16), "--bar-line": Clr.rgba(barInk, 0.14),
+      "--tip-bg": dark ? "#F1F4F7" : "#111820", "--tip-ink": dark ? "#111820" : "#FFFFFF", "--select-arrow": "%23" + text3.slice(1)
+    };
+    if (dark) Object.assign(v, { "--ok": "#41B87A", "--ok-soft": "#12281C", "--ok-line": "#265C41", "--warn": "#D8A63C", "--warn-soft": "#2B2211", "--warn-line": "#5C4719",
+      "--err": "#E4695C", "--err-soft": "#2E1614", "--err-line": "#6A2A24", "--info": "#5B9BF0", "--info-soft": "#111F33", "--info-line": "#23406A",
+      "--shadow": "0 22px 56px rgba(0,0,0,.6)", "--shadow-1": "0 1px 2px rgba(0,0,0,.5)", "--shadow-2": "0 6px 18px rgba(0,0,0,.45)", "--overlay": "rgba(0,0,0,.62)" });
+    return { vars: v, scheme: dark ? "dark" : "light" };
+  }
   const Prefs = {
     theme: (root.RIW_CONFIG && root.RIW_CONFIG.defaultTheme) || "pearl",
+    colors: null,
     listeners: new Set(),
     /** Subskrypcja zmian motywu (np. wykresy, które przeliczają kolory). Zwraca funkcję wypisania. */
     onTheme(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); },
-    applyTheme(id) {
+    /** Kolory motywu własnego: profil użytkownika → kopia w przeglądarce → domyślne. */
+    customColors() { return R.themeColors(this.colors) || R.themeColors((() => { try { return JSON.parse(lsGet("riw.themeColors", "null")); } catch (e) { return null; } })()) || Object.assign({}, R.DEFAULT_THEME_COLORS); },
+    applyTheme(id, colors) {
       const th = THEME_LIST.find(x => x.id === id) || THEME_LIST[0];
-      const changed = th.id !== this.theme;
+      if (colors) this.colors = R.themeColors(colors) || this.colors;
+      const sig = th.id + (th.custom ? JSON.stringify(this.customColors()) : "");
+      const changed = sig !== this._sig;
+      this._sig = sig;
       this.theme = th.id;
       const html = document.documentElement;
       html.classList.add("theme-switching");                                   // bez animacji przejść podczas zmiany
       html.setAttribute("data-theme", th.id);
-      html.style.colorScheme = th.scheme;
-      const meta = $('meta[name="color-scheme"]'); if (meta) meta.setAttribute("content", th.scheme);
+      let scheme = th.scheme;
+      html.style.cssText = "";                                                 // tokeny motywu własnego tylko przy „Własny”
+      if (th.custom) {
+        const cv = customThemeVars(this.customColors());
+        Object.entries(cv.vars).forEach(([k, v]) => html.style.setProperty(k, v));
+        scheme = cv.scheme;
+        lsSet("riw.themeVars", Object.entries(cv.vars).map(([k, v]) => `${k}:${v};`).join(""));
+      }
+      html.style.colorScheme = scheme;
+      const meta = $('meta[name="color-scheme"]'); if (meta) meta.setAttribute("content", scheme);
       root.requestAnimationFrame ? requestAnimationFrame(() => requestAnimationFrame(() => html.classList.remove("theme-switching"))) : html.classList.remove("theme-switching");
       if (changed) this.listeners.forEach(fn => { try { fn(th); } catch (e) { console.error(e); } });
     },
@@ -195,6 +253,7 @@
     },
     /** Preferencje zalogowanego użytkownika mają pierwszeństwo przed zapisanymi w przeglądarce. */
     fromUser(u) {
+      this.colors = (u && R.themeColors(u.themeColors)) || null;
       this.applyTheme((u && u.theme) || lsGet("riw.theme", (root.RIW_CONFIG && root.RIW_CONFIG.defaultTheme) || "pearl"));
       this.applyLang((u && u.lang) || I18N.detect(lsGet("riw.lang", ""), root.navigator && navigator.language));
     },
@@ -202,6 +261,14 @@
       this.applyTheme(id); lsSet("riw.theme", this.theme);
       if (Store.userId) await Store.exec("me.prefs", { theme: this.theme }, N_("Preferencje"), { quiet: true });
       App.refreshChrome();
+    },
+    /** 3.13: motyw własny — trzy kolory użytkownika (tło, akcent, menu boczne); zapis w profilu. */
+    async setCustom(colors, opts = {}) {
+      const c = R.themeColors(colors);
+      if (!c) return { ok: false, error: t("Nieprawidłowe kolory motywu (format #RRGGBB)") };
+      this.applyTheme("custom", c); lsSet("riw.theme", "custom"); lsSet("riw.themeColors", JSON.stringify(c));
+      if (opts.save !== false && Store.userId) return Store.exec("me.prefs", { theme: "custom", themeColors: c }, N_("Preferencje"), { quiet: true });
+      return { ok: true };
     },
     async setLang(code) {
       this.applyLang(code); lsSet("riw.lang", I18N.lang);
@@ -535,6 +602,7 @@
     { id: "kontrahenci", label: N_("Kontrahenci"), icon: "users" },
     { id: "magazyny", label: N_("Magazyny"), icon: "building" },
     { group: N_("Ustawienia") },
+    { id: "wyglad", label: N_("Wygląd i język"), icon: "drop" },
     { id: "uzytkownicy", label: N_("Użytkownicy"), icon: "key", perm: "users.read" },
     { id: "role", label: N_("Role i uprawnienia"), icon: "shield", perm: "users.read" },
     { id: "audyt", label: N_("Dziennik audytu"), icon: "clock", perm: "audit.read" },
@@ -591,8 +659,10 @@
     /* ---------- start ---------- */
     async init() {
       Prefs.fromUser(null);
+      splash(t("Łączenie z serwerem…"));
       const info = await ServerBackend.detect();
       Store.backend = info ? ServerBackend : LocalBackend;
+      splash(info ? t("Wczytywanie bazy danych z serwera…") : t("Wczytywanie danych z tej przeglądarki…"));
       const r = await Store.backend.boot(info);
       if (r.problem) setTimeout(() => Toast.err(t("Dane były uszkodzone lub w starszym formacie"), t("Zachowano kopię uszkodzonych danych i uruchomiono czystą bazę. {p}", { p: r.problem })), 400);
       if (r.cleaned) setTimeout(() => Toast.info(t("Czysta baza danych"), t("Dane demonstracyjne poprzednich wersji zostały usunięte z tej przeglądarki (kopia zachowana). Program startuje od zera.")), 600);
@@ -608,6 +678,7 @@
       if (r.setup) return Auth.setupScreen();
       const pub = Auth.publicPath();
       if (pub && pub !== "login") return Auth.routePublic();
+      splash(t("Sprawdzanie sesji…"));
       const again = await Store.backend.resume();
       if (again.ok) { if (pub) location.hash = "#/pulpit"; return this.afterLogin(again); }
       Auth.loginScreen();
@@ -617,6 +688,7 @@
       const u = this.user();
       Prefs.fromUser(u);
       if (res && res.mustChange) return Auth.forceChange();
+      splash(t("Przygotowanie pulpitu…"));
       this.shell();
       let done = null;
       try { done = await Store.exec("inv.autoClose", {}, N_("Automat: początek kolejnego miesiąca"), { quiet: true }); } catch (e) { console.warn("inv.autoClose", e); }
@@ -690,8 +762,6 @@
               <div class="spacer"></div>
               <a class="btn primary sm new-op-btn" href="#/nowa" id="top-new">${ic("plus", 15)}<span>${esc(t("Nowa operacja"))}</span></a>
               <button class="wh-chip" id="wh-chip" type="button"></button>
-              <button class="icon-btn" id="lang-btn" type="button" aria-label="${esc(t("Język"))}"></button>
-              <button class="icon-btn" id="theme-btn" type="button" aria-label="${esc(t("Motyw"))}"></button>
               <button class="icon-btn" id="intro-btn" type="button" title="${esc(t("Odtwórz intro"))}" aria-label="${esc(t("Odtwórz intro"))}">${ic("play", 17)}</button>
               <button class="icon-btn bell-btn" id="bell-btn" type="button" aria-haspopup="menu" aria-label="${esc(t("Powiadomienia"))}"></button>
               <button class="user-btn" id="user-btn" type="button" aria-haspopup="menu"></button>
@@ -709,8 +779,6 @@
       $("#intro-btn").onclick = () => root.Intro && root.Intro.play({ force: true });
       $("#user-btn").onclick = e => this.userMenu(e.currentTarget);
       $("#bell-btn").onclick = e => root.RIWUI.Bell && root.RIWUI.Bell.open(e.currentTarget);
-      $("#lang-btn").onclick = e => this.langMenu(e.currentTarget);
-      $("#theme-btn").onclick = e => this.themeMenu(e.currentTarget);
       $("#wh-chip").onclick = e => this.whMenu(e.currentTarget);
       document.addEventListener("keydown", this._keys || (this._keys = e => {
         if (!Store.userId) return;
@@ -732,10 +800,6 @@
       $("#wh-chip").innerHTML = `<span class="dot"></span><small>${esc(t("Magazyn:"))}</small><b>${esc(wh ? wh.name : "—")}</b>${canSwitch ? ic("chevDown", 14) : ""}`;
       $("#wh-chip").title = canSwitch ? t("Zmień magazyn roboczy") : t("Magazyn przydzielony przez administratora");
       $("#wh-chip").classList.toggle("switchable", canSwitch);
-      $("#lang-btn").innerHTML = `<span class="lbl">${esc(I18N.info().short)}</span>`;
-      $("#lang-btn").title = t("Język") + ": " + I18N.info().label;
-      const th = THEME_LIST.find(x => x.id === Prefs.theme);
-      $("#theme-btn").innerHTML = ic(th.icon, 17); $("#theme-btn").title = t("Motyw") + ": " + t(th.label) + " (Ctrl+D)";
       const srv = Store.mode === "server", on = srv ? ServerBackend.online : true;
       $("#sb-foot").innerHTML = `<span class="conn-dot ${srv ? (on ? "" : "off") : "local"}"></span><span><b class="mode-tag">${esc(this.modeLabel())}</b> ${esc(srv ? (on ? t("Serwer · połączono") : t("Serwer · brak połączenia")) : Store.memoryOnly ? t("Tryb lokalny · bez zapisu") : t("Tryb lokalny · dane w tej przeglądarce"))}</span>`;
     },
@@ -770,14 +834,6 @@
           if (root.RIWForm && root.RIWForm.mode === "new") root.RIWForm.draft = null;
           this.render();
         }));
-    },
-    langMenu(btn) {
-      Dropdown.open(btn, `<div class="dd-label">${esc(t("Język"))}</div>` + Object.values(I18N.LANGS).map(L => `<button class="dd-item" type="button" data-lang="${L.code}" lang="${L.code}"><span class="ic">${ic("globe", 16)}</span>${esc(L.label)}${L.code === I18N.lang ? `<span class="chk">${ic("check", 15)}</span>` : ""}</button>`).join(""),
-        el => $$("[data-lang]", el).forEach(b => b.onclick = () => { Dropdown.close(); Prefs.setLang(b.dataset.lang); }));
-    },
-    themeMenu(btn) {
-      Dropdown.open(btn, `<div class="dd-label">${esc(t("Motyw"))}</div>` + THEME_LIST.map(th => `<button class="dd-item" type="button" data-theme-id="${th.id}"><span class="ic">${ic(th.icon, 16)}</span>${esc(t(th.label))}${th.id === Prefs.theme ? `<span class="chk">${ic("check", 15)}</span>` : ""}</button>`).join(""),
-        el => $$("[data-theme-id]", el).forEach(b => b.onclick = () => { Dropdown.close(); Prefs.setTheme(b.dataset.themeId); }));
     },
 
     parseHash() {
@@ -960,15 +1016,12 @@
       };
       $("#tk-pass").focus();
     },
-    tools() {
-      return `<div class="auth-tools">
-        <div class="seg" role="group" aria-label="${esc(t("Język"))}">${Object.values(I18N.LANGS).map(L => `<button type="button" data-auth-lang="${L.code}" aria-pressed="${L.code === I18N.lang}" title="${esc(L.label)}">${L.short}</button>`).join("")}</div>
-        <div class="seg" role="group" aria-label="${esc(t("Motyw"))}">${THEME_LIST.map(th => `<button type="button" data-auth-theme="${th.id}" aria-pressed="${th.id === Prefs.theme}" title="${esc(t(th.label))}">${ic(th.icon, 14)}</button>`).join("")}</div></div>`;
-    },
-    bindTools(scope) {
-      $$("[data-auth-lang]", scope).forEach(b => b.onclick = () => { Prefs.applyLang(b.dataset.authLang); lsSet("riw.lang", I18N.lang); this.rerender(); });
-      $$("[data-auth-theme]", scope).forEach(b => b.onclick = () => { Prefs.applyTheme(b.dataset.authTheme); lsSet("riw.theme", Prefs.theme); this.rerender(); });
-    },
+    /**
+     * 3.13: wybór języka i motywu jest wyłącznie w Ustawienia → Wygląd i język (po zalogowaniu).
+     * Ekran logowania używa ostatnio wybranych ustawień tej przeglądarki albo języka systemu.
+     */
+    tools() { return ""; },
+    bindTools() {},
     side() {
       return `<section class="auth-side" aria-hidden="true"><div class="rings"></div>
         <div class="auth-brand"><div class="mark" aria-label="RiC — ResInvest Commodities">RiC</div><div><b>ResInvest ERP</b><span>${esc(t("Obrót i magazynowanie biomasy drzewnej"))}</span></div></div>
@@ -1082,7 +1135,9 @@
         if (!pass.value.trim()) { btn.disabled = false; err.innerHTML = ic("alert", 15) + `<span>${esc(t("Podaj e-mail służbowy i hasło"))}</span>`; err.classList.remove("hidden"); return; }
         if (!em.ok) { btn.disabled = false; err.innerHTML = ic("alert", 15) + `<span>${esc(em.error)}</span>`; err.classList.remove("hidden"); login.focus(); return; }
         login.value = em.email;
-        try { res = await Store.backend.login(em.email, pass.value.trim()); }   // spacje na brzegach (klawiatury telefonów) nie są częścią hasła
+        // spacje na brzegach (klawiatury telefonów) nie są częścią hasła; 3.13: ekran ładowania, gdy wczytanie bazy trwa dłużej
+        const busy = (p, txt) => root.Splash ? root.Splash.during(p, txt) : p;
+        try { res = await busy(Store.backend.login(em.email, pass.value.trim()), t("Logowanie i wczytywanie bazy danych…")); }
         catch (x) { res = { ok: false, error: t("Nie udało się zalogować: {m}", { m: x.message }) }; }
         btn.disabled = false;
         if (!res.ok) { err.innerHTML = ic("alert", 15) + `<span>${esc(res.error)}</span>`; err.classList.remove("hidden"); pass.select(); return; }
@@ -1091,7 +1146,7 @@
         else { lsSet("riw.lastLogin", login.value.trim().toLowerCase()); if (rem) lsSet("riw.rememberOff", ""); }
         pass.value = "";
         this.screen = null;
-        try { await App.afterLogin(res); }
+        try { await busy(App.afterLogin(res), t("Przygotowanie pulpitu…")); }
         catch (x) { console.error(x); Toast.err(t("Aplikacja"), x.message); App.render(); }
       };
       (login.value ? pass : login).focus();
@@ -1209,7 +1264,7 @@
   const Views = {};
   const statusBadge = st => `<span class="badge st-${esc(st)}" data-status="${esc(st)}">${esc(t(R.STATUS[st] || st))}</span>`;
 
-  root.RIWUI = { R, I18N, t, tp, N_, esc, $, $$, ic, fid, str, lsGet, lsSet, ssGet, ssSet, initials, download, csvNum, toCSV, Toast, Modal, Dropdown, Store, LocalBackend, ServerBackend, App, Auth, Prefs, THEME_LIST, Views, statusBadge, KEY, DRAFT_KEY, NAV, pwField, bindEyes, pwMeter, bindMeter };
+  root.RIWUI = { R, I18N, t, tp, N_, esc, $, $$, ic, fid, str, lsGet, lsSet, ssGet, ssSet, initials, download, csvNum, toCSV, Toast, Modal, Dropdown, Store, LocalBackend, ServerBackend, App, Auth, Prefs, THEME_LIST, Clr, customThemeVars, Views, statusBadge, KEY, DRAFT_KEY, NAV, pwField, bindEyes, pwMeter, bindMeter };
   root.App = App;
   root.Dropdown = Dropdown;
 })(typeof globalThis !== "undefined" ? globalThis : this);

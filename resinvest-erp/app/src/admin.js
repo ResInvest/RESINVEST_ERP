@@ -190,7 +190,25 @@
   const mailToast = (mail, okTitle, who) => {
     if (!mail) return;
     if (mail.ok) Toast.ok(okTitle, mail.transport === "file" ? t("{w} — poczta nieskonfigurowana: wiadomość zapisano w folderze serwera (mail-outbox).", { w: who }) : who);
-    else Toast.err(t("E-mail nie został wysłany"), `${who}: ${mail.error} ${t("Konto pozostaje nieaktywne — użyj „Wyślij ponownie zaproszenie”.")}`);
+    else if (mail.link) linkDialog(mail, who);
+    else Toast.err(t("E-mail nie został wysłany"), `${who}: ${mail.detail || mail.error}${mail.hint ? " — " + t(mail.hint) : ""}`);
+  };
+  /**
+   * 3.13: e-mail nie wyszedł — administrator widzi przyczynę, wskazówkę i link do przekazania innym kanałem
+   * (Teams, SMS, wydruk). Konto czeka, aż użytkownik ustawi hasło z linku.
+   */
+  const linkDialog = (mail, who) => {
+    const m = Modal.open({ title: t("E-mail nie został wysłany"), id: "mail-link-dialog", wide: true, body: `<div class="stack">
+        <div class="info-line err">${ic("alert", 15)}<span><b>${esc(who)}</b>${mail.detail ? `<br><span class="mono small">${esc(mail.detail)}</span>` : ""}${mail.hint ? `<br>${esc(t(mail.hint))}` : ""}</span></div>
+        <p>${esc(t("Konto zostało utworzone. Przekaż użytkownikowi ten link (Teams, SMS, wiadomość z własnej skrzynki) — po jego otwarciu ustawi hasło i zaloguje się."))}</p>
+        <div class="row"><input class="ctrl mono" id="ml-link" readonly value="${esc(mail.link)}"><button class="btn primary" type="button" id="ml-copy">${ic("file", 15)} ${esc(t("Kopiuj link"))}</button></div>
+        ${/\/\/(localhost|127\.)/.test(mail.link) ? `<div class="info-line warn">${ic("alert", 15)}<span>${esc(t("Link wskazuje na ten komputer (localhost) — inne komputery go nie otworzą. Ustaw „Adres programu w linkach e-mail” w Poczta → Konfiguracja poczty."))}</span></div>` : ""}
+        <p class="help">${esc(t("Link jest jednorazowy i wygasa jak zaproszenie e-mail. Poprawną wysyłkę ustawisz w Poczta → Konfiguracja poczty."))}</p></div>`,
+      footer: `${App.can("notifications.manage") ? `<a class="btn" href="#/poczta" id="ml-mail">${ic("mail", 15)} ${esc(t("Konfiguracja poczty"))}</a>` : ""}<button class="btn" type="button" data-close>${esc(t("Zamknij"))}</button>` });
+    $("[data-close]", m.el).onclick = () => m.close();
+    const inp = $("#ml-link", m.el); inp.onfocus = () => inp.select();
+    $("#ml-copy", m.el).onclick = async () => { try { await navigator.clipboard.writeText(mail.link); Toast.ok(t("Skopiowano link")); } catch (e) { inp.focus(); inp.select(); document.execCommand && document.execCommand("copy"); } };
+    const g = $("#ml-mail", m.el); if (g) g.onclick = () => m.close();
   };
   const Users = {
     async accounts() {
@@ -518,18 +536,15 @@
     html() {
       const u = App.user(), S = Store.state;
       const mine = S.audit.filter(a => a.userId === u.id).slice(-10).reverse();
-      return `<div class="page-head"><div class="titles"><h2>${th("Mój profil i ustawienia")}</h2><p>${th("Język i motyw zapisują się w Twoim profilu — działają na każdym komputerze po zalogowaniu.")}</p></div></div>
+      return `<div class="page-head"><div class="titles"><h2>${th("Mój profil")}</h2><p>${th("Konto, hasło i ostatnia aktywność. Język i motyw: Ustawienia → Wygląd i język.")}</p></div>
+          <div class="actions"><a class="btn" href="#/wyglad">${ic("drop", 15)} ${th("Wygląd i język")}</a></div></div>
         <div class="grid g2">
           <div class="card"><div class="card-h"><h3>${th("Konto")}</h3></div><div class="card-b">
             <div class="row mb4"><span class="avatar lg">${esc(initials(u.name))}</span><div><b style="font-size:var(--t-lg)">${esc(u.name)}</b><div class="dim">${esc(u.login)} · ${esc(App.roleLabel(u.role))}</div></div></div>
             <dl class="money-list"><dt>${th("Rola")}</dt><dd>${esc(App.roleLabel(u.role))} <span class="mono small dim">${esc((R.ROLES[u.role] || {}).code || "")}</span></dd><dt>${th("Magazyn domyślny")}</dt><dd>${esc(App.whName(u.whId))}</dd><dt>${th("Dostępne magazyny")}</dt><dd>${esc(whList(u))}</dd><dt>${th("E-mail")}</dt><dd>${esc(u.email || "—")}</dd><dt>${th("Tryb pracy")}</dt><dd><b class="mode-tag">${esc(App.modeLabel())}</b> ${esc(Store.mode === "server" ? t("serwer (wielostanowiskowy)") : t("lokalny (ta przeglądarka)"))}</dd><dt>${th("Wylogowanie po bezczynności")}</dt><dd>${esc(t("{n} min", { n: AuthLib.POLICY.idleMinutes }))}</dd></dl>
             <div class="row wrap mt4"><button class="btn" type="button" id="pf-pw">${ic("key", 15)} ${th("Zmień hasło")}</button><button class="btn danger" type="button" id="pf-logout">${ic("logout", 15)} ${th("Wyloguj")}</button></div></div></div>
-          <div class="card"><div class="card-h"><h3>${th("Wygląd i język")}</h3></div><div class="card-b">
+          <div class="card"><div class="card-h"><h3>${th("Preferencje")}</h3></div><div class="card-b">
             <div class="set-list">
-              <div class="set-row"><div class="sl"><b>${th("Język")}</b><small>${th("Interfejs, raporty, wydruki i PDF")}</small></div>
-                <div class="seg" role="group" aria-label="${th("Język")}">${Object.values(I18N.LANGS).map(L => `<button type="button" data-plang="${L.code}" aria-pressed="${L.code === I18N.lang}">${esc(L.label)}</button>`).join("")}</div></div>
-              <div class="set-row" style="display:block"><div class="sl mb3"><b>${th("Motyw")}</b><small>${th("Skrót klawiszowy: Ctrl+D")}</small></div>
-                <div class="theme-cards">${THEME_LIST.map(x => `<button class="theme-card" type="button" data-ptheme="${x.id}" aria-pressed="${x.id === Prefs.theme}"><div class="sw" style="background:${x.sw[1]}"><i style="background:${x.sw[0]}"></i><i style="background:linear-gradient(90deg,${x.sw[2]} 0 30%,${x.sw[1]} 30%)"></i></div><b>${esc(t(x.label))}</b></button>`).join("")}</div></div>
               <div class="set-row"><div class="sl"><b>${th("Samouczek pod polami formularza")}</b><small>${th("Podpowiedzi „Co / Po co” w Nowej operacji")}</small></div><label class="inline-opt"><input type="checkbox" id="pf-tut" ${lsGet("riw.tutorial", "1") !== "0" ? "checked" : ""}> ${th("włączony")}</label></div>
             </div></div></div>
         </div>
@@ -538,9 +553,69 @@
     bind(page) {
       $("#pf-pw", page).onclick = () => Auth.changePasswordDialog();
       $("#pf-logout", page).onclick = () => App.logout();
-      $$("[data-plang]", page).forEach(b => b.onclick = () => Prefs.setLang(b.dataset.plang));
-      $$("[data-ptheme]", page).forEach(b => b.onclick = async () => { await Prefs.setTheme(b.dataset.ptheme); App.render(); });
       $("#pf-tut", page).onchange = e => { lsSet("riw.tutorial", e.target.checked ? "1" : "0"); document.body.classList.toggle("no-tutorial", !e.target.checked); };
+    }
+  };
+
+  /* ================================================================== */
+  /* 3.13: Ustawienia → Wygląd i język (jedyne miejsce wyboru)            */
+  /* ================================================================== */
+  const swatch = x => {
+    const c = x.custom ? Prefs.customColors() : null, [a, b, k] = c ? [c.bar, c.bg, c.accent] : x.sw;
+    return `<div class="sw" style="background:${b}"><i style="background:${a}"></i><i style="background:linear-gradient(90deg,${k} 0 30%,${b} 30%)"></i></div>`;
+  };
+  const COLOR_FIELDS = [["bg", N_("Tło"), N_("strona i karty")], ["accent", N_("Akcent"), N_("przyciski, zaznaczenia, wykresy")], ["bar", N_("Menu boczne"), N_("pasek nawigacji")]];
+  Views.wyglad = {
+    html() {
+      const c = Prefs.customColors(), cv = UI.customThemeVars(c).vars;
+      return `<div class="page-head"><div class="titles"><h2>${th("Wygląd i język")}</h2><p>${th("Język i motyw zapisują się w Twoim profilu — działają na każdym komputerze po zalogowaniu.")}</p></div></div>
+        <div class="card mb4"><div class="card-h"><h3>${th("Język")}</h3></div><div class="card-b">
+          <div class="set-row"><div class="sl"><b>${th("Język programu")}</b><small>${th("Interfejs, raporty, wydruki i PDF")}</small></div>
+            <div class="seg" role="group" aria-label="${th("Język")}">${Object.values(I18N.LANGS).map(L => `<button type="button" data-plang="${L.code}" lang="${L.code}" aria-pressed="${L.code === I18N.lang}">${esc(L.label)}</button>`).join("")}</div></div></div></div>
+        <div class="card mb4"><div class="card-h"><h3>${th("Motyw")}</h3><span class="spacer"></span><small class="dim">${th("Skrót klawiszowy: Ctrl+D")}</small></div><div class="card-b">
+          <div class="theme-cards">${THEME_LIST.map(x => `<button class="theme-card" type="button" data-ptheme="${x.id}" aria-pressed="${x.id === Prefs.theme}">${swatch(x)}<b>${esc(t(x.label))}</b></button>`).join("")}</div></div></div>
+        <div class="card" id="theme-custom-card"><div class="card-h"><h3>${th("Motyw własny — trzy kolory")}</h3></div><div class="card-b">
+          <p class="muted">${th("Wybierz dowolne kolory z pełnej palety. Program sam dobierze kolor tekstu i odcienie tak, aby wszystko było czytelne (kontrast co najmniej 3:1).")}</p>
+          <div class="theme-custom">${COLOR_FIELDS.map(([k, l, h]) => `<label for="tc-${k}">${th(l)}<small class="dim">${th(h)}</small>
+            <span class="clr"><input type="color" id="tc-${k}" data-tc="${k}" value="${esc(c[k].toLowerCase())}" aria-label="${th(l)}"><input class="ctrl" data-tc-hex="${k}" value="${esc(c[k])}" maxlength="7" spellcheck="false" aria-label="${th(l)} (#RRGGBB)"></span></label>`).join("")}</div>
+          <div class="theme-preview" id="tc-preview" aria-hidden="true">${this.preview(cv)}</div>
+          <div class="row wrap mt4"><button class="btn primary" type="button" id="tc-apply">${ic("check", 15)} ${th("Zastosuj motyw własny")}</button>
+            <button class="btn" type="button" id="tc-reset">${th("Kolory domyślne")}</button></div></div></div>`;
+    },
+    preview(v) {
+      return `<div class="tp-bar" style="background:${v["--bar"]};color:${v["--bar-ink"]}"><i style="background:${v["--bar-ink"]};width:70%"></i><i style="background:${v["--bar-ink"]};width:55%"></i><i style="background:${v["--brand"]};width:80%;opacity:1"></i></div>
+        <div class="tp-main" style="background:${v["--bg"]}"><div class="tp-card" style="background:${v["--surface"]};border:1px solid ${v["--border"]};color:${v["--text"]};font-size:12px;padding:6px 8px">${esc(t("Stany magazynowe"))}</div><span class="tp-btn" style="background:${v["--brand"]};color:${v["--brand-ink"]}">${esc(t("Zapisz"))}</span></div>`;
+    },
+    bind(page) {
+      $$("[data-plang]", page).forEach(b => b.onclick = () => Prefs.setLang(b.dataset.plang));
+      $$("[data-ptheme]", page).forEach(b => b.onclick = async () => {
+        if (b.dataset.ptheme === "custom") await Prefs.setCustom(this.read(page) || Prefs.customColors()); else await Prefs.setTheme(b.dataset.ptheme);
+        App.render();
+      });
+      const sync = (k, val, from) => {
+        const v = String(val || "").trim().toUpperCase(), ok = /^#[0-9A-F]{6}$/.test(v);
+        const hex = $(`[data-tc-hex="${k}"]`, page), pick = $(`[data-tc="${k}"]`, page);
+        hex.classList.toggle("bad", !ok);
+        if (!ok) return;
+        if (from !== "hex") hex.value = v;
+        if (from !== "pick") pick.value = v.toLowerCase();
+        const c = this.read(page); if (c) $("#tc-preview", page).innerHTML = this.preview(UI.customThemeVars(c).vars);
+      };
+      $$("[data-tc]", page).forEach(x => x.oninput = () => sync(x.dataset.tc, x.value, "pick"));
+      $$("[data-tc-hex]", page).forEach(x => x.oninput = () => sync(x.dataset.tcHex, x.value.startsWith("#") ? x.value : "#" + x.value, "hex"));
+      $("#tc-apply", page).onclick = async () => {
+        const c = this.read(page);
+        if (!c) return Toast.err(t("Nieprawidłowe kolory motywu (format #RRGGBB)"));
+        const r = await Prefs.setCustom(c);
+        if (r && r.ok === false) return Toast.err(t("Nie zapisano"), r.error || "");
+        Toast.ok(t("Motyw własny zastosowany")); App.render();
+      };
+      $("#tc-reset", page).onclick = () => { Object.entries(R.DEFAULT_THEME_COLORS).forEach(([k, v]) => sync(k, v)); };
+    },
+    read(page) {
+      const out = {};
+      for (const [k] of COLOR_FIELDS) out[k] = String(($(`[data-tc-hex="${k}"]`, page) || {}).value || "").trim().toUpperCase();
+      return R.themeColors(out);
     }
   };
 

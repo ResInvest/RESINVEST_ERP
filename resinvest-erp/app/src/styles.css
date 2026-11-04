@@ -167,6 +167,89 @@
   --font:"Segoe UI",Tahoma,"Inter",-apple-system,Roboto,Arial,sans-serif;
   color-scheme:light;
 }
+/* ============================ 3.13 · OFFICE 98 (klasyczny szary) ============================ */
+[data-theme="office98"]{
+  --bg:#0A8686; --bg-grad:none;
+  --surface:#C0C0C0; --surface-2:#D4D0C8; --surface-3:#B8B8B8; --field:#FFFFFF; --row-alt:#D4D0C8;
+  --border:#808080; --border-strong:#404040; --border-hover:#000000;
+  --text:#000000; --text-head:#000000; --text-2:#202020; --text-3:#404040;
+  --brand:#000080; --brand-2:#0000A8; --brand-ink:#FFFFFF; --brand-soft:#D8D8F0; --brand-line:#8080C0; --brand-ring:rgba(0,0,128,.25);
+  --gold:#4A3A00; --gold-strong:#C0A000; --gold-soft:#F4ECC0;
+  --ok:#006400; --ok-soft:#D6EED6; --ok-line:#80B080; --warn:#7A4E00; --warn-soft:#F5E6C0; --warn-line:#C8A050;
+  --err:#A00000; --err-soft:#F2D0D0; --err-line:#C08080; --info:#000080; --info-soft:#D8D8F0; --info-line:#8080C0;
+  --shadow:2px 2px 0 #000000; --shadow-1:none; --shadow-2:1px 1px 0 #000000;
+  --focus:#000080; --overlay:rgba(0,0,0,.35); --tip-bg:#FFFFE1; --tip-ink:#000000;
+  --chart-grid:#A0A0A0; --chart-a:#000080; --chart-b:#555500; --chart-c:#005252;
+  --hero:linear-gradient(90deg,#000080 0%,#1084D0 100%); --hero-ink:#FFFFFF; --hero-dim:rgba(255,255,255,.82);
+  --select-arrow:%23000000;
+  --bar:linear-gradient(90deg,#000080 0%,#1084D0 100%); --bar-ink:#FFFFFF;
+  --bevel:inset -1px -1px 0 #404040,inset 1px 1px 0 #FFFFFF,inset -2px -2px 0 #808080,inset 2px 2px 0 #DFDFDF;
+  --sunken:inset 1px 1px 0 #808080,inset -1px -1px 0 #FFFFFF,inset 2px 2px 0 #404040,inset -2px -2px 0 #DFDFDF;
+  --r-sm:0; --r-md:0; --r-lg:0; --r-xl:0; --r-full:0;
+  --font:"Tahoma","MS Sans Serif","Microsoft Sans Serif","Segoe UI",Arial,sans-serif;
+  color-scheme:light;
+}
+/* ============================ 3.13 · OFFICE 2003 (niebieski Luna) ============================ */
+[data-theme="office2003"]{
+  --bg:#C3DAF9; --bg-grad:linear-gradient(180deg,#E3EFFF 0%,#C3DAF9 100%);
+  --surface:#FFFFFF; --surface-2:#F1F6FE; --surface-3:#DDECFE; --field:#FFFFFF; --row-alt:#F4F8FE;
+  --border:#7F9DB9; --border-strong:#6593CF; --border-hover:#316AC5;
+  --text:#000000; --text-head:#0A246A; --text-2:#26406B; --text-3:#3D5A86;
+  --brand:#316AC5; --brand-2:#2457AE; --brand-ink:#FFFFFF; --brand-soft:#DDECFE; --brand-line:#9EBEF5; --brand-ring:rgba(49,106,197,.25);
+  --gold:#7A4A00; --gold-strong:#FFAC47; --gold-soft:#FFF1D2;
+  --ok:#1E6B2E; --ok-soft:#E0F2E2; --ok-line:#A2D2A8; --warn:#8A4B00; --warn-soft:#FFF1D2; --warn-line:#F5C06A;
+  --err:#B0201A; --err-soft:#FBE3E1; --err-line:#EBA9A3; --info:#0A246A; --info-soft:#DDECFE; --info-line:#9EBEF5;
+  --shadow:0 8px 22px rgba(10,36,106,.22); --shadow-1:0 1px 2px rgba(10,36,106,.12); --shadow-2:0 4px 12px rgba(10,36,106,.16);
+  --focus:#316AC5; --overlay:rgba(10,36,106,.35); --tip-bg:#FFFFE1; --tip-ink:#000000;
+  --chart-grid:#C9DBF3; --chart-a:#316AC5; --chart-b:#A85F14; --chart-c:#3A8E3A;
+  --hero:linear-gradient(180deg,#5B8EDC 0%,#2E5DB5 60%,#244C9A 100%); --hero-ink:#FFFFFF; --hero-dim:rgba(255,255,255,.82);
+  --select-arrow:%230A246A;
+  --bar:linear-gradient(180deg,#DDECFE 0%,#C1D8F9 45%,#A6C4F1 55%,#81A9E2 100%); --bar-ink:#0A246A;
+  --hl:linear-gradient(180deg,#FFF4CC 0%,#FFD38B 100%); --hl-on:linear-gradient(180deg,#FFD38B 0%,#FFAC47 100%); --hl-line:#E3A13E;
+  --r-sm:3px; --r-md:3px; --r-lg:4px; --r-xl:5px;
+  --font:"Tahoma","Segoe UI","Inter",Arial,sans-serif;
+  color-scheme:light;
+}
+/* ============================ 3.13 · OFFICE 2007 (wstążka) ============================ */
+[data-theme="office2007"]{
+  --bg:#BFDBFF; --bg-grad:linear-gradient(180deg,#D5E5FA 0%,#BFDBFF 100%);
+  --surface:#FFFFFF; --surface-2:#F3F8FE; --surface-3:#E3EEFB; --field:#FFFFFF; --row-alt:#F5F9FE;
+  --border:#8DB2E3; --border-strong:#6E9BD6; --border-hover:#3D79C2;
+  --text:#1E395B; --text-head:#15428B; --text-2:#2E4E78; --text-3:#45658F;
+  --brand:#15428B; --brand-2:#1F5AAE; --brand-ink:#FFFFFF; --brand-soft:#E3EEFB; --brand-line:#A9C7EE; --brand-ring:rgba(21,66,139,.22);
+  --gold:#7A5200; --gold-strong:#FFC538; --gold-soft:#FFF5D2;
+  --ok:#1E6B2E; --ok-soft:#E0F2E2; --ok-line:#A2D2A8; --warn:#8A5300; --warn-soft:#FFF3C7; --warn-line:#F2CA62;
+  --err:#AD1F1F; --err-soft:#FBE4E4; --err-line:#EBAAAA; --info:#15428B; --info-soft:#E3EEFB; --info-line:#A9C7EE;
+  --shadow:0 10px 26px rgba(21,66,139,.2); --shadow-1:0 1px 2px rgba(21,66,139,.12); --shadow-2:0 4px 14px rgba(21,66,139,.15);
+  --focus:#3D79C2; --overlay:rgba(21,66,139,.32); --tip-bg:#FFFFFF; --tip-ink:#1E395B;
+  --chart-grid:#D3E2F5; --chart-a:#15428B; --chart-b:#C9711D; --chart-c:#2E8540;
+  --hero:linear-gradient(180deg,#3F75C0 0%,#1F5AAE 55%,#15428B 100%); --hero-ink:#FFFFFF; --hero-dim:rgba(255,255,255,.82);
+  --select-arrow:%2315428B;
+  --bar:linear-gradient(180deg,#E4EFFC 0%,#D3E4F9 40%,#C1D8F4 41%,#DCEAFB 100%); --bar-ink:#15428B;
+  --hl:linear-gradient(180deg,#FFFCE6 0%,#FFF0B4 40%,#FFDA6B 41%,#FFE89E 100%); --hl-on:linear-gradient(180deg,#FDE4A3 0%,#FBC85C 40%,#F6A72A 41%,#FBD06A 100%); --hl-line:#DBB54F;
+  --r-sm:3px; --r-md:3px; --r-lg:4px; --r-xl:6px;
+  --font:"Segoe UI","Inter",Tahoma,Arial,sans-serif;
+  color-scheme:light;
+}
+/* ============================ 3.13 · WŁASNY (trzy kolory użytkownika) ============================
+   Wartości domyślne = Perła; kolory użytkownika nadpisuje Prefs.applyTheme (zmienne na <html>). */
+[data-theme="custom"]{
+  --bg:#EEF2EF; --bg-grad:none;
+  --surface:#FFFFFF; --surface-2:#F5F8F6; --surface-3:#E9EFEB; --field:#FFFFFF; --row-alt:#FAFCFA;
+  --border:#D8E0DA; --border-strong:#B9C6BD; --border-hover:#8FA397;
+  --text:#17241D; --text-head:#0E1A13; --text-2:#46594E; --text-3:#5F7166;
+  --brand:#1E6B45; --brand-2:#237A50; --brand-ink:#FFFFFF; --brand-soft:#E3F1E8; --brand-line:#A9D1B8; --brand-ring:rgba(30,107,69,.18);
+  --gold:#7F640C; --gold-strong:#C9A227; --gold-soft:#FAF1D6;
+  --ok:#15703C; --ok-soft:#E1F3E7; --ok-line:#A9D1B8; --warn:#8A5A00; --warn-soft:#FDF2DC; --warn-line:#EBCB8A;
+  --err:#B0271C; --err-soft:#FCE9E6; --err-line:#F0B5AC; --info:#1F5FB5; --info-soft:#E6EEFA; --info-line:#CBDAF0;
+  --shadow:0 12px 32px rgba(0,0,0,.14),0 2px 6px rgba(0,0,0,.06); --shadow-1:0 1px 2px rgba(0,0,0,.06); --shadow-2:0 6px 18px rgba(0,0,0,.09);
+  --focus:#1E6B45; --overlay:rgba(0,0,0,.42); --tip-bg:#0E1A13; --tip-ink:#FFFFFF;
+  --chart-grid:#E3E9E4; --chart-a:#1E6B45; --chart-b:#B8860B; --chart-c:#2F6FB5;
+  --hero:linear-gradient(125deg,#0E1A2E 0%,#14213A 55%,#1E6B45 100%); --hero-ink:#FFFFFF; --hero-dim:rgba(255,255,255,.75);
+  --select-arrow:%235F7166;
+  --bar:#14213A; --bar-ink:#FFFFFF; --bar-sel:rgba(255,255,255,.16); --bar-line:rgba(255,255,255,.14);
+  color-scheme:light;
+}
 /* zmiana motywu bez migotania przejść kolorów */
 html.theme-switching *,html.theme-switching *::before,html.theme-switching *::after{transition:none!important}
 
@@ -610,6 +693,12 @@ html.intro-boot .splash.boot{display:grid}
 .splash-btn[data-state="muted"]{border-color:rgba(201,162,39,.7)}
 .splash-btn:focus-visible{outline:2px solid #C9A227;outline-offset:2px}
 .splash-note{position:absolute;left:50%;bottom:34px;transform:translateX(-50%);max-width:min(560px,calc(100vw - 32px));text-align:center;padding:10px 16px;border-radius:12px;background:rgba(10,18,13,.72);border:1px solid rgba(220,185,74,.55);color:#F3E6B8;font-size:14px}
+/* 3.13: ekran ładowania (splash) — po intro albo zamiast niego, do gotowości bazy danych */
+.splash.loading .splash-brand{display:flex}
+.splash-load{display:inline-flex;align-items:center;gap:12px;margin-top:10px;padding:10px 18px;border-radius:999px;background:rgba(10,18,13,.55);border:1px solid rgba(255,255,255,.18);color:#EAF3ED;font-size:14px;font-weight:600}
+.splash-spin{width:18px;height:18px;border-radius:50%;border:2px solid rgba(234,243,237,.25);border-top-color:#C9A227;animation:splashSpin .8s linear infinite;flex-shrink:0}
+@keyframes splashSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.splash-spin{animation-duration:1.6s!important;animation-iteration-count:infinite!important}}
 .splash-bar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.12)}
 .splash-bar i{display:block;height:100%;width:0;background:#C9A227;transition:width .25s linear}
 
@@ -1017,3 +1106,93 @@ button.wh-chip.switchable:hover{border-color:var(--brand);box-shadow:0 0 0 3px v
   .tpl-chip{max-width:100%}
   .run-h .run-dup{margin-left:auto}
 }
+
+/* ============================ 3.13 · Office 98 — elementy ============================ */
+[data-theme="office98"] body{background:#0A8686}
+[data-theme="office98"] .sidebar{background:#C0C0C0;border-right:0;box-shadow:var(--bevel)}
+[data-theme="office98"] .sb-head{background:var(--bar);border-bottom:0}
+[data-theme="office98"] .sb-brand b,[data-theme="office98"] .sb-brand span{color:#FFFFFF}
+[data-theme="office98"] .mark{background:#C0C0C0;color:#000080;box-shadow:var(--bevel);border-radius:0}
+[data-theme="office98"] .sidebar .nav-item{border-radius:0;color:#000000}
+[data-theme="office98"] .sidebar .nav-item:hover{background:#000080;color:#FFFFFF}
+[data-theme="office98"] .sidebar .nav-item[aria-current="page"]{background:#000080;color:#FFFFFF}
+[data-theme="office98"] .sidebar .nav-item[aria-current="page"]::before{display:none}
+[data-theme="office98"] .sb-group{color:#404040}
+[data-theme="office98"] .topbar{background:#C0C0C0;border-bottom:0;box-shadow:var(--bevel);backdrop-filter:none}
+[data-theme="office98"] .topbar h1{color:#000000}
+[data-theme="office98"] .card,[data-theme="office98"] .sec,[data-theme="office98"] .kpi,[data-theme="office98"] .kpi2,[data-theme="office98"] .modal,[data-theme="office98"] .dropdown{border:0;box-shadow:var(--bevel),2px 2px 0 rgba(0,0,0,.35)}
+[data-theme="office98"] .card-h,[data-theme="office98"] .sec-h,[data-theme="office98"] .modal-h{background:var(--bar);color:#FFFFFF;border-bottom:0}
+[data-theme="office98"] .card-h h3,[data-theme="office98"] .sec-h h3,[data-theme="office98"] .modal-h h3{color:#FFFFFF}
+[data-theme="office98"] .btn,[data-theme="office98"] .icon-btn,[data-theme="office98"] .user-btn,[data-theme="office98"] .wh-chip{background:#C0C0C0;color:#000000;border:0;border-radius:0;box-shadow:var(--bevel)}
+[data-theme="office98"] .btn:active,[data-theme="office98"] .icon-btn:active{box-shadow:var(--sunken)}
+[data-theme="office98"] .btn.primary{background:#C0C0C0;color:#000000;outline:1px solid #000000;outline-offset:-1px}
+[data-theme="office98"] .ctrl{border:0;border-radius:0;box-shadow:var(--sunken);background:#FFFFFF}
+[data-theme="office98"] .tbl th{background:#C0C0C0;box-shadow:var(--bevel);color:#000000}
+[data-theme="office98"] .badge{border-radius:0}
+[data-theme="office98"] .page-head h2{color:#FFFFFF;text-shadow:1px 1px 0 #000000}
+[data-theme="office98"] .page-head p{color:#E0FFFF}
+[data-theme="office98"] .app-foot{color:#E0FFFF}
+/* ============================ 3.13 · Office 2003 — elementy ============================ */
+[data-theme="office2003"] .sidebar{background:linear-gradient(180deg,#7BA2E7 0%,#6375D6 100%);border-right-color:#3A5BB5}
+[data-theme="office2003"] .sb-head{background:var(--bar);border-bottom-color:#6593CF}
+[data-theme="office2003"] .sb-brand b{color:#0A246A} [data-theme="office2003"] .sb-brand span{color:#26406B}
+[data-theme="office2003"] .sb-group{color:#FFFFFF;font-weight:700}
+[data-theme="office2003"] .sidebar .nav-item{color:#FFFFFF;border-radius:3px}
+[data-theme="office2003"] .sidebar .nav-item:hover{background:var(--hl);color:#000000;box-shadow:0 0 0 1px var(--hl-line)}
+[data-theme="office2003"] .sidebar .nav-item[aria-current="page"]{background:var(--hl-on);color:#000000;box-shadow:0 0 0 1px var(--hl-line)}
+[data-theme="office2003"] .sidebar .nav-item[aria-current="page"]::before{display:none}
+[data-theme="office2003"] .sb-foot{color:#FFFFFF;border-top-color:rgba(255,255,255,.3)}
+[data-theme="office2003"] .topbar{background:var(--bar);border-bottom-color:#6593CF;backdrop-filter:none}
+[data-theme="office2003"] .topbar h1{color:var(--bar-ink)}
+[data-theme="office2003"] .card-h,[data-theme="office2003"] .sec-h{background:var(--bar);border-bottom-color:#6593CF}
+[data-theme="office2003"] .card-h h3,[data-theme="office2003"] .sec-h h3{color:#0A246A}
+[data-theme="office2003"] .btn{background:linear-gradient(180deg,#FFFFFF 0%,#E3EFFF 100%);border-color:#7F9DB9}
+[data-theme="office2003"] .btn:hover{background:var(--hl);border-color:var(--hl-line)}
+[data-theme="office2003"] .btn.primary{background:linear-gradient(180deg,#5B8EDC 0%,#316AC5 100%);border-color:#244C9A;color:#FFFFFF}
+[data-theme="office2003"] .btn.primary:hover{background:var(--hl-on);color:#000000;border-color:var(--hl-line)}
+[data-theme="office2003"] .tbl th{background:linear-gradient(180deg,#F1F6FE 0%,#DDECFE 100%);color:#0A246A}
+/* ============================ 3.13 · Office 2007 — elementy ============================ */
+[data-theme="office2007"] .sidebar{background:linear-gradient(180deg,#E4EFFC 0%,#C9DDF6 100%);border-right-color:#8DB2E3}
+[data-theme="office2007"] .sb-group{color:#15428B;font-weight:700}
+[data-theme="office2007"] .sidebar .nav-item{color:#1E395B;border-radius:3px}
+[data-theme="office2007"] .sidebar .nav-item:hover{background:var(--hl);box-shadow:0 0 0 1px var(--hl-line)}
+[data-theme="office2007"] .sidebar .nav-item[aria-current="page"]{background:var(--hl-on);color:#1E395B;box-shadow:0 0 0 1px var(--hl-line)}
+[data-theme="office2007"] .sidebar .nav-item[aria-current="page"]::before{display:none}
+[data-theme="office2007"] .topbar{background:var(--bar);border-bottom-color:#8DB2E3;backdrop-filter:none}
+[data-theme="office2007"] .topbar h1{color:var(--bar-ink)}
+[data-theme="office2007"] .mark{background:radial-gradient(circle at 35% 30%,#FFE9A8 0%,#F6A72A 45%,#C9711D 100%);color:#15428B;border-radius:50%}
+[data-theme="office2007"] .card-h,[data-theme="office2007"] .sec-h{background:var(--bar);border-bottom-color:#A9C7EE}
+[data-theme="office2007"] .card-h h3,[data-theme="office2007"] .sec-h h3{color:#15428B}
+[data-theme="office2007"] .btn{background:linear-gradient(180deg,#FFFFFF 0%,#EAF2FC 45%,#DCE8F7 46%,#E9F1FB 100%);border-color:#A9C7EE}
+[data-theme="office2007"] .btn:hover{background:var(--hl);border-color:var(--hl-line)}
+[data-theme="office2007"] .btn.primary{background:linear-gradient(180deg,#5B8FD6 0%,#2A68BE 45%,#15428B 46%,#2C63B5 100%);border-color:#15428B;color:#FFFFFF}
+[data-theme="office2007"] .btn.primary:hover{background:var(--hl-on);color:#1E395B;border-color:var(--hl-line)}
+[data-theme="office2007"] .tbl th{background:linear-gradient(180deg,#F3F8FE 0%,#DCE8F7 100%);color:#15428B}
+/* ============================ 3.13 · Własny — menu boczne w kolorze użytkownika ============================ */
+[data-theme="custom"] .sidebar{background:var(--bar);border-right-color:var(--bar-line)}
+[data-theme="custom"] .sb-head,[data-theme="custom"] .sb-foot{border-color:var(--bar-line)}
+[data-theme="custom"] .sb-brand b,[data-theme="custom"] .sb-foot{color:var(--bar-ink)}
+[data-theme="custom"] .sb-brand span,[data-theme="custom"] .sb-group{color:var(--bar-ink);opacity:.72}
+[data-theme="custom"] .sidebar .nav-item{color:var(--bar-ink)}
+[data-theme="custom"] .sidebar .nav-item:hover{background:var(--bar-sel);color:var(--bar-ink)}
+[data-theme="custom"] .sidebar .nav-item[aria-current="page"]{background:var(--bar-sel);color:var(--bar-ink)}
+[data-theme="custom"] .sidebar .nav-item[aria-current="page"]::before{background:var(--brand)}
+[data-theme="custom"] .sidebar .icon-btn{color:var(--bar-ink)}
+[data-theme="custom"] .mark{background:var(--brand);color:var(--brand-ink)}
+/* 3.13: Ustawienia → Wygląd i język — edytor motywu własnego */
+.theme-custom{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s3);margin-top:var(--s3)}
+.theme-custom label{display:flex;flex-direction:column;gap:6px;font-weight:600}
+.theme-custom .clr{display:flex;align-items:center;gap:8px}
+.theme-custom input[type=color]{width:52px;height:38px;padding:2px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--field);cursor:pointer}
+.theme-custom .clr .ctrl{max-width:110px;font-family:var(--font-num)}
+.theme-preview{display:flex;height:84px;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border);margin-top:var(--s3)}
+.theme-preview .tp-bar{width:28%;padding:10px;display:flex;flex-direction:column;gap:6px}
+.theme-preview .tp-bar i{display:block;height:8px;border-radius:4px;opacity:.7}
+.theme-preview .tp-main{flex:1;padding:10px;display:flex;flex-direction:column;gap:8px}
+.theme-preview .tp-card{flex:1;border-radius:6px}
+.theme-preview .tp-btn{align-self:flex-start;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700}
+.theme-custom .ctrl.bad{border-color:var(--err);box-shadow:0 0 0 2px var(--err-soft)}
+/* 3.13: przyciski na banerze pulpitu (hero) w motywach Office 2003 / 2007 — jasny napis na półprzezroczystym tle */
+[data-theme="office2003"] .hero .btn,[data-theme="office2007"] .hero .btn{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.4);color:#FFFFFF}
+[data-theme="office2003"] .hero .btn:hover,[data-theme="office2007"] .hero .btn:hover{background:var(--hl);border-color:var(--hl-line);color:#000000}
+[data-theme="office2003"] .hero .btn.primary,[data-theme="office2007"] .hero .btn.primary{background:var(--hl-on);border-color:var(--hl-line);color:#000000}

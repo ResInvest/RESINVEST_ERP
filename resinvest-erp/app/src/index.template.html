@@ -13,10 +13,12 @@
 <script>
 /* Przed pierwszym malowaniem: motyw (bez „mignięcia” jasnego tła) i decyzja o intro (ekran z pierwszą klatką filmu). */
 (function () {
-  var d = document.documentElement, th = null, intro = true;
-  try { th = localStorage.getItem("riw.theme"); intro = localStorage.getItem("riw.intro") !== "0"; } catch (e) {}
-  if (/^(pearl|graphite|azure|ultra|premium|glass|aurum|waga)$/.test(th || "")) d.setAttribute("data-theme", th);
-  if (intro && !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) d.className += " intro-boot";
+  var d = document.documentElement, th = null, vars = "";
+  try { th = localStorage.getItem("riw.theme"); vars = localStorage.getItem("riw.themeVars") || ""; } catch (e) {}
+  if (/^(pearl|graphite|azure|ultra|premium|glass|aurum|waga|office98|office2003|office2007|custom)$/.test(th || "")) d.setAttribute("data-theme", th);
+  if (th === "custom" && /^(--[a-z0-9-]+:[^;{}<>]*;)*$/i.test(vars)) d.style.cssText = vars;   // motyw własny: kolory użytkownika
+  /* 3.13: ekran startowy (splash) zawsze od pierwszej klatki — intro albo ekran ładowania bazy */
+  d.className += " intro-boot";
 })();
 </script>
 <style>
@@ -46,9 +48,9 @@ var RIW_FONTS = @@FONTS@@;
 <!--@@SCRIPTS@@-->
 <script>
 "use strict";
-/* Start: intro (muzyka możliwie natychmiast), równolegle aplikacja — logowanie lub pulpit. */
+/* Start: intro (muzyka możliwie natychmiast), równolegle aplikacja — logowanie lub pulpit; ekran startowy do gotowości bazy. */
 try { Intro.play(); } catch (e) { console.error(e); }
-App.init().catch(function (e) { console.error(e); document.getElementById("app").innerHTML = '<p style="padding:24px">' + String(e && e.message || e) + '</p>'; });
+App.init().then(function () { Splash.ready(); }, function (e) { console.error(e); Splash.ready(); document.getElementById("app").innerHTML = '<p style="padding:24px">' + String(e && e.message || e) + '</p>'; });
 </script>
 </body>
 </html>

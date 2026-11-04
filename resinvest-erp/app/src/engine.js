@@ -25,7 +25,7 @@
   /** Tekst do zapisania w danych: struktura {k, p} (tłumaczona przy wyświetlaniu). */
   const Lx = (k, p) => ({ k, p: p || {} });
 
-  const VERSION = "3.12.0";
+  const VERSION = "3.13.0";
   const SCHEMA = 9;
   const Q = 6;                 // precyzja wewnętrzna ilości
   const EPS = 1e-6;
@@ -2610,8 +2610,23 @@
     { id: "premium", label: N_("Light Premium"), scheme: "light", icon: "gem", sw: ["#FFFFFF", "#F7F4EE", "#1B2A4A", "#B8912E"] },
     { id: "glass", label: N_("Szkło (pastelowy)"), scheme: "light", icon: "layers", sw: ["#FFFFFF", "#E4E2FB", "#DDF4E8", "#1F7F45"] },
     { id: "aurum", label: N_("Złota biomasa (granat i złoto)"), scheme: "light", icon: "gem", sw: ["#FBF8F1", "#14213A", "#B8913A"] },
-    { id: "waga", label: N_("Stacja wagowa (klasyczny przemysłowy)"), scheme: "light", icon: "scale", sw: ["#F2F4F7", "#1F3C73", "#BDEFF5", "#FF2B1C"] }
+    { id: "waga", label: N_("Stacja wagowa (klasyczny przemysłowy)"), scheme: "light", icon: "scale", sw: ["#F2F4F7", "#1F3C73", "#BDEFF5", "#FF2B1C"] },
+    // 3.13: klasyczne motywy biurowe i motyw własny (trzy kolory użytkownika)
+    { id: "office98", label: N_("Office 98 (klasyczny szary)"), scheme: "light", icon: "file", sw: ["#FFFFFF", "#C0C0C0", "#000080"] },
+    { id: "office2003", label: N_("Office 2003 (niebieski Luna)"), scheme: "light", icon: "layers", sw: ["#FFFFFF", "#C3DAF9", "#316AC5", "#FFC973"] },
+    { id: "office2007", label: N_("Office 2007 (wstążka)"), scheme: "light", icon: "layers", sw: ["#FFFFFF", "#D5E5FA", "#15428B", "#FFD350"] },
+    { id: "custom", label: N_("Własny (trzy kolory)"), scheme: "light", icon: "drop", sw: ["#FFFFFF", "#EEF2EF", "#1E6B45"], custom: true }
   ];
+  /** 3.13: kolory motywu własnego — tło, akcent (przyciski, zaznaczenia), pasek menu. Format #RRGGBB. */
+  const THEME_COLOR_KEYS = ["bg", "accent", "bar"];
+  const DEFAULT_THEME_COLORS = { bg: "#EEF2EF", accent: "#1E6B45", bar: "#14213A" };
+  const HEX_RE = /^#[0-9a-f]{6}$/i;
+  function themeColors(v) {
+    if (!v || typeof v !== "object") return null;
+    const out = {};
+    for (const k of THEME_COLOR_KEYS) { if (!HEX_RE.test(String(v[k] || ""))) return null; out[k] = String(v[k]).toUpperCase(); }
+    return out;
+  }
   const THEMES = Object.fromEntries(THEME_REGISTRY.map(x => [x.id, x.label]));
   const Users = {
     fullName(r) { return [str(r.firstName), str(r.lastName)].filter(Boolean).join(" ") || str(r.name); },
@@ -2759,8 +2774,11 @@
       const next = { lang: prefs.lang === undefined ? u.lang : prefs.lang, theme: prefs.theme === undefined ? u.theme : prefs.theme };
       if (next.lang && !I18N.has(next.lang)) return { ok: false, error: t("Nieznany język") };
       if (next.theme && !THEMES[next.theme]) return { ok: false, error: t("Nieznany motyw") };
-      if (next.lang === u.lang && next.theme === u.theme) return { ok: true, unchanged: true };
+      let colors = u.themeColors || null;
+      if (prefs.themeColors !== undefined) { colors = themeColors(prefs.themeColors); if (!colors) return { ok: false, error: t("Nieprawidłowe kolory motywu (format #RRGGBB)") }; }
+      if (next.lang === u.lang && next.theme === u.theme && JSON.stringify(colors) === JSON.stringify(u.themeColors || null)) return { ok: true, unchanged: true };
       u.lang = next.lang || ""; u.theme = next.theme || "";
+      if (colors) u.themeColors = colors;
       state.rev += 1;
       return { ok: true };
     }
@@ -3113,7 +3131,7 @@
     VERSION, SCHEMA, EPS, Q, NumParse, own, applyDelta, FleetPick, materializeFleet, Templates, Scale, round, rq, fmt, fmtQ, money, Dates, Units, PERMS, ROLES, can, OP_TYPES, STATUS, KINDS, CATS, DOC_LABEL, BASIS,
     PROD_TYPES, MAX_EXT_COMPANIES, DIFF_REASONS, SUPPLIER_KINDS, partnerKind, ndlName, blankRun, blankExtRun, blankExtra, CORRECTION_REASONS,
     CHIPPER_OWNERS, VEHICLE_OWNERS, BODY_TYPES, DIM_LIMITS, compartmentMP, vehicleCapacityMP, WEIGHT_SOURCES, DEFAULT_EXTRA_TYPES, EXTRA_UNITS, MAX_EXTRAS, extrasText, docNoTaken, suggestDocNo, deleteOperation, DOC_NO_TYPES, NO_MODES, docNoModeOf, DOC_SERIES, WAREHOUSE_DOCS, DOC_NUMBERING, unifiedNumbering, seriesNoOf, TRANSPORT_MODES, VEHICLE_TYPES, ASSET_STATUS, INV_STATUS, HISTORY_TYPES, REPORT_COLS, uid, clone, byId,
-    PRODUCT_CATS, PARTNER_ROLES, CAT_UNIT, THEMES, THEME_REGISTRY, ROLE_INFO, ROLE_DEFAULTS, CREATE_PERMS, USER_STATUS, statusOf, applyRoles, permsOf, whAccess, canAccessWh,
+    PRODUCT_CATS, PARTNER_ROLES, CAT_UNIT, THEMES, THEME_REGISTRY, THEME_COLOR_KEYS, DEFAULT_THEME_COLORS, themeColors, ROLE_INFO, ROLE_DEFAULTS, CREATE_PERMS, USER_STATUS, statusOf, applyRoles, permsOf, whAccess, canAccessWh,
     normalizeEmail, validateCompanyEmail, Roles, Settings, Factors, Lx, EMAIL_RE, companyEmail, nipValid, trReason, auditText, loginFrom, migrate, I18N,
     submitOperation, approvePending, rejectPending, canApprove, planSummary,
     MM_MODES, MM_STATES, MM_DIFF_REASONS, mmMode, mmState, planReceive, receiveTransfer, mmInTransit, draftWhId,

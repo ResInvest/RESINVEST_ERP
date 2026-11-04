@@ -93,7 +93,6 @@
   "OK": ["OK", "OK"],
   "odrzucone": ["odmítnuto", "rejected"],
   "Brak wpisów.": ["Žádné záznamy.", "No entries."],
-  "Mój profil i ustawienia": ["Můj profil a nastavení", "My profile and settings"],
   "Język i motyw zapisują się w Twoim profilu — działają na każdym komputerze po zalogowaniu.": ["Jazyk a motiv se ukládají do vašeho profilu — platí na každém počítači po přihlášení.", "Language and theme are saved in your profile — they apply on any computer after you sign in."],
   "Konto": ["Účet", "Account"],
   "Tryb pracy": ["Režim práce", "Operating mode"],

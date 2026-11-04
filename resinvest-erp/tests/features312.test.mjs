@@ -110,10 +110,10 @@ test("migracja: starsze dane dostają pustą historię, zmienione role z zamykan
   assert.ok(!m.state.rolePerms.magazynier.includes("factors.edit"));
 });
 
-test("menu: grupa „Ustawienia” (użytkownicy, role, audyt) przed „System” (profil, administracja, poczta, powiadomienia)", () => {
+test("menu: grupa „Ustawienia” (wygląd i język, użytkownicy, role, audyt) przed „System” (profil, administracja, poczta, powiadomienia)", () => {
   const src = readFileSync(new URL("../app/src/core.js", import.meta.url), "utf8");
   const nav = src.slice(src.indexOf("const NAV = ["), src.indexOf("];", src.indexOf("const NAV = [")));
   const items = [...nav.matchAll(/group: N_\("([^"]+)"\)|id: "([a-z]+)"/g)].map(m => m[1] ? "#" + m[1] : m[2]);
   const from = items.indexOf("#Ustawienia");
-  assert.deepEqual(items.slice(from), ["#Ustawienia", "uzytkownicy", "role", "audyt", "#System", "profil", "administracja", "poczta", "powiadomienia"]);
+  assert.deepEqual(items.slice(from), ["#Ustawienia", "wyglad", "uzytkownicy", "role", "audyt", "#System", "profil", "administracja", "poczta", "powiadomienia"]);
 });

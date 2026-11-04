@@ -21,9 +21,14 @@ We wszystkich wariantach `EMAIL_TRANSPORT=smtp`.
 
 1. Uruchom wybrany instalator jako administrator → **Pełna instalacja (program i serwer)**.
    Opcjonalnie zaznacz autostart serwera przy logowaniu do Windows i regułę zapory dla portu 8080 (dostęp z sieci lokalnej).
-2. Menu Start → **Konfiguracja poczty i adresu (server.env)**. Uzupełnij:
-   - `APP_URL` — adres programu w sieci, np. `http://192.168.1.20:8080`,
-   - `SMTP_USER` i `SMTP_PASS` (w wariancie Gmail: hasło aplikacji, w wariancie bez ograniczeń także `SMTP_HOST`).
+2. **Od 3.13:** w programie **Poczta → Konfiguracja poczty**:
+   - wybierz dostawcę (Microsoft 365 / Gmail / inny serwer);
+   - wpisz login, hasło i adres programu w linkach (np. `http://192.168.1.20:8080`);
+   - kliknij **Zapisz**, potem **Wyślij test**.
+
+   Bez restartu serwera. W wariancie Gmail potrzebne jest hasło aplikacji.
+   Ręczna edycja pliku jest nadal możliwa: Menu Start → *Ustawienia serwera (server.env)*.
+   Diagnoza i plan: [`POCZTA_I_INSTALATORY_PLAN_3_13.md`](POCZTA_I_INSTALATORY_PLAN_3_13.md).
 3. Menu Start → **ResInvest ERP Serwer — uruchom**. Inne komputery i telefony otwierają `http://<adres-serwera>:8080/`.
 4. Administrator zaprasza pracowników: **Ustawienia → Użytkownicy → Dodaj użytkownika**.
 
@@ -74,4 +79,10 @@ Definicje wariantów: `installer/editions/*.json`. Nowy wariant to nowy plik JSO
 - Instalacja interaktywna wariantu *Bez ograniczeń* (`/LANG=polish`, Wine pod Xvfb, 04.11.2026): licencja → folder → składniki → zadania → instalacja → ekran końcowy z danymi pierwszego logowania (`magazyn@resinvest.group` / `Admin1234`). Powstało 9 skrótów w Menu Start (także z polskimi znakami), skrót na pulpicie i skrót autostartu.
 - Serwer uruchomiony skrótem instalatora (`ResInvestERP-Serwer.cmd` → dołączony `runtime\node.exe` 22.22.2): wersja 3.12.0, `companyDomains: []` (dowolna domena), logowanie kontem startowym z wymuszoną zmianą hasła, baza `C:\ProgramData\ResInvestERP\resinvest.sqlite`, kopia przy starcie w `backups`.
 - Uwagi dotyczące samego Wine (nie Windows): skróty z polskimi znakami wymagają w Linuksie locale UTF-8 (`LANG=C.UTF-8`), inaczej Wine zgłasza `IPersistFile::Save 0x80070002`; w dzienniku instalacji pojawia się „Exception while setting permissions” (Wine nie obsługuje uprawnień NTFS dla `[Dirs]`).
+- **3.13.0 (04.11.2026):** trzy instalatory zbudowane (Inno Setup 6.4.1 pod Wine) i zainstalowane po cichu na czystym Wine (locale UTF-8):
+  - każdy: „Installation process succeeded”; serwer z dołączonym `node.exe` zgłasza wersję 3.13.0, `mailReady:false` i domeny wariantu;
+  - dziennik serwera podaje przyczynę: Firma i Gmail — brak hasła SMTP_PASS, Bez ograniczeń — brak SMTP_HOST;
+  - w wariancie Bez ograniczeń sprawdzony cały przebieg: logowanie kontem startowym → zmiana hasła → *Poczta → Konfiguracja poczty*
+    (`/api/mail/config`, zapis do `C:\ProgramData\ResInvestERP\server.env`, hasło ze spacją, `#` i `$`) → *Wyślij test* → wiadomość
+    odebrana przez lokalny serwer SMTP → `mailReady:true`.
 - **Instalacji na prawdziwym Windows w tej sesji nie wykonano** — zalecana próba na komputerze testowym przed wdrożeniem (`installer/test-windows/Uruchom-test.cmd`).

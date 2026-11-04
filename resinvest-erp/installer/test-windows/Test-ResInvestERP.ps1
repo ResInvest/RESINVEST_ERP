@@ -1,11 +1,11 @@
 ﻿<#
 =========================================================================
- ResInvest ERP Serwer 3.12 — test odbiorczy na Windows: WSZYSTKIE 3 WARIANTY
+ ResInvest ERP Serwer 3.13 — test odbiorczy na Windows: WSZYSTKIE 3 WARIANTY
 
  Uruchomienie: dwuklik Uruchom-test.cmd (prosi o uprawnienia administratora) albo
    PowerShell jako administrator:  C:\ResInvest-test\Test-ResInvestERP.ps1
- W C:\ResInvest-test muszą być: 3 instalatory ResInvestERP_Serwer_Setup_3.12.0_{Gmail,BezOgraniczen,Firma}.exe
- i paczka ResInvestERP-testy-3.12.0.zip.
+ W C:\ResInvest-test muszą być: 3 instalatory ResInvestERP_Serwer_Setup_3.13.0_{Gmail,BezOgraniczen,Firma}.exe
+ i paczka ResInvestERP-testy-3.13.0.zip.
 
  Dla każdego wariantu (kolejność: Gmail → Bez ograniczeń → Firma, Firma zostaje zainstalowana na końcu):
    1. instalacja cicha jak na czystym komputerze (ustawienia poprzedniej instalacji odsunięte na czas testu),
@@ -48,7 +48,7 @@ $E = @{
   firma   = @{ suffix = "Firma";         domains = "resinvest.group";          envDomains = "resinvest.group";          smtp = "smtp.office365.com"; admin = "magazyn@resinvest.group"; foreign = "ktos@gmail.com";       share = $true }
 }
 
-Log "ResInvest ERP 3.12 — test odbiorczy 3 wariantów · komputer $env:COMPUTERNAME · użytkownik $env:USERNAME"
+Log "ResInvest ERP 3.13 — test odbiorczy 3 wariantów · komputer $env:COMPUTERNAME · użytkownik $env:USERNAME"
 $os = Get-CimInstance Win32_OperatingSystem
 Log ("System: {0} {1} (build {2}), {3}" -f $os.Caption, $os.OSArchitecture, $os.BuildNumber, (Get-Culture).Name)
 $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -123,7 +123,7 @@ foreach ($ed in $Editions) {
   for ($i = 0; $i -lt 60 -and -not $health; $i++) { Start-Sleep -Milliseconds 500; try { $health = Invoke-RestMethod "$base/api/health" -TimeoutSec 3 } catch { } }
   Check "Serwer uruchomiony z instalacji" ([bool]$health) $out
   if ($health) {
-    Check "Wersja 3.12.0" ($health.version -eq "3.12.0") $health.version
+    Check "Wersja 3.13.0" ($health.version -eq "3.13.0") $health.version
     Check "Domeny w /api/health: $(if ($X.domains) { $X.domains } else { 'dowolne' })" ((@($health.companyDomains) -join ",") -eq $X.domains) (@($health.companyDomains) -join ",")
     $script:ws = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     $pw = "Biomasa-Test-" + (Get-Random -Minimum 1000 -Maximum 9999)
@@ -173,7 +173,7 @@ foreach ($ed in $Editions) {
 $script:edition = "testy"
 if (-not $SkipTests -and (Test-Path $node)) {
   $pack = Get-ChildItem -Path $Root, $PSScriptRoot -Filter "ResInvestERP-testy-*.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
-  Check "Paczka testów znaleziona" ([bool]$pack) $(if ($pack) { $pack.FullName } else { "skopiuj ResInvestERP-testy-3.12.0.zip do $Root" })
+  Check "Paczka testów znaleziona" ([bool]$pack) $(if ($pack) { $pack.FullName } else { "skopiuj ResInvestERP-testy-3.13.0.zip do $Root" })
   if ($pack) {
     $tdir = Join-Path $Root "testy-$stamp"
     Expand-Archive -Path $pack.FullName -DestinationPath $tdir -Force

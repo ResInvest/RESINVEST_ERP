@@ -4,7 +4,6 @@
   "e-mail niepotwierdzony": ["e-mail nepotvrzen", "e-mail not confirmed"],
   "{w} — poczta nieskonfigurowana: wiadomość zapisano w folderze serwera (mail-outbox).": ["{w} — pošta není nastavena: zpráva byla uložena do složky serveru (mail-outbox).", "{w} — e-mail not configured: the message was saved in the server folder (mail-outbox)."],
   "E-mail nie został wysłany": ["E-mail nebyl odeslán", "E-mail was not sent"],
-  "Konto pozostaje nieaktywne — użyj „Wyślij ponownie zaproszenie”.": ["Účet zůstává neaktivní — použijte „Znovu odeslat pozvánku“.", "The account stays inactive — use “Resend invitation”."],
   "Zgłoszenie z rejestracji ({d}). Nadaj rolę i magazyn — zapis ze statusem „aktywny” aktywuje konto.": ["Žádost z registrace ({d}). Přidělte roli a sklad — uložení se stavem „aktivní“ účet aktivuje.", "Registration request ({d}). Assign a role and warehouse — saving with status “active” activates the account."],
   "Imię": ["Jméno", "First name"],
   "Nazwisko": ["Příjmení", "Last name"],
