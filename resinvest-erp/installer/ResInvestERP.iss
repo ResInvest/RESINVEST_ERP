@@ -104,12 +104,12 @@ english.ServerGroup=Server:
 polish.LnkLocal=ResInvest ERP (tryb lokalny)
 czech.LnkLocal=ResInvest ERP (místní režim)
 english.LnkLocal=ResInvest ERP (local mode)
-polish.LnkServer=ResInvest ERP Serwer — uruchom
-czech.LnkServer=ResInvest ERP Server — spustit
-english.LnkServer=ResInvest ERP Server — start
-polish.LnkOpen=ResInvest ERP (serwer) — otwórz w przeglądarce
-czech.LnkOpen=ResInvest ERP (server) — otevřít v prohlížeči
-english.LnkOpen=ResInvest ERP (server) — open in browser
+polish.LnkServer=ResInvest ERP Serwer - uruchom
+czech.LnkServer=ResInvest ERP Server - spustit
+english.LnkServer=ResInvest ERP Server - start
+polish.LnkOpen=ResInvest ERP (serwer) - otwórz w przeglądarce
+czech.LnkOpen=ResInvest ERP (server) - otevřít v prohlížeči
+english.LnkOpen=ResInvest ERP (server) - open in browser
 polish.LnkBackup=Kopia zapasowa bazy teraz
 czech.LnkBackup=Záloha databáze nyní
 english.LnkBackup=Back up the database now
@@ -205,7 +205,7 @@ Name: "{group}\{cm:LnkDocs}"; Filename: "{app}\README.md"; Components: app
 Name: "{group}\{cm:LnkShare}"; Filename: "{#EditionShare}"; Components: server
 Name: "{group}\{cm:LnkPublish}"; Filename: "{app}\ResInvestERP-Udzial.cmd"; Parameters: """{#EditionShare}"""; WorkingDir: "{app}"; IconFilename: "{app}\ric.ico"; Components: server
 #endif
-Name: "{group}\{uninstallexe}"; Filename: "{uninstallexe}"
+Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{cm:LnkLocal}"; Filename: "{app}\ResInvest_ERP.html"; Tasks: desktopicon; IconFilename: "{app}\ric.ico"; Components: app and not server
 Name: "{autodesktop}\{cm:LnkOpen}"; Filename: "{app}\ResInvestERP-Otworz.cmd"; Parameters: "{#AppURL}"; WorkingDir: "{app}"; IconFilename: "{app}\ric.ico"; Flags: runminimized; Tasks: desktopicon; Components: server
 Name: "{commonstartup}\{cm:LnkServer}"; Filename: "{app}\ResInvestERP-Serwer.cmd"; Parameters: "--no-open"; WorkingDir: "{app}"; Flags: runminimized; IconFilename: "{app}\ric.ico"; Tasks: autostart
@@ -222,6 +222,27 @@ Filename: "{app}\ResInvestERP-Udzial.cmd"; Parameters: """{#EditionShare}"""; Wo
 [UninstallRun]
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""ResInvest ERP Serwer"""; Flags: runhidden; RunOnceId: "fw"; Tasks: firewall
 Filename: "{sys}\taskkill.exe"; Parameters: "/F /FI ""WINDOWTITLE eq ResInvest ERP Serwer*"""; Flags: runhidden; RunOnceId: "stop"; Components: server
+
+[InstallDelete]
+; 3.12: skróty z wersji 3.11 z długą kreską w nazwie (zastąpione nazwami z „-”)
+Type: files; Name: "{group}\ResInvest ERP Serwer — uruchom.lnk"
+Type: files; Name: "{group}\ResInvest ERP (serwer) — otwórz w przeglądarce.lnk"
+Type: files; Name: "{autodesktop}\ResInvest ERP Serwer — uruchom.lnk"
+Type: files; Name: "{autodesktop}\ResInvest ERP (serwer) — otwórz w przeglądarce.lnk"
+Type: files; Name: "{commonstartup}\ResInvest ERP Serwer — uruchom.lnk"
+Type: files; Name: "{commonstartup}\ResInvest ERP (serwer) — otwórz w przeglądarce.lnk"
+Type: files; Name: "{group}\ResInvest ERP Server — spustit.lnk"
+Type: files; Name: "{group}\ResInvest ERP (server) — otevřít v prohlížeči.lnk"
+Type: files; Name: "{autodesktop}\ResInvest ERP Server — spustit.lnk"
+Type: files; Name: "{autodesktop}\ResInvest ERP (server) — otevřít v prohlížeči.lnk"
+Type: files; Name: "{commonstartup}\ResInvest ERP Server — spustit.lnk"
+Type: files; Name: "{commonstartup}\ResInvest ERP (server) — otevřít v prohlížeči.lnk"
+Type: files; Name: "{group}\ResInvest ERP Server — start.lnk"
+Type: files; Name: "{group}\ResInvest ERP (server) — open in browser.lnk"
+Type: files; Name: "{autodesktop}\ResInvest ERP Server — start.lnk"
+Type: files; Name: "{autodesktop}\ResInvest ERP (server) — open in browser.lnk"
+Type: files; Name: "{commonstartup}\ResInvest ERP Server — start.lnk"
+Type: files; Name: "{commonstartup}\ResInvest ERP (server) — open in browser.lnk"
 
 [UninstallDelete]
 Type: files; Name: "{app}\ResInvest ERP (serwer).url"
