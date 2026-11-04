@@ -25,7 +25,7 @@
    ========================================================================= */
 import { DatabaseSync } from "node:sqlite";
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, existsSync, appendFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, existsSync, appendFileSync, copyFileSync } from "node:fs";
 import { dirname, join, resolve, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
@@ -96,7 +96,7 @@ export function loadEnv(dataDir) {
   const files = [join(ROOT, ".env"), join(ROOT, "config", "edition.env"), join(ROOT, "config", "server.env"), dataDir ? join(dataDir, "server.env") : null].filter(Boolean);
   const env = {}, used = [];
   for (const f of files) if (existsSync(f)) { Object.assign(env, parseEnv(readFileSync(f, "utf8"))); used.push(f); }
-  for (const [k, v] of Object.entries(process.env)) if (/^(RESEND_|AGENTMAIL_|EMAIL_|SMTP_|APP_URL|SUPABASE_|COMPANY_DOMAINS$)/.test(k)) env[k] = v;
+  for (const [k, v] of Object.entries(process.env)) if (/^(RESEND_|AGENTMAIL_|EMAIL_|SMTP_|APP_URL|SUPABASE_|COMPANY_DOMAINS$|BACKUP_COPY_TO$)/.test(k)) env[k] = v;
   return { env, files: used };
 }
 
@@ -659,7 +659,29 @@ export class Store {
     try { this.db.prepare("INSERT INTO meta(key, value) VALUES ('last_backup', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(nowIso()); } catch (e) { /* baza sprzed tabeli meta */ }
     this.pruneBackups();
     this.log("INFO", `Kopia zapasowa: ${name}`);
-    return { ok: true, name, file };
+    return { ok: true, name, file, copies: this.copyBackup(file, name) };
+  }
+  /**
+   * 3.12: druga kopia w folderze firmy (np. udział sieciowy \\ue.cz\EPRPL\Data\BIOMASA\kopie, BACKUP_COPY_TO).
+   * Baza zostaje na dysku lokalnym (SQLite w trybie WAL nie może pracować na udziale SMB) — na udział trafia tylko gotowy plik kopii.
+   * Brak połączenia (VPN rozłączony) nie zatrzymuje serwera: kopia lokalna jest zawsze, błąd udziału trafia do dziennika.
+   */
+  copyBackup(file, name) {
+    const out = [];
+    for (const dir of this.cfg.backup.copyTo || []) {
+      try {
+        mkdirSync(dir, { recursive: true });
+        copyFileSync(file, join(dir, name));
+        const limit = Date.now() - this.cfg.backup.keepDays * 86400000;
+        for (const f of readdirSync(dir)) if (/^resinvest-.*-(auto|daily)\.sqlite$/.test(f)) { try { if (statSync(join(dir, f)).mtimeMs < limit) unlinkSync(join(dir, f)); } catch (e) {} }
+        out.push({ dir, ok: true });
+        this.log("INFO", `Kopia w folderze firmy: ${join(dir, name)}`);
+      } catch (e) {
+        out.push({ dir, ok: false, error: e.message });
+        this.log("WARN", `Kopia w folderze firmy NIEUDANA (${dir}) — sprawdź połączenie VPN / dostęp do udziału: ${e.message}`);
+      }
+    }
+    return out;
   }
   listBackups() {
     return readdirSync(this.cfg.backupDir).filter(f => /^resinvest-.*\.sqlite$/.test(f))

@@ -6,7 +6,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -57,10 +57,11 @@ test("generator wariantów: domeny, poczta SMTP (EMAIL_TRANSPORT=smtp), bez sekr
 const freePort = () => new Promise(res => { const s = createServer(); s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => res(p)); }); });
 const DATA = join(TMP, "data"), CFG = join(TMP, "server.config.json");
 writeFileSync(CFG, JSON.stringify(Object.assign({}, JSON.parse(readFileSync(join(ROOT, "config", "server.config.json"), "utf8")), { initialAdmin: { email: "" } })));
-async function withServer(domains, fn) {
+async function withServer(domains, fn, extraEnv = {}) {
   const port = await freePort(), base = `http://127.0.0.1:${port}`;
   const env = Object.assign({}, process.env, { RIW_TODAY: "2026-09-23", RIW_HOST: "127.0.0.1", RIW_CONFIG: CFG, EMAIL_TRANSPORT: "file" });
   if (domains === undefined) delete env.COMPANY_DOMAINS; else env.COMPANY_DOMAINS = domains;
+  Object.assign(env, extraEnv);
   const proc = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", SERVER, "--port", String(port), "--data", DATA], { env, stdio: "ignore" });
   try {
     let up = false;
@@ -107,4 +108,23 @@ test("zmiana wariantu przy starcie (COMPANY_DOMAINS=resinvest.group): zapis w da
   });
   // bez COMPANY_DOMAINS — domeny zostają takie, jak zapisane w danych
   await withServer(undefined, async c => { assert.deepEqual((await c.get("/api/health")).json.companyDomains, []); });
+});
+
+test("wariant Firma: folder firmy i druga kopia bazy (BACKUP_COPY_TO); niedostępny udział nie zatrzymuje serwera", async () => {
+  const r = makeEdition("firma", join(TMP, "firma-share"));
+  const edEnv = readFileSync(join(r.out, "edition.env"), "utf8");
+  assert.match(edEnv, /^BACKUP_COPY_TO=\\\\ue\.cz\\EPRPL\\Data\\BIOMASA\\kopie\r?$/m);
+  assert.match(readFileSync(join(r.out, "edition.iss"), "utf8"), /#define EditionShare "\\\\ue\.cz\\EPRPL\\Data\\BIOMASA"/);
+  const share = join(TMP, "udzial", "kopie"), dead = join(TMP, "plik-zamiast-folderu");
+  writeFileSync(dead, "x");                                   // folder, którego nie da się utworzyć — jak udział bez VPN
+  await withServer("*", async c => {
+    const lg = await c.post("/api/auth/login", { login: "jan.testowy@gmail.com", password: "Biomasa2026" });
+    assert.equal(lg.status, 200, "serwer działa mimo niedostępnego folderu kopii");
+    const b = await c.post("/api/backups", {});
+    assert.equal(b.status, 200, JSON.stringify(b.json));
+    assert.ok(existsSync(join(share, b.json.name)), "kopia w folderze firmy");
+    assert.ok(readdirSync(join(DATA, "backups")).includes(b.json.name), "kopia lokalna");
+  }, { BACKUP_COPY_TO: `${join(dead, "kopie")};${share}` });
+  const log = readdirSync(join(DATA, "logs")).map(f => readFileSync(join(DATA, "logs", f), "utf8")).join("\n");
+  assert.match(log, /Kopia w folderze firmy NIEUDANA/);
 });

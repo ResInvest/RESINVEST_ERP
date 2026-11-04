@@ -41,6 +41,7 @@ export function makeEdition(id, outDir) {
     `RIW_EDITION=${ed.id}`,
     "# Domeny adresów e-mail kont: lista po przecinku albo * (dowolna domena).",
     `COMPANY_DOMAINS=${ed.companyDomains}`,
+    ...(ed.shareDir ? ["# Folder firmy (udział sieciowy, VPN: " + (ed.vpn || "—") + "): druga kopia każdej kopii bazy. Baza zostaje lokalnie.", `BACKUP_COPY_TO=${ed.shareDir}\\kopie`] : []),
     ""].join("\r\n"));
 
   let env = readFileSync(join(ROOT, ".env.example"), "utf8");
@@ -48,6 +49,7 @@ export function makeEdition(id, outDir) {
   env = setEnv(env, "SMTP_PASS", "");
   env = env.replace(/^# =+\n#  ResInvest ERP Serwer — zmienne środowiskowe \(PRZYKŁAD, bez sekretów\)/m,
     m => `${m}\n#  Wariant instalacji: ${ed.name}\n#  Domeny kont: ${domains.length ? domains.map(d => "@" + d).join(", ") : "dowolne"} (COMPANY_DOMAINS — odkomentuj niżej, aby zmienić)`);
+  if (ed.shareDir) env += `\n# --- Folder firmy i VPN (wariant: ${ed.id}) ---\n# Program dla pracowników i kopie bazy: ${ed.shareDir} (Menu Start → Opublikuj program w folderze firmy).\n# Połączenie: FortiClient VPN „${ed.vpn || ""}”. Adres VPN komputera zmienia się przy połączeniu — do APP_URL wpisz stały adres\n# serwera w sieci firmy (nazwa DNS albo stały IP), np. APP_URL=http://erp-biomasa.ue.cz:8080\n# Inny folder kopii: BACKUP_COPY_TO=<folder>[;<folder2>]\n`;
   env += `\n# --- Domeny adresów e-mail kont (wariant: ${ed.id}) ---\n# Domyślnie z wariantu instalacji. Aby zmienić: odkomentuj i wpisz listę domen po przecinku albo * (dowolna domena).\n# COMPANY_DOMAINS=${ed.companyDomains}\n`;
   writeFileSync(join(out, "server.env"), env.replace(/\r?\n/g, "\r\n"));
 
@@ -70,7 +72,8 @@ export function makeEdition(id, outDir) {
   // UTF-8 z BOM — plik dołączany do ResInvestERP.iss (Inno Setup 7 wymaga zgodnego kodowania)
   writeFileSync(join(out, "edition.iss"), "\ufeff" + [
     `#define EditionId "${ed.id}"`, `#define EditionSuffix "${ed.suffix}"`, `#define EditionName "${q(ed.name)}"`,
-    `#define EditionDomains "${q(domains.length ? domains.map(d => "@" + d).join(", ") : "dowolne")}"`, ""].join("\r\n"));
+    `#define EditionDomains "${q(domains.length ? domains.map(d => "@" + d).join(", ") : "dowolne")}"`,
+    `#define EditionShare "${q(ed.shareDir || "")}"`, ""].join("\r\n"));
   return { id: ed.id, out, domains, initialAdmin: srv.initialAdmin.email };
 }
 

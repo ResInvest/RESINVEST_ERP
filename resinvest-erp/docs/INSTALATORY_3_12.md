@@ -27,6 +27,18 @@ We wszystkich wariantach `EMAIL_TRANSPORT=smtp`.
 3. Menu Start → **ResInvest ERP Serwer — uruchom**. Inne komputery i telefony otwierają `http://<adres-serwera>:8080/`.
 4. Administrator zaprasza pracowników: **Ustawienia → Użytkownicy → Dodaj użytkownika**.
 
+## Wariant Firma — folder firmy `\\ue.cz\EPRPL\Data\BIOMASA` (FortiClient VPN „United Energy - VPN”)
+
+| Co | Gdzie | Dlaczego |
+|---|---|---|
+| Serwer i **baza SQLite** | dysk lokalny komputera z serwerem: `C:\Program Files\ResInvest ERP`, `C:\ProgramData\ResInvestERP` | baza pracuje w trybie WAL, który **nie działa na udziale sieciowym (SMB)** — grozi uszkodzeniem danych; po rozłączeniu VPN serwer straciłby bazę |
+| Program dla pracowników | `\\ue.cz\EPRPL\Data\BIOMASA\ResInvest ERP` — `ResInvest_ERP.html`, instrukcja, skrót **ResInvest ERP (serwer).url** | Menu Start → *Opublikuj program w folderze firmy* (także jako opcja na końcu instalacji) |
+| Kopie bazy | lokalnie `C:\ProgramData\ResInvestERP\backups` **i** `\\ue.cz\EPRPL\Data\BIOMASA\kopie` (`BACKUP_COPY_TO`) | druga kopia poza komputerem serwera; gdy VPN jest rozłączony, serwer działa dalej, a w dzienniku pojawia się ostrzeżenie |
+
+- Publikacja i kopie na udziale wymagają połączenia FortiClient VPN i uprawnień konta Windows do folderu. Serwer uruchomiony jako zalogowany użytkownik korzysta z jego dostępu do udziału.
+- **Adres serwera dla pracowników (`APP_URL`):** adres VPN komputera (np. `10.212.212.29`) jest przydzielany przy każdym połączeniu i zwykle nie jest osiągalny z innych komputerów VPN. Serwer dla wielu osób postaw na komputerze w sieci firmy ze stałym adresem albo nazwą DNS i wpisz go do `server.env`, np. `APP_URL=http://erp-biomasa.ue.cz:8080`. Ustala to dział IT United Energy (reguła FortiGate dla portu 8080).
+- Login VPN nie jest zapisywany przez program — hasło VPN zostaje w FortiClient.
+
 ## Jak działa wariant
 
 - `C:\Program Files\ResInvest ERP\config\edition.env` zawiera `COMPANY_DOMAINS` (domeny kont) i `RIW_EDITION`. Instalator **nadpisuje** ten plik przy każdej instalacji.

@@ -35,6 +35,8 @@ const HTML_FILE = join(ROOT, "ResInvest_ERP.html");
 const VERSION = R.VERSION;
 const { env, files: envFiles } = loadEnv(cfg.dataDir);
 const mailCfg = mailConfig(env, cfg.dataDir);
+// 3.12: druga kopia bazy w folderze firmy (udział sieciowy) — lista folderów rozdzielona średnikiem
+cfg.backup.copyTo = String(env.BACKUP_COPY_TO || "").split(";").map(x => x.trim()).filter(Boolean);
 const HOURS = { invite: Number(env.INVITE_HOURS) || 72, reset: Number(env.RESET_HOURS) || 1, confirm: Number(env.CONFIRM_HOURS) || 48 };
 
 /* ---------------- polecenia administracyjne (bez uruchamiania serwera) ---------------- */
@@ -676,7 +678,7 @@ server.listen(cfg.port, cfg.host, () => {
   const proto = tls ? "https" : "http";
   const ips = Object.values(networkInterfaces()).flat().filter(n => n && n.family === "IPv4" && !n.internal).map(n => n.address);
   log("INFO", `ResInvest ERP Serwer ${VERSION} — ${proto}://localhost:${cfg.port}` + (cfg.host === "0.0.0.0" && ips.length ? ` · w sieci: ${ips.map(ip => `${proto}://${ip}:${cfg.port}`).join(", ")}` : ""));
-  log("INFO", `Dane: ${cfg.dataDir} · kopie: ${cfg.backupDir} · spójność: ${store.integrity.ok ? "OK" : store.integrity.notes.join("; ")}`);
+  log("INFO", `Dane: ${cfg.dataDir} · kopie: ${cfg.backupDir}${cfg.backup.copyTo.length ? " + folder firmy: " + cfg.backup.copyTo.join("; ") : ""} · spójność: ${store.integrity.ok ? "OK" : store.integrity.notes.join("; ")}`);
   const mi = mailInfo(mailCfg);
   log("INFO", `Poczta: ${mi.transport}${mi.smtp ? ` ${mi.smtp.host}:${mi.smtp.port} (${mi.smtp.secure})` : ""}${mi.configured ? "" : ` (NIEPEŁNA KONFIGURACJA: ${mi.problem} — wysyłka nie zadziała)`} · nadawca: ${mi.from} · linki: ${appUrl()}${env.APP_URL ? "" : " (ustaw APP_URL)"}${mi.outDir ? " · wiadomości zapisywane w: " + mi.outDir : ""}${envFiles.length ? " · środowisko: " + envFiles.join(", ") : ""}`);
   if (!store.hasAccounts()) log("INFO", "Pierwsze uruchomienie — otwórz adres serwera w przeglądarce i utwórz konto administratora.");

@@ -122,6 +122,15 @@ english.LnkData=Server data folder
 polish.LnkEnv=Konfiguracja poczty i adresu (server.env)
 czech.LnkEnv=Nastavení pošty a adresy (server.env)
 english.LnkEnv=E-mail and address settings (server.env)
+polish.LnkShare=Folder firmy (udział sieciowy)
+czech.LnkShare=Složka firmy (síťová sdílená složka)
+english.LnkShare=Company folder (network share)
+polish.LnkPublish=Opublikuj program w folderze firmy
+czech.LnkPublish=Publikovat program ve složce firmy
+english.LnkPublish=Publish the program to the company folder
+polish.RunPublish=Opublikuj program w folderze firmy %1 (wymaga połączenia VPN)
+czech.RunPublish=Publikovat program ve složce firmy %1 (vyžaduje připojení VPN)
+english.RunPublish=Publish the program to the company folder %1 (requires a VPN connection)
 polish.LnkDocs=Instrukcja (README)
 czech.LnkDocs=Návod (README)
 english.LnkDocs=Manual (README)
@@ -191,6 +200,11 @@ Name: "{group}\{cm:LnkCheck}"; Filename: "{app}\ResInvestERP-Kontrola.cmd"; Work
 Name: "{group}\{cm:LnkData}"; Filename: "{commonappdata}\ResInvestERP"; Components: server
 Name: "{group}\{cm:LnkEnv}"; Filename: "{sys}\notepad.exe"; Parameters: """{commonappdata}\ResInvestERP\server.env"""; Components: server
 Name: "{group}\{cm:LnkDocs}"; Filename: "{app}\README.md"; Components: app
+#if EditionShare != ""
+; wariant z folderem firmy (udział sieciowy): program dla pracowników i druga kopia bazy; baza zostaje lokalnie
+Name: "{group}\{cm:LnkShare}"; Filename: "{#EditionShare}"; Components: server
+Name: "{group}\{cm:LnkPublish}"; Filename: "{app}\ResInvestERP-Udzial.cmd"; Parameters: """{#EditionShare}"""; WorkingDir: "{app}"; IconFilename: "{app}\ric.ico"; Components: server
+#endif
 Name: "{group}\{uninstallexe}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{cm:LnkLocal}"; Filename: "{app}\ResInvest_ERP.html"; Tasks: desktopicon; IconFilename: "{app}\ric.ico"; Components: app and not server
 Name: "{autodesktop}\{cm:LnkOpen}"; Filename: "{app}\ResInvestERP-Otworz.cmd"; Parameters: "{#AppURL}"; WorkingDir: "{app}"; IconFilename: "{app}\ric.ico"; Flags: runminimized; Tasks: desktopicon; Components: server
@@ -200,6 +214,10 @@ Name: "{commonstartup}\{cm:LnkServer}"; Filename: "{app}\ResInvestERP-Serwer.cmd
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""ResInvest ERP Serwer"" dir=in action=allow protocol=TCP localport={#ServerPort} profile=private,domain"; Flags: runhidden; Tasks: firewall
 Filename: "{app}\ResInvestERP-Serwer.cmd"; WorkingDir: "{app}"; Description: "{cm:RunServer}"; Flags: postinstall skipifsilent nowait runminimized; Components: server
 Filename: "{app}\ResInvest_ERP.html"; Description: "{cm:RunLocal}"; Flags: shellexec postinstall skipifsilent nowait unchecked; Components: app
+#if EditionShare != ""
+; publikacja w folderze firmy jako zalogowany użytkownik (dostęp do udziału przez VPN), nie jako administrator instalatora
+Filename: "{app}\ResInvestERP-Udzial.cmd"; Parameters: """{#EditionShare}"""; WorkingDir: "{app}"; Description: "{cm:RunPublish,{#EditionShare}}"; Flags: postinstall skipifsilent runasoriginaluser; Components: server
+#endif
 
 [UninstallRun]
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""ResInvest ERP Serwer"""; Flags: runhidden; RunOnceId: "fw"; Tasks: firewall
