@@ -1,4 +1,4 @@
-# ResInvest ERP Serwer 3.12 — instalatory Windows (praca wielu osób)
+# ResInvest ERP Serwer 3.12–3.14 — instalatory Windows (praca wielu osób)
 
 Każdy instalator zawiera ten sam program:
 
@@ -9,11 +9,14 @@ Każdy instalator zawiera ten sam program:
 
 Instalatory różnią się tylko wariantem kont i poczty.
 
+**Od 3.14:** kreator na pełnym ekranie, strona **Poczta** (skrzynka i hasło — wiadomość testowa od razu po instalacji),
+folder skanów `C:\ProgramData\ResInvestERP\skany` (`SKANY <MIESIĄC> <ROK>`) z kopią w `backups\skany`.
+
 | Plik | Wariant | Konta (e-mail) | Poczta | Konto startowe |
 |---|---|---|---|---|
-| `ResInvestERP_Serwer_Setup_3.12.0_Firma.exe` | firma | tylko `@resinvest.group` | Microsoft 365: `smtp.office365.com:587`, STARTTLS | `magazyn@resinvest.group` / `Admin1234` (zmiana przy pierwszym logowaniu) |
-| `ResInvestERP_Serwer_Setup_3.12.0_Gmail.exe` | gmail | `@gmail.com`, `@googlemail.com` | Gmail: `smtp.gmail.com:465`, SSL, hasło aplikacji Google | brak — ekran *Pierwsze uruchomienie* w przeglądarce (adres Gmail) |
-| `ResInvestERP_Serwer_Setup_3.12.0_BezOgraniczen.exe` | otwarta | **dowolna domena** (tryb firmowy bez ograniczenia do `@resinvest.group`) | dowolny SMTP — uzupełnij `SMTP_HOST` | `magazyn@resinvest.group` / `Admin1234` |
+| `ResInvestERP_SerwerFirma.exe` | firma | tylko `@resinvest.group` | Microsoft 365: `smtp.office365.com:587`, STARTTLS | `magazyn@resinvest.group` / `Admin1234` (zmiana przy pierwszym logowaniu) |
+| `ResInvestERP_GoogleSerwer.exe` | gmail | `@gmail.com`, `@googlemail.com` | Gmail: `smtp.gmail.com:465`, SSL, hasło aplikacji Google | brak — ekran *Pierwsze uruchomienie* w przeglądarce (adres Gmail) |
+| `ResInvestERP_SerwerNoLimit.exe` | otwarta | **dowolna domena** (tryb firmowy bez ograniczenia do `@resinvest.group`) | dowolny SMTP — uzupełnij `SMTP_HOST` | `magazyn@resinvest.group` / `Admin1234` |
 
 We wszystkich wariantach `EMAIL_TRANSPORT=smtp`.
 
@@ -68,7 +71,8 @@ Kroki budowy:
 3. `node.exe` z nodejs.org z kontrolą SHA-256;
 4. dla każdego wariantu `node tools/make-edition.mjs <wariant>` → `installer/build/<wariant>/` i kompilacja z `/DEditionId=<wariant>`.
 
-Wynik: `installer/Output/ResInvestERP_Serwer_Setup_3.12.0_*.exe`.
+Wynik: `installer/Output/ResInvestERP_SerwerFirma.exe`, `ResInvestERP_GoogleSerwer.exe`, `ResInvestERP_SerwerNoLimit.exe`
+(do 3.13: `ResInvestERP_Serwer_Setup_<wersja>_<Wariant>.exe`). Pliki tymczasowe budowy (`installer/build`, prefiks Wine) są usuwane po kompilacji.
 Definicje wariantów: `installer/editions/*.json`. Nowy wariant to nowy plik JSON i wpis na liście `EDITIONS` w `tools/make-edition.mjs`.
 
 ## Sprawdzone (3.12.0, budowa 03.11.2026)

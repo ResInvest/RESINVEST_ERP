@@ -98,6 +98,8 @@
     warn(a, b) { this.show("warn", a, b); }, info(a, b) { this.show("info", a, b); }
   };
 
+  /** 3.14: bieżąca skala interfejsu (CSS zoom na <html>, Ustawienia → Rozdzielczość ekranu). */
+  const uiZoom = () => { const z = parseFloat(document.documentElement.style.zoom); return z > 0 ? z : 1; };
   const Modal = {
     open({ title, sub, body, footer, wide, xwide, onClose, id }) {
       const scrim = document.createElement("div");
@@ -148,9 +150,10 @@
       const el = document.createElement("div");
       el.className = "dropdown"; el.setAttribute("role", "menu"); el.innerHTML = html;
       document.body.appendChild(el);
-      const r = anchor.getBoundingClientRect(), w = el.offsetWidth;
-      el.style.top = Math.min(r.bottom + 6, root.innerHeight - el.offsetHeight - 8) + "px";
-      el.style.left = Math.max(8, Math.min(r.right - w, root.innerWidth - w - 8)) + "px";
+      // 3.14: przy skali interfejsu (CSS zoom) pozycje liczone w pikselach ekranu i dzielone przez skalę
+      const z = uiZoom(), r = anchor.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+      el.style.top = Math.min(r.bottom / z + 6, root.innerHeight / z - h - 8) + "px";
+      el.style.left = Math.max(8, Math.min(r.right / z - w, root.innerWidth / z - w - 8)) + "px";
       this.el = el;
       this._out = e => { if (!el.contains(e.target) && !anchor.contains(e.target)) this.close(); };
       this._key = e => { if (e.key === "Escape") { this.close(); anchor.focus(); } };
@@ -216,18 +219,56 @@
       "--shadow": "0 22px 56px rgba(0,0,0,.6)", "--shadow-1": "0 1px 2px rgba(0,0,0,.5)", "--shadow-2": "0 6px 18px rgba(0,0,0,.45)", "--overlay": "rgba(0,0,0,.62)" });
     return { vars: v, scheme: dark ? "dark" : "light" };
   }
+  /**
+   * 3.14: motyw „Gradient” — tło z przejściem między dwoma kolorami użytkownika, karty i menu jako matowe szkło.
+   * Kolor tekstu i akcent dobierane do najgorszego miejsca gradientu (kontrast ≥ 4,5:1 tekst, ≥ 3:1 akcent).
+   */
+  function gradientThemeVars(g) {
+    const c = R.themeGradient(g) || R.DEFAULT_THEME_GRADIENT, mid = Clr.mix(c.from, c.to, 0.5);
+    const dark = Clr.lum(mid) < 0.3, base = dark ? "#0F131C" : "#FFFFFF", a = dark ? 0.86 : 0.9;
+    const eff = [c.from, c.to, mid].map(x => Clr.mix(x, base, a));              // karta nad każdym miejscem gradientu
+    const text = dark ? "#F1F4F8" : "#111827";
+    const worst = (col) => Math.min(...eff.map(e => Clr.contrast(col, e)));
+    let brand = Clr.contrast(c.from, base) >= Clr.contrast(c.to, base) ? c.from : c.to;
+    for (let i = 0; i < 14 && worst(brand) < 3; i++) brand = Clr.mix(brand, text, 0.14);
+    const fit = (k, min) => { let x = Clr.mix(text, base, k); while (k > 0 && worst(x) < min) { k = Math.max(0, k - 0.04); x = Clr.mix(text, base, k); } return x; };
+    const glass = Clr.rgba(base, a), glass2 = Clr.rgba(base, Math.min(1, a + 0.06));
+    const v = {
+      "--bg": mid, "--bg-grad": `linear-gradient(135deg,${c.from} 0%,${c.to} 100%)`,
+      "--surface": glass, "--surface-2": glass2, "--surface-3": Clr.rgba(dark ? "#FFFFFF" : "#0B1220", 0.06), "--field": dark ? "#141A26" : "#FFFFFF", "--row-alt": Clr.rgba(dark ? "#FFFFFF" : "#0B1220", 0.03),
+      "--border": Clr.rgba(dark ? "#FFFFFF" : "#0B1220", 0.14), "--border-strong": Clr.rgba(dark ? "#FFFFFF" : "#0B1220", 0.26), "--border-hover": Clr.rgba(dark ? "#FFFFFF" : "#0B1220", 0.42),
+      "--text": text, "--text-head": dark ? "#FFFFFF" : "#0B1220", "--text-2": fit(0.22, 6), "--text-3": fit(0.32, 4.6),
+      "--brand": brand, "--brand-2": Clr.mix(brand, dark ? "#FFFFFF" : "#000000", 0.12), "--brand-ink": Clr.ink(brand), "--brand-soft": Clr.rgba(brand, 0.14), "--brand-line": Clr.rgba(brand, 0.45), "--brand-ring": Clr.rgba(brand, 0.25),
+      "--focus": brand, "--chart-a": brand, "--chart-grid": Clr.rgba(dark ? "#FFFFFF" : "#0B1220", 0.1),
+      "--hero": `linear-gradient(125deg,${Clr.mix(c.from, "#000000", 0.35)} 0%,${Clr.mix(c.to, "#000000", 0.35)} 100%)`, "--hero-ink": "#FFFFFF", "--hero-dim": "rgba(255,255,255,.78)",
+      "--bar": glass, "--bar-ink": text, "--bar-sel": Clr.rgba(brand, 0.16), "--bar-line": Clr.rgba(dark ? "#FFFFFF" : "#0B1220", 0.12),
+      "--tip-bg": dark ? "#F1F4F7" : "#111820", "--tip-ink": dark ? "#111820" : "#FFFFFF", "--select-arrow": "%23" + fit(0.32, 4.6).slice(1)
+    };
+    if (dark) Object.assign(v, { "--ok": "#41B87A", "--ok-soft": "#12281C", "--ok-line": "#265C41", "--warn": "#D8A63C", "--warn-soft": "#2B2211", "--warn-line": "#5C4719",
+      "--err": "#E4695C", "--err-soft": "#2E1614", "--err-line": "#6A2A24", "--info": "#5B9BF0", "--info-soft": "#111F33", "--info-line": "#23406A", "--overlay": "rgba(0,0,0,.62)" });
+    return { vars: v, scheme: dark ? "dark" : "light" };
+  }
+  /** 3.14: skala interfejsu dla wybranej rozdzielczości roboczej (szerokość ekranu / szerokość rozdzielczości). */
+  function uiZoomFor(id) {
+    const r = R.UI_RES[id];
+    if (!r || !r.w) return 1;
+    const sw = (root.screen && root.screen.width) || 1920;
+    return Math.round(Math.min(1.6, Math.max(0.6, sw / r.w)) * 100) / 100;
+  }
   const Prefs = {
     theme: (root.RIW_CONFIG && root.RIW_CONFIG.defaultTheme) || "pearl",
-    colors: null,
+    colors: null, gradient: null, uiRes: "", saved: null, _vars: [],
     listeners: new Set(),
     /** Subskrypcja zmian motywu (np. wykresy, które przeliczają kolory). Zwraca funkcję wypisania. */
     onTheme(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); },
     /** Kolory motywu własnego: profil użytkownika → kopia w przeglądarce → domyślne. */
     customColors() { return R.themeColors(this.colors) || R.themeColors((() => { try { return JSON.parse(lsGet("riw.themeColors", "null")); } catch (e) { return null; } })()) || Object.assign({}, R.DEFAULT_THEME_COLORS); },
-    applyTheme(id, colors) {
-      const th = THEME_LIST.find(x => x.id === id) || THEME_LIST[0];
+    gradientColors() { return R.themeGradient(this.gradient) || R.themeGradient((() => { try { return JSON.parse(lsGet("riw.themeGradient", "null")); } catch (e) { return null; } })()) || Object.assign({}, R.DEFAULT_THEME_GRADIENT); },
+    applyTheme(id, colors, gradient) {
+      const th = THEME_LIST.find(x => x.id === R.themeId(id)) || THEME_LIST[0];
       if (colors) this.colors = R.themeColors(colors) || this.colors;
-      const sig = th.id + (th.custom ? JSON.stringify(this.customColors()) : "");
+      if (gradient) this.gradient = R.themeGradient(gradient) || this.gradient;
+      const sig = th.id + (th.custom ? JSON.stringify(this.customColors()) : "") + (th.gradient ? JSON.stringify(this.gradientColors()) : "");
       const changed = sig !== this._sig;
       this._sig = sig;
       this.theme = th.id;
@@ -235,17 +276,48 @@
       html.classList.add("theme-switching");                                   // bez animacji przejść podczas zmiany
       html.setAttribute("data-theme", th.id);
       let scheme = th.scheme;
-      html.style.cssText = "";                                                 // tokeny motywu własnego tylko przy „Własny”
-      if (th.custom) {
-        const cv = customThemeVars(this.customColors());
-        Object.entries(cv.vars).forEach(([k, v]) => html.style.setProperty(k, v));
-        scheme = cv.scheme;
-        lsSet("riw.themeVars", Object.entries(cv.vars).map(([k, v]) => `${k}:${v};`).join(""));
+      // tokeny motywu własnego / gradientu — tylko przy tych motywach (skala interfejsu na <html> zostaje)
+      if (!this._init) { this._init = true; this._vars = Array.from({ length: html.style.length }, (_, i) => html.style[i]).filter(k => k.startsWith("--")); }  // kolory z pierwszego malowania
+      this._vars.forEach(k => html.style.removeProperty(k)); this._vars = [];
+      const gen = th.custom ? customThemeVars(this.customColors()) : th.gradient ? gradientThemeVars(this.gradientColors()) : null;
+      if (gen) {
+        Object.entries(gen.vars).forEach(([k, v]) => html.style.setProperty(k, v));
+        this._vars = Object.keys(gen.vars);
+        scheme = gen.scheme;
+        lsSet("riw.themeVars", Object.entries(gen.vars).map(([k, v]) => `${k}:${v};`).join(""));
       }
       html.style.colorScheme = scheme;
       const meta = $('meta[name="color-scheme"]'); if (meta) meta.setAttribute("content", scheme);
       root.requestAnimationFrame ? requestAnimationFrame(() => requestAnimationFrame(() => html.classList.remove("theme-switching"))) : html.classList.remove("theme-switching");
       if (changed) this.listeners.forEach(fn => { try { fn(th); } catch (e) { console.error(e); } });
+    },
+    /** 3.14: rozdzielczość robocza interfejsu (skala). */
+    applyRes(id) {
+      this.uiRes = R.UI_RES[id] && id !== "auto" ? id : "";
+      const z = uiZoomFor(this.uiRes);
+      document.documentElement.style.zoom = z === 1 ? "" : String(z);
+      document.documentElement.dataset.uiRes = this.uiRes || "auto";
+    },
+    zoom() { return uiZoomFor(this.uiRes); },
+    /** Zapamiętane ustawienia (podgląd w Wygląd i język można cofnąć do nich przed zapisem). */
+    snapshot() { return { theme: this.theme, colors: this.customColors(), gradient: this.gradientColors(), uiRes: this.uiRes }; },
+    preview(id, colors, gradient) { if (!this.saved) this.saved = this.snapshot(); this.applyTheme(id, colors, gradient); },
+    previewRes(id) { if (!this.saved) this.saved = this.snapshot(); this.applyRes(id); },
+    dirty() { return !!this.saved && JSON.stringify(this.saved) !== JSON.stringify(this.snapshot()); },
+    cancelPreview() {
+      const s = this.saved; if (!s) return;
+      this.saved = null; this.colors = s.colors; this.gradient = s.gradient;
+      this.applyTheme(s.theme); this.applyRes(s.uiRes);
+    },
+    /** Zapis wyglądu w profilu użytkownika (motyw, kolory motywu własnego / gradientu, rozdzielczość). */
+    async saveLook() {
+      const cur = this.snapshot();
+      lsSet("riw.theme", cur.theme); lsSet("riw.themeColors", JSON.stringify(cur.colors)); lsSet("riw.themeGradient", JSON.stringify(cur.gradient)); lsSet("riw.uiRes", cur.uiRes);
+      let r = { ok: true };
+      if (Store.userId) r = await Store.exec("me.prefs", { theme: cur.theme, themeColors: cur.colors, themeGradient: cur.gradient, uiRes: cur.uiRes || "auto" }, N_("Preferencje"), { quiet: true });
+      if (!r || r.ok !== false) this.saved = null;
+      App.refreshChrome();
+      return r || { ok: true };
     },
     applyLang(code) {
       I18N.setLang(code);
@@ -253,11 +325,15 @@
     },
     /** Preferencje zalogowanego użytkownika mają pierwszeństwo przed zapisanymi w przeglądarce. */
     fromUser(u) {
+      this.saved = null;
       this.colors = (u && R.themeColors(u.themeColors)) || null;
+      this.gradient = (u && R.themeGradient(u.themeGradient)) || null;
       this.applyTheme((u && u.theme) || lsGet("riw.theme", (root.RIW_CONFIG && root.RIW_CONFIG.defaultTheme) || "pearl"));
+      this.applyRes(u ? (u.uiRes || "") : lsGet("riw.uiRes", ""));
       this.applyLang((u && u.lang) || I18N.detect(lsGet("riw.lang", ""), root.navigator && navigator.language));
     },
     async setTheme(id) {
+      this.saved = null;
       this.applyTheme(id); lsSet("riw.theme", this.theme);
       if (Store.userId) await Store.exec("me.prefs", { theme: this.theme }, N_("Preferencje"), { quiet: true });
       App.refreshChrome();
@@ -853,6 +929,8 @@
       R.applyRoles(Store.state);
       const { route, params } = this.parseHash();
       const changed = route !== this.route;
+      // 3.14: podgląd wyglądu bez „Zapisz” — po wyjściu z ekranu Wygląd i język wraca zapisany motyw
+      if (route !== "wyglad" && Prefs.saved) Prefs.cancelPreview();
       this.route = route; this.params = params;
       document.body.classList.remove("nav-open");
       const active = HIDDEN_ROUTES[route] ? HIDDEN_ROUTES[route].parent : route;
@@ -1023,10 +1101,13 @@
     tools() { return ""; },
     bindTools() {},
     side() {
+      const feat = [["layers", t("Zakupy, produkcja zrębki, sprzedaż, MM i transport w jednym miejscu")], ["clock", t("Pełna historia — każda zmiana w dzienniku audytu z łańcuchem SHA-256")],
+        ["db", t("Baza SQLite, kopie automatyczne codziennie i przed aktualizacją")], ["users", t("Praca wielu osób jednocześnie — przeglądarka, telefon, tablet")]];
       return `<section class="auth-side" aria-hidden="true"><div class="rings"></div>
         <div class="auth-brand"><div class="mark" aria-label="RiC — ResInvest Commodities">RiC</div><div><b>ResInvest ERP</b><span>${esc(t("Obrót i magazynowanie biomasy drzewnej"))}</span></div></div>
-        <div><h2>${esc(t("Biomasa pod pełną kontrolą"))}</h2><p>${esc(t("Zakupy, produkcja zrębki, sprzedaż, transport i inwentaryzacja w jednym systemie — z historią każdej zmiany, raportami miesięcznymi i rocznymi oraz kopiami zapasowymi."))}</p></div>
-        <div class="auth-facts"><div><b>3</b><span>${esc(t("języki: PL · CS · EN"))}</span></div><div><b>${THEME_LIST.length}</b><span>${esc(t("motywy kolorystyczne"))}</span></div><div><b>100%</b><span>${esc(t("operacji w dzienniku audytu"))}</span></div></div></section>`;
+        <div class="auth-copy"><span class="auth-kicker">${esc(t("System ERP klasy przedsiębiorstwa"))}</span><h2>${esc(t("Biomasa pod pełną kontrolą"))}</h2><p>${esc(t("Zakupy, produkcja zrębki, sprzedaż, transport i inwentaryzacja w jednym systemie — z historią każdej zmiany, raportami miesięcznymi i rocznymi oraz kopiami zapasowymi."))}</p>
+          <ul class="auth-feat">${feat.map(([i, x]) => `<li><span class="fi">${ic(i, 16)}</span>${esc(x)}</li>`).join("")}</ul></div>
+        <div class="auth-facts"><div><b>3</b><span>${esc(t("języki: PL · CS · EN"))}</span></div><div><b>${THEME_LIST.length}</b><span>${esc(t("motywy kolorystyczne"))}</span></div><div><b>100%</b><span>${esc(t("operacji w dzienniku audytu"))}</span></div><div><b>24/7</b><span>${esc(t("kopie zapasowe bazy i skanów"))}</span></div></div></section>`;
     },
     /** Edycja Premium (build --edition premium): ekran startowy ze zdjęciem i panelem logowania. */
     premium() { return !!(root.RIW_CONFIG && root.RIW_CONFIG.edition === "premium"); },
@@ -1097,7 +1178,9 @@
               <button class="btn primary lg block" type="submit" id="rg-submit">${ic("user", 16)} ${esc(t("Zarejestruj konto"))}</button>
             </form>`;
       const hero = typeof root.RIW_HERO === "string" && root.RIW_HERO ? ` style="--hero-img:url('${root.RIW_HERO}')"` : "";
-      document.getElementById("app").innerHTML = `<div class="auth${prem ? " prem" : ""}" id="auth-screen"${prem ? hero : ""}>${prem ? this.premiumHero(local) : this.side()}
+      // 3.14: ekran logowania premium — tło ze zdjęcia z intro (osadzone w programie, bez pobierania z sieci)
+      const poster = typeof root.INTRO_POSTER === "string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(root.INTRO_POSTER) ? ` style="--auth-img:url('${root.INTRO_POSTER}')"` : "";
+      document.getElementById("app").innerHTML = `<div class="auth${prem ? " prem" : " lux"}" id="auth-screen"${prem ? hero : poster}>${prem ? this.premiumHero(local) : this.side()}
         <section class="${prem ? "prem-panel" : "auth-form"}">${this.tools()}
           <div class="auth-box${prem ? " prem-card" : ""}">
             ${prem ? this.premiumLogo() : `<h3>${esc(reg ? t("Załóż konto") : t("Zaloguj się"))}</h3>`}
@@ -1264,7 +1347,7 @@
   const Views = {};
   const statusBadge = st => `<span class="badge st-${esc(st)}" data-status="${esc(st)}">${esc(t(R.STATUS[st] || st))}</span>`;
 
-  root.RIWUI = { R, I18N, t, tp, N_, esc, $, $$, ic, fid, str, lsGet, lsSet, ssGet, ssSet, initials, download, csvNum, toCSV, Toast, Modal, Dropdown, Store, LocalBackend, ServerBackend, App, Auth, Prefs, THEME_LIST, Clr, customThemeVars, Views, statusBadge, KEY, DRAFT_KEY, NAV, pwField, bindEyes, pwMeter, bindMeter };
+  root.RIWUI = { R, I18N, t, tp, N_, esc, $, $$, ic, fid, str, lsGet, lsSet, ssGet, ssSet, initials, download, csvNum, toCSV, Toast, Modal, Dropdown, Store, LocalBackend, ServerBackend, App, Auth, Prefs, THEME_LIST, Clr, customThemeVars, gradientThemeVars, uiZoomFor, uiZoom, Views, statusBadge, KEY, DRAFT_KEY, NAV, pwField, bindEyes, pwMeter, bindMeter };
   root.App = App;
   root.Dropdown = Dropdown;
 })(typeof globalThis !== "undefined" ? globalThis : this);

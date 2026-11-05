@@ -165,6 +165,7 @@ export function mailHint(error) {
     [/ECONNREFUSED/i, N_("Serwer poczty odmówił połączenia — sprawdź port (587 STARTTLS albo 465 SSL).")],
     [/ETIMEDOUT|przekroczony czas|ECONNRESET/i, N_("Brak odpowiedzi serwera poczty — zapora, antywirus lub sieć firmowa blokuje port 587/465. Sprawdź z działem IT.")],
     [/certificate|self.signed|unable to verify|CERT_/i, N_("Nie można zweryfikować certyfikatu serwera poczty — najczęściej antywirus przechwytuje połączenia SSL. Dodaj wyjątek dla node.exe albo dla serwera SMTP.")],
+    [/bez szyfrowania jest zablokowane/i, N_("Hasło wysyłane jest tylko szyfrowanym połączeniem: ustaw szyfrowanie SSL (port 465) albo STARTTLS (port 587).")],
     [/nie oferuje STARTTLS/i, N_("Zmień szyfrowanie: port 465 → SSL, port 587 → STARTTLS.")],
     [/RESEND_API_KEY|AGENTMAIL/i, N_("Uzupełnij klucz API dostawcy w Poczta → Konfiguracja poczty albo wybierz SMTP.")]
   ];

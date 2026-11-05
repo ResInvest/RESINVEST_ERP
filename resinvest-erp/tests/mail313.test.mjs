@@ -174,3 +174,37 @@ test("serwer: konfiguracja poczty z programu, test wysyłki, link zaproszenia dl
     });
   } finally { await smtp.close(); }
 });
+
+test("instalator (strona „Poczta”): --mail-setup zapisuje server.env, wysyła test, nie ujawnia hasła; błędne dane = kod 2", async () => {
+  const smtp = await relay();
+  const data = join(TMP, "mail-setup"); mkdirSync(data, { recursive: true });
+  const env = Object.assign({}, process.env, { RIW_TODAY: "2026-11-04" });
+  for (const k of Object.keys(env)) if (/^(SMTP_|EMAIL_|RESEND_|AGENTMAIL_|APP_URL|COMPANY_DOMAINS)/.test(k)) delete env[k];
+  const run = cfg => new Promise(res => {
+    const f = join(TMP, "mail-setup.json"), out = join(TMP, "mail-setup.txt");
+    writeFileSync(f, "﻿" + JSON.stringify(Object.assign({ resultFile: out }, cfg)));
+    const p = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", join(ROOT, "server", "riw-server.mjs"), "--data", data, "--mail-setup", f], { env, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = ""; p.stdout.on("data", d => { stdout += d; }); p.stderr.on("data", d => { stdout += d; });
+    p.on("exit", code => { let txt = ""; try { txt = readFileSync(out, "utf8"); } catch (e) { /* brak pliku */ } res({ code, stdout, txt }); });
+  });
+  try {
+    // przekaźnik w sieci firmy: bez logowania, bez szyfrowania
+    const ok = await run({ host: "127.0.0.1", port: String(smtp.port), secure: "none", user: "", pass: "", from: "ResInvest ERP <erp@firma.pl>", appUrl: "http://serwer-erp:8080", test: true, to: "admin@firma.pl" });
+    assert.equal(ok.code, 0, ok.stdout);
+    assert.match(ok.txt, /^﻿Zapisano konfigurację poczty\. Wiadomość testowa wysłana na admin@firma\.pl/);
+    assert.ok(smtp.got.some(m => m.rcpt.join(" ").includes("admin@firma.pl")), "wiadomość testowa dotarła do serwera SMTP");
+    const envTxt = readFileSync(join(data, "server.env"), "utf8");
+    assert.match(envTxt, new RegExp(`SMTP_PORT=${smtp.port}`)); assert.match(envTxt, /APP_URL=http:\/\/serwer-erp:8080/);
+    // hasło przy połączeniu bez szyfrowania — serwer nie wysyła go otwartym tekstem (kod 3 + wskazówka), hasła nie ma w wyniku
+    const n0 = smtp.got.length;
+    const bad = await run({ host: "127.0.0.1", port: String(smtp.port), secure: "none", user: "erp@firma.pl", pass: "TajneHaslo123", test: true });
+    assert.equal(bad.code, 3, bad.stdout);
+    assert.match(bad.txt, /bez szyfrowania jest zablokowane/);
+    assert.equal(smtp.got.length, n0, "nic nie wyszło do serwera SMTP");
+    assert.doesNotMatch(bad.stdout + bad.txt, /TajneHaslo123/);
+    // brak serwera SMTP — błąd danych
+    const none = await run({ host: "", port: "", user: "jan@gmail.com", pass: "abcd efgh ijkl mnop", test: true });
+    assert.equal(none.code, 2, none.stdout);
+    assert.doesNotMatch(none.stdout + none.txt, /abcd/);
+  } finally { await smtp.close(); }
+});

@@ -375,6 +375,8 @@
           ${led.map(l => `<tr class="${l.kind === "ANULOWANIE" || l.kind === "KOREKTA" ? "sub" : ""}"><td class="nowrap">${esc(Dates.pl(l.date))}</td><td class="mono">${esc(l.docNo)}</td><td>${esc(t(R.KINDS[l.kind].label))}${l.kind === "KOREKTA" || l.kind === "ANULOWANIE" ? ` <small class="dim">(${esc(t(R.CATS[l.cat]))})</small>` : ""}${l.direct ? " · " + th("bezp.") : ""}</td><td>${esc(App.whName(l.whId))}</td><td>${esc(pName(l.productId))}</td><td class="r"><span class="${l.qty < 0 ? "neg" : "pos"}">${l.qty > 0 ? "+" : ""}${esc(App.qtyNative(l.qty, l.productId, 6))}</span></td></tr>`).join("")}
         </tbody></table></div>
         ${op.corrections.length ? `<h4 class="mini-h">${esc(t("Korekty ({n})", { n: op.corrections.length }))}</h4><div class="tbl-wrap"><table class="tbl" id="op-corr"><thead><tr><th>${th("Nr")}</th><th>${th("Data")}</th><th>${th("Użytkownik")}</th><th>${th("Powód")}</th><th>${th("Zmiany")}</th><th class="r">${th("Wpływ na stan")}</th><th></th></tr></thead><tbody>${corrRows}</tbody></table></div>` : ""}
+        <h4 class="mini-h">${th("Skany dokumentów i zdjęcia")} <small class="dim">${esc(t("PZ, WZ, MM, kwity wywozowe, zdjęcia wagi i zrębki · folder {f}", { f: R.scanFolder(op.date) }))}</small></h4>
+        <div id="op-scans"></div>
         <h4 class="mini-h">${th("Historia zdarzeń")}</h4>
         <ul class="timeline" id="op-events">${events.map(a => `<li>${auditLine(a)}</li>`).join("")}</ul>`;
       const m = Modal.open({
@@ -386,6 +388,7 @@
           <button class="btn primary" type="button" data-close>${th("Zamknij")}</button>`
       });
       $("[data-close]", m.el).onclick = () => m.close();
+      if (UI.Scans) UI.Scans.mount($("#op-scans", m.el), op.id);
       const cc = $("[data-correct]", m.el); if (cc) cc.addEventListener("click", () => m.close());
       const rr = $("[data-repeat]", m.el); if (rr) rr.addEventListener("click", () => m.close());
       const cb = $("[data-cancel]", m.el); if (cb) cb.onclick = () => { m.close(); CancelDialog.open(op.id); };
@@ -582,7 +585,7 @@
   const Tip = {
     bind(scope) {
       const tip = $("#chart-tip"); if (!tip) return;
-      const place = e => { tip.style.left = Math.min(e.clientX + 14, root.innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = Math.min(e.clientY + 14, root.innerHeight - tip.offsetHeight - 8) + "px"; };
+      const place = e => { const z = UI.uiZoom ? UI.uiZoom() : 1; tip.style.left = Math.min(e.clientX / z + 14, root.innerWidth / z - tip.offsetWidth - 8) + "px"; tip.style.top = Math.min(e.clientY / z + 14, root.innerHeight / z - tip.offsetHeight - 8) + "px"; };
       $$("[data-tip]", scope).forEach(el => {
         el.addEventListener("mousemove", e => { tip.innerHTML = el.dataset.tip; tip.classList.remove("hidden"); place(e); });
         el.addEventListener("mouseleave", () => tip.classList.add("hidden"));
@@ -737,7 +740,10 @@
       filtered() {
         const f = App.tabs[cfg.id] || (App.tabs[cfg.id] = { type: "", status: "", ym: "", q: "", showDeleted: false });
         const q = f.q.trim().toLowerCase(), wh = App.user().whId;
-        return allDocuments(Store.state).filter(d => {
+        // 3.14: ten sam wynik dla widoku i obsługi zdarzeń (bez ponownego przeliczania przy każdym wywołaniu)
+        const ops = Store.state.operations, key = JSON.stringify([Store.state.rev, ops.length, wh, f.type, f.status, f.ym, f.q, f.showDeleted, f.showAux, root.RIW_I18N && root.RIW_I18N.lang]);
+        if (this._memo && this._memo.key === key && this._memo.ops === ops) return this._memo.rows;
+        const out = allDocuments(Store.state).filter(d => {
           if (d.deleted && !f.showDeleted && f.status !== "DELETED") return false;
           // domyślnie tylko dokumenty główne PZ / WZ / MM; pomocnicze (PW, RW, TR, KOR, AN…) po zaznaczeniu
           if (!f.showAux && !MAIN_DOCS.includes(d.type) && f.type !== d.type) return false;
@@ -748,12 +754,16 @@
           return (!f.type || d.type === f.type) && (!f.status || (f.status === "DELETED" ? d.deleted : d.status === f.status && !d.deleted)) && (!f.ym || d.date.startsWith(f.ym)) &&
             (!q || [d.no, d.opNo, d.partner, d.place, docContent(d)].join(" ").toLowerCase().includes(q));
         });
+        this._memo = { key, ops, rows: out };
+        return out;
       },
       html() {
         const f = App.tabs[cfg.id] || (App.tabs[cfg.id] = { type: "", status: "", ym: "", q: "", showDeleted: false });
         const rows = this.filtered();
         const S = Store.state;
         const opOf = d => d.opId ? R.byId(S.operations, d.opId) : null;
+        // 3.14: duże rejestry — najpierw 200 najnowszych wierszy, „Pokaż wcześniejsze” dokłada kolejne (sumy i eksport: wszystkie)
+        const lim = f.limit || 200, start = Math.max(0, rows.length - lim), shown = start ? rows.slice(start) : rows;
         const auxTypes = (cfg.typeOptions || []).map(([v]) => v).filter(v => !MAIN_DOCS.includes(v)), hasAux = auxTypes.length > 0;
         const typeOpts = (cfg.typeOptions || []).filter(([v]) => f.showAux || MAIN_DOCS.includes(v) || f.type === v);
         const primary = d => d.opId && ["PZ", "WZ", "PW", "MM"].includes(d.type) && !(d.type === "PW" && opOf(d) && opOf(d).type !== "PRODUKCJA");
@@ -774,17 +784,19 @@
             <label class="inline-opt"><input type="checkbox" id="r-deleted" ${f.showDeleted ? "checked" : ""}> ${th("Pokaż usunięte")}</label>
             ${hasAux ? `<label class="inline-opt"><input type="checkbox" id="r-aux" ${f.showAux ? "checked" : ""}> ${esc(t("Pokaż dokumenty pomocnicze ({l})", { l: auxTypes.join(", ") }))}</label>` : ""}</div>
             ${rows.length ? `<div class="tbl-wrap"><table class="tbl sticky-act" id="docs-table"><thead><tr><th>${th("Nr dokumentu")}</th><th>${th("Typ")}</th><th>${th("Data")}</th><th>${th("Treść")}</th><th class="r">${th("Ilość")}</th><th class="r">${th("Wartość")}</th><th>${th("Kontrahent")}</th><th>${th("Miejsce transportu")}</th><th>${th("Wpływ na stan")}</th><th>${th("Status")}</th><th><span class="sr-only">${th("Akcje")}</span></th></tr></thead><tbody>
-              ${rows.map((d, i) => `<tr class="doc-row doc-row-${esc(docSeries(d))} ${d.status === "CANCELLED" ? "void" : ""}" data-docno="${esc(d.no)}"><td class="mono nowrap"><b>${esc(d.no)}</b>${d.manualNo ? ` <small class="dim" title="${th("numer wpisany ręcznie")}">✎</small>` : ""}</td><td>${docBadge(d)}</td><td class="nowrap">${esc(Dates.pl(d.date))}${d.docDate && d.docDate !== d.date ? `<br><small class="dim">${esc(t("dok. {d}", { d: Dates.pl(d.docDate) }))}</small>` : ""}</td>
+              ${start ? `<div class="info-line mb3" id="r-paging">${ic("layers", 15)}<span>${esc(t("Wyświetlono {a} najnowszych z {n} dokumentów.", { a: shown.length, n: rows.length }))}</span><span class="spacer"></span><button class="btn sm" type="button" id="r-more">${esc(t("Pokaż wcześniejsze ({k})", { k: Math.min(200, start) }))}</button><button class="btn sm" type="button" id="r-all">${esc(t("Pokaż wszystkie"))}</button></div>` : ""}${shown.map((d, j) => { const i = j + start; return `<tr class="doc-row doc-row-${esc(docSeries(d))} ${d.status === "CANCELLED" ? "void" : ""}" data-docno="${esc(d.no)}"><td class="mono nowrap"><b>${esc(d.no)}</b>${d.manualNo ? ` <small class="dim" title="${th("numer wpisany ręcznie")}">✎</small>` : ""}</td><td>${docBadge(d)}</td><td class="nowrap">${esc(Dates.pl(d.date))}${d.docDate && d.docDate !== d.date ? `<br><small class="dim">${esc(t("dok. {d}", { d: Dates.pl(d.docDate) }))}</small>` : ""}</td>
                 <td>${esc(docContent(d))}</td><td class="r nowrap">${d.qty != null ? esc(fmtQ(d.qty) + " " + Units.label(d.unit)) : "—"}</td>
                 <td class="r nowrap">${d.value ? esc(money(d.value)) : "—"}</td><td>${esc(d.partner || (d.transport && (d.transport.company || d.transport.carrier)) || "")}</td>
                 <td>${esc(d.place || "—")}</td><td>${d.type === "MM" && d.mmState === "W_DRODZE" && cfg.id === "przyjecia" ? `<span class="badge warn">${th("oczekuje na przyjęcie")}</span>` : stockLbl(d)}</td><td>${d.deleted ? `<span class="badge err">${th("USUNIĘTY")}</span>` : statusBadge(d.status)}${d.type === "MM" ? " " + mmBadge(d) : ""}</td>
-                <td class="r nowrap"><div class="row-actions">${d.opId ? `<button class="btn sm icon-act" type="button" data-opd="${esc(d.opId)}" title="${th("Otwórz")}" aria-label="${th("Otwórz")}">${ic("file", 14)}<span class="sr-only">${th("Otwórz")}</span></button>` : ""}<button class="btn sm icon-act" type="button" data-view="${i}" title="${th("Podgląd")}" aria-label="${th("Podgląd")}">${ic("eye", 14)}<span class="sr-only">${th("Podgląd")}</span></button>${primary(d) && canCorr(opOf(d)) ? `<a class="btn sm icon-act" href="#/korekta?op=${esc(d.opId)}" data-corr="${esc(d.opId)}" title="${th("Koryguj")}" aria-label="${th("Koryguj")}">${ic("edit", 14)}<span class="sr-only">${th("Koryguj")}</span></a>` : ""}${primary(d) && canDel(opOf(d)) ? `<button class="btn sm danger icon-act" type="button" data-del="${esc(d.opId)}" title="${th("Usuń")}" aria-label="${th("Usuń")}">${ic("trash", 14)}<span class="sr-only">${th("Usuń")}</span></button>` : ""}</div></td></tr>`).join("")}
+                <td class="r nowrap"><div class="row-actions">${d.opId ? `<button class="btn sm icon-act" type="button" data-opd="${esc(d.opId)}" title="${th("Otwórz")}" aria-label="${th("Otwórz")}">${ic("file", 14)}<span class="sr-only">${th("Otwórz")}</span></button>` : ""}<button class="btn sm icon-act" type="button" data-view="${i}" title="${th("Podgląd")}" aria-label="${th("Podgląd")}">${ic("eye", 14)}<span class="sr-only">${th("Podgląd")}</span></button>${primary(d) && canCorr(opOf(d)) ? `<a class="btn sm icon-act" href="#/korekta?op=${esc(d.opId)}" data-corr="${esc(d.opId)}" title="${th("Koryguj")}" aria-label="${th("Koryguj")}">${ic("edit", 14)}<span class="sr-only">${th("Koryguj")}</span></a>` : ""}${primary(d) && canDel(opOf(d)) ? `<button class="btn sm danger icon-act" type="button" data-del="${esc(d.opId)}" title="${th("Usuń")}" aria-label="${th("Usuń")}">${ic("trash", 14)}<span class="sr-only">${th("Usuń")}</span></button>` : ""}</div></td></tr>`; }).join("")}
               </tbody><tfoot><tr><td colspan="4">${th("Razem (bez anulowanych)")}</td><td class="r">${esc(Object.entries(perUnit).map(([u, q]) => `${fmtQ(q)} ${Units.label(u)}`).join(" · ") || "—")}</td><td class="r">${esc(money(value))}</td><td colspan="5"></td></tr></tfoot></table></div>` : `<div class="empty">${th("Brak dokumentów dla wybranych filtrów.")}</div>`}
           </div>`;
       },
       bind(page) {
         const f = App.tabs[cfg.id], rows = this.filtered();
-        const on = (id, k) => { const el = $(id, page); if (el) el.onchange = e => { f[k] = e.target.value; App.render(); }; };
+        const on = (id, k) => { const el = $(id, page); if (el) el.onchange = e => { f[k] = e.target.value; f.limit = 0; App.render(); }; };
+        const more = $("#r-more", page); if (more) more.onclick = () => { f.limit = (f.limit || 200) + 200; App.render({ keepScroll: true }); };
+        const all = $("#r-all", page); if (all) all.onclick = () => { f.limit = rows.length; App.render({ keepScroll: true }); };
         on("#r-type", "type"); on("#r-status", "status"); on("#r-ym", "ym");
         const rd = $("#r-deleted", page); if (rd) rd.onchange = e => { f.showDeleted = e.target.checked; App.render(); };
         const ra = $("#r-aux", page); if (ra) ra.onchange = e => { f.showAux = e.target.checked; if (!f.showAux && f.type && !MAIN_DOCS.includes(f.type)) f.type = ""; App.render(); };

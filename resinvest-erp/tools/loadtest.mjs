@@ -6,6 +6,8 @@
    synchronizacja samymi zmianami (od posiadanej rewizji), zakupy i sprzedaż z odpowiedzią „tylko zmiany”,
    sprawdzenie sesji. Potem:
      · fala jednoczesnych zapisów (wszyscy zatwierdzają w tej samej chwili),
+     · 3.14: skany dokumentów i zdjęcia (wysyłka plików w pracy ciągłej + fala jednoczesnych wysyłek po 3 MB),
+       kontrola: każdy przyjęty skan jest w operacji, w folderze „SKANY <MIESIĄC> <ROK>” i w kopii backups/skany,
      · weryfikacja spójności: liczba operacji = liczba udanych zapisów, rewizja, dziennik skrótów (--check),
      stan każdego stanowiska po nałożeniu zmian = pełny widok serwera,
      · raport: przepustowość, czasy odpowiedzi p50/p95/p99/max, błędy, rozmiar bazy.
@@ -16,7 +18,8 @@
      --preload N      — przed testem dopisuje N operacji (baza „po latach pracy”, np. 3000 ≈ 2 lata)
    ========================================================================= */
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync, statSync, readdirSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, statSync, readdirSync, existsSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { tmpdir, cpus, totalmem } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -48,8 +51,18 @@ function client(base) {
     const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch (e) { /* odpowiedź nie-JSON */ }
     return { status: r.status, json, ms: performance.now() - t0, bytes: text.length };
   };
-  return { get: p => call("GET", p), post: (p, b) => call("POST", p, b) };
+  /** Wysyłka pliku (skan / zdjęcie) — surowe bajty, jak przeglądarka. */
+  const upload = async (path, buf, type) => {
+    const t0 = performance.now();
+    const r = await fetch(base + path, { method: "POST", headers: Object.assign({ "Content-Type": type, "X-RIW": "1" }, cookie ? { Cookie: cookie } : {}), body: buf });
+    const text = await r.text(); let json = null; try { json = JSON.parse(text); } catch (e) { /* odpowiedź nie-JSON */ }
+    return { status: r.status, json, ms: performance.now() - t0, bytes: buf.length };
+  };
+  return { get: p => call("GET", p), post: (p, b) => call("POST", p, b), upload };
 }
+/** Zdjęcie JPEG o zadanej wielkości (nagłówek JFIF + losowa treść + znacznik końca). */
+const jpeg = kb => Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0, 0, 16, 0x4A, 0x46, 0x49, 0x46, 0, 1]), randomBytes(kb * 1024), Buffer.from([0xFF, 0xD9])]);
+const SCAN_KINDS = ["WZ", "PZ", "KWIT", "WAGA", "ZREBKA"];
 
 const stats = {};
 const rec = (name, r, ok) => { const s = stats[name] || (stats[name] = { n: 0, err: 0, ms: [], bytes: 0, why: {} }); s.n++; s.ms.push(r.ms); s.bytes += r.bytes || 0;
@@ -101,7 +114,18 @@ async function main() {
       vus.push({ login, c });
     }
     const st0 = await vus[0].c.get("/api/state"), ops0 = st0.json.state.operations.length, rev0 = st0.json.rev;
-    let committed = 0, pending = 0, fullFallbacks = 0;
+    let committed = 0, pending = 0, fullFallbacks = 0, scansOk = 0;
+    const scanSent = [];
+    /** Skan do losowej operacji widocznej dla stanowiska (dostęp do magazynu sprawdza serwer). */
+    const sendScan = async (vu, kb, name) => {
+      const ops = (vu.view.operations || []).filter(o => o.status !== "CANCELLED" && !o.deleted);
+      if (!ops.length) return;
+      const op = ops[Math.floor(Math.random() * Math.min(60, ops.length)) + Math.max(0, ops.length - 60)] || ops[ops.length - 1];
+      const kind = SCAN_KINDS[seq++ % SCAN_KINDS.length], buf = jpeg(kb);
+      const r = await vu.c.upload(`/api/scans?opId=${encodeURIComponent(op.id)}&kind=${kind}&name=${encodeURIComponent("zdjęcie " + seq + ".jpg")}&haveRev=${vu.view.rev}`, buf, "image/jpeg");
+      const ok = r.status === 200 && r.json && r.json.scan && r.json.scan.id; rec(name, r, ok);
+      if (ok) { scansOk++; scanSent.push({ opId: op.id, id: r.json.scan.id, file: r.json.scan.file, size: buf.length }); await applyResp(vu, r); }
+    };
     // przeglądarka: pełny widok przy otwarciu strony, potem tylko zmiany (R.applyDelta — ten sam kod co w aplikacji)
     const fullLoad = async (vu, name) => { const r = await vu.c.get("/api/state"); rec(name, r, r.status === 200 && !!r.json.state); if (r.json && r.json.state) vu.view = r.json.state; };
     const applyResp = async (vu, r) => {
@@ -120,7 +144,8 @@ async function main() {
         const x = Math.random();
         if (x < 0.03) await fullLoad(vu, "GET /api/state (pełny stan — odświeżenie strony)");
         else if (x < 0.55) { const r = await vu.c.get("/api/state?since=" + vu.view.rev); rec("GET /api/state?since (zmiany od rewizji)", r, r.status === 200); await applyResp(vu, r); }
-        else if (x < 0.65) { const r = await vu.c.get("/api/auth/me"); rec("GET /api/auth/me", r, r.status === 200); }
+        else if (x < 0.60) { const r = await vu.c.get("/api/auth/me"); rec("GET /api/auth/me", r, r.status === 200); }
+        else if (x < 0.65) await sendScan(vu, 350, "POST /api/scans — zdjęcie 350 kB");
         else if (x < 0.90) {
           const r = await vu.c.post("/api/cmd", { cmd: "op.commit", args: { draft: purchase(vu.login) }, haveRev: vu.view.rev });
           const ok = r.status === 200 && r.json && r.json.res && r.json.res.ok; rec("POST op.commit — zakup", r, ok);
@@ -142,6 +167,12 @@ async function main() {
     let burstOk = 0;
     for (const r of burst) { const ok = r.status === 200 && r.json && r.json.res && r.json.res.ok; rec("FALA — jednoczesny zapis", r, ok); if (ok) { burstOk++; committed++; } }
 
+    // 2b) fala wysyłek: wszyscy dołączają zdjęcie 3 MB w tej samej chwili (zapis plików nie może blokować pracy)
+    const ts = performance.now();
+    const probe = (async () => { await sleep(150); const r = await vus[0].c.get("/api/auth/me"); rec("GET /api/auth/me — w trakcie fali wysyłek", r, r.status === 200); return r.ms; })();
+    await Promise.all(vus.map(vu => sendScan(vu, 3 * 1024, "FALA — jednoczesna wysyłka zdjęć 3 MB")));
+    const scanBurstMs = performance.now() - ts, probeMs = await probe;
+
     // 3) spójność: każde stanowisko dociąga zmiany i porównuje swój stan z pełnym widokiem serwera
     let viewsOk = 0;
     for (const vu of vus) {
@@ -153,6 +184,12 @@ async function main() {
     const st1 = await vus[0].c.get("/api/state");
     const ops1 = st1.json.state.operations.length, rev1 = st1.json.rev;
     const lostOrDup = ops1 - ops0 - committed;
+    const live = st1.json.state.operations.reduce((n, o) => n + (o.scans || []).filter(x => !x.deletedAt).length, 0);
+    const dataDir = join(dir, "data");
+    const filesOk = scanSent.filter(x => existsSync(join(dataDir, "skany", x.file)) && statSync(join(dataDir, "skany", x.file)).size === x.size).length;
+    const copiesOk = scanSent.filter(x => existsSync(join(dataDir, "backups", "skany", x.file)) && statSync(join(dataDir, "backups", "skany", x.file)).size === x.size).length;
+    const inOps = scanSent.filter(x => { const o = st1.json.state.operations.find(op => op.id === x.opId); return o && (o.scans || []).some(sc => sc.id === x.id); }).length;
+    const scanFolders = existsSync(join(dataDir, "skany")) ? readdirSync(join(dataDir, "skany")) : [];
     await stop();
     const chk = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", join(ROOT, "server/riw-server.mjs"), "--check"], { env, encoding: "utf8" });
     let check = null; try { check = JSON.parse(chk.stdout); } catch (e) { check = { ok: false, raw: chk.stdout + chk.stderr }; }
@@ -162,7 +199,8 @@ async function main() {
     const total = Object.values(stats).reduce((s, x) => s + x.n, 0), errs = Object.values(stats).reduce((s, x) => s + x.err, 0);
     const rows = Object.entries(stats).map(([k, s]) => `| ${k} | ${s.n} | ${s.err} | ${pct(s.ms, 50).toFixed(0)} | ${pct(s.ms, 95).toFixed(0)} | ${pct(s.ms, 99).toFixed(0)} | ${Math.max(...s.ms).toFixed(0)} | ${(s.bytes / s.n / 1024).toFixed(0)} |`);
     const fastPath = !/pełnej kopii/.test(srvOut);
-    const ok = errs === 0 && lostOrDup === 0 && check && check.ok && viewsOk === vus.length && fastPath;
+    const scansConsistent = inOps === scansOk && filesOk === scansOk && copiesOk === scansOk && live >= scansOk;
+    const ok = errs === 0 && lostOrDup === 0 && check && check.ok && viewsOk === vus.length && fastPath && scansConsistent;
     const md = [
       `# Test obciążeniowy ResInvest ERP Serwer ${R.VERSION}`, "",
       `Środowisko: ${cpus().length} × ${cpus()[0].model.trim()}, RAM ${(totalmem() / 1073741824).toFixed(1)} GB, Node ${process.version}. Dane przykładowe (3 magazyny), dziennik zmian włączony, zapis bazy z \`synchronous=FULL\`.`, "",
@@ -173,6 +211,8 @@ async function main() {
       `* Zapisane operacje: **${committed}** (w tym ${pending} czekających na zatwierdzenie), rewizja ${rev0} → ${rev1}.`,
       `* Fala ${BURST} jednoczesnych zapisów: ${burstOk}/${BURST} zapisanych w ${burstMs.toFixed(0)} ms (zapisy kolejkowane — żaden nie nadpisał drugiego).`,
       `* Spójność: operacji w stanie ${ops0} → ${ops1}, różnica względem udanych zapisów: **${lostOrDup}** (0 = nic nie zginęło i nic się nie zdublowało).`,
+      `* Skany: przyjęto **${scansOk}** plików (${(scanSent.reduce((a, x) => a + x.size, 0) / 1048576).toFixed(0)} MB); w operacjach ${inOps}/${scansOk}, w folderze danych ${filesOk}/${scansOk}, w kopii backups/skany ${copiesOk}/${scansOk}; foldery: ${scanFolders.join(", ") || "—"}.`,
+      `* Fala wysyłek ${vus.length} × 3 MB: ${scanBurstMs.toFixed(0)} ms; sprawdzenie sesji w trakcie fali: ${probeMs.toFixed(0)} ms (serwer nie blokuje się przy zapisie plików).`,
       `* Synchronizacja przeglądarek samymi zmianami: stan **${viewsOk}/${vus.length}** stanowisk identyczny z pełnym widokiem serwera; pełne pobranie z powodu niepasujących zmian: ${fullFallbacks}.`,
       `* Zapis przyrostowy: ${fastPath ? "wszystkie komendy na szybkiej ścieżce (bez kopiowania całej bazy)" : "UWAGA: część komend na pełnej kopii — patrz dziennik serwera"}.`,
       `* Kontrola bazy (\`--check\`): **${check && check.ok ? "OK" : "BŁĄD"}** — sumy kontrolne stanu i łańcuch skrótów dziennika (${check && check.journal} wpisów).`,

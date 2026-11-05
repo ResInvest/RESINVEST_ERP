@@ -1,6 +1,7 @@
 {
   "_opis": "Wariant FIRMA: konta wyłącznie w domenie firmy (@resinvest.group). Poczta: Microsoft 365 (SMTP, STARTTLS 587). Folder firmy (udział sieciowy, przez FortiClient VPN „United Energy - VPN”): \\\\ue.cz\\EPRPL\\Data\\BIOMASA — program dla pracowników (ResInvest ERP) i druga kopia bazy (kopie). Baza SQLite zostaje na dysku lokalnym serwera.",
   "id": "firma",
+  "output": "ResInvestERP_SerwerFirma",
   "suffix": "Firma",
   "name": "Firma — konta @resinvest.group",
   "companyDomains": "resinvest.group",

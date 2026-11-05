@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Buduje instalatory Windows ResInvest ERP Serwer 3.12 (warianty: firma, gmail, otwarta) na Linuksie (Wine + Inno Setup 6.4 z pakietu npm „innosetup”).
+# Buduje instalatory Windows ResInvest ERP Serwer 3.14 (warianty: firma, gmail, otwarta) na Linuksie (Wine + Inno Setup 6.4 z pakietu npm „innosetup”).
+# Wynik: installer/Output/ResInvestERP_SerwerFirma.exe, ResInvestERP_GoogleSerwer.exe, ResInvestERP_SerwerNoLimit.exe
 # Odpowiednik installer\build-installer.ps1 dla serwera budowania bez Windows.
 # Wymagania: Node.js >= 22.13, wine64 + wine32 (Ubuntu: dpkg --add-architecture i386; apt install wine64 wine32:i386),
 #            dostęp do registry.npmjs.org i nodejs.org.
@@ -9,6 +10,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 NODE_VERSION="${NODE_VERSION:-22.22.2}"
 WORK="${RIW_BUILD_DIR:-$(mktemp -d)}"
+# pliki tymczasowe (prefiks Wine, kompilator, pliki wariantów) — usuwane po zakończeniu, także po błędzie
+cleanup() { [ -n "${RIW_BUILD_DIR:-}" ] || rm -rf "$WORK"; rm -rf installer/build; }
+trap cleanup EXIT
 export WINEDEBUG=-all WINEPREFIX="$WORK/wineprefix"
 EDITIONS="${EDITIONS:-firma gmail otwarta}"
 # Ubuntu bez pakietu „wine” (same wine64 + wine32): program uruchamiający jest w /usr/lib/wine
@@ -21,7 +25,7 @@ node tools/i18n-extract.mjs
 
 if [ "${1:-}" != "--skip-tests" ]; then
   echo "== 2/4 Testy jednostkowe i integracyjne"
-  node --test tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs
+  node --test tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs tests/mail313.test.mjs tests/features314.test.mjs tests/scans314.test.mjs
 fi
 
 echo "== 3/4 Środowisko Node.js $NODE_VERSION (win-x64) — weryfikacja SHA-256"
@@ -48,5 +52,5 @@ for ed in $EDITIONS; do
   node tools/make-edition.mjs "$ed"
   wine "$WORK/is/package/bin/ISCC.exe" /Q "/DEditionId=$ed" "installer\\ResInvestERP.iss"
 done
-ls -la installer/Output/ResInvestERP_Serwer_Setup_*.exe
-sha256sum installer/Output/ResInvestERP_Serwer_Setup_*.exe
+ls -la installer/Output/ResInvestERP_*.exe
+sha256sum installer/Output/ResInvestERP_*.exe

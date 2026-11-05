@@ -25,8 +25,9 @@
    ========================================================================= */
 import { DatabaseSync } from "node:sqlite";
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
-import { mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, existsSync, appendFileSync, copyFileSync } from "node:fs";
-import { dirname, join, resolve, basename } from "node:path";
+import { mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, existsSync, appendFileSync, copyFileSync, writeFileSync, renameSync } from "node:fs";
+import { mkdir as mkdirA, writeFile as writeFileA, rename as renameA, copyFile as copyFileA, unlink as unlinkA } from "node:fs/promises";
+import { dirname, join, resolve, basename, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
@@ -130,6 +131,9 @@ export function loadConfig(overrides = {}) {
   if (process.env.RIW_TODAY) c.todayOverride = process.env.RIW_TODAY;
   c.dataDir = resolve(ROOT, c.dataDir);
   c.backupDir = c.backup.dir ? resolve(ROOT, c.backup.dir) : join(c.dataDir, "backups");
+  // 3.14: skany dokumentów i zdjęcia — folder danych (SKANY <MIESIĄC> <ROK>) i osobna kopia zapasowa skanów
+  c.scansDir = join(c.dataDir, "skany");
+  c.scansBackupDir = join(c.backupDir, "skany");
   return c;
 }
 
@@ -165,6 +169,8 @@ export class Store {
   constructor(cfg, log) {
     this.cfg = cfg; this.log = log || (() => {});
     mkdirSync(cfg.dataDir, { recursive: true });
+    // 3.14: folder skanów dokumentów i zdjęć (podfoldery „SKANY <MIESIĄC> <ROK>” tworzone przy pierwszym pliku miesiąca)
+    if (cfg.scansDir) { try { mkdirSync(cfg.scansDir, { recursive: true }); } catch (e) { (log || (() => {}))("WARN", "Folder skanów: " + e.message); } }
     mkdirSync(cfg.backupDir, { recursive: true });
     this.file = join(cfg.dataDir, "resinvest.sqlite");
     this.db = new DatabaseSync(this.file);
@@ -659,7 +665,8 @@ export class Store {
     try { this.db.prepare("INSERT INTO meta(key, value) VALUES ('last_backup', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(nowIso()); } catch (e) { /* baza sprzed tabeli meta */ }
     this.pruneBackups();
     this.log("INFO", `Kopia zapasowa: ${name}`);
-    return { ok: true, name, file, copies: this.copyBackup(file, name) };
+    let scans = null; try { scans = this.syncScans(); } catch (e) { this.log("WARN", "Kopia skanów: " + e.message); }
+    return { ok: true, name, file, copies: this.copyBackup(file, name), scans };
   }
   /**
    * 3.12: druga kopia w folderze firmy (np. udział sieciowy \\ue.cz\EPRPL\Data\BIOMASA\kopie, BACKUP_COPY_TO).
@@ -681,6 +688,58 @@ export class Store {
         this.log("WARN", `Kopia w folderze firmy NIEUDANA (${dir}) — sprawdź połączenie VPN / dostęp do udziału: ${e.message}`);
       }
     }
+    return out;
+  }
+  /* ---------------- 3.14: skany dokumentów ---------------- */
+  /** Bezpieczna ścieżka pliku skanu („SKANY MAJ 2026/plik.jpg”) — tylko wewnątrz folderu skanów. */
+  scanPath(rel, base) {
+    const root = resolve(base || this.cfg.scansDir), p = resolve(root, String(rel || ""));
+    if (!/^SKANY [A-ZĄĆĘŁŃÓŚŹŻ]+ \d{4}\/[A-Za-z0-9._-]{3,160}$/.test(String(rel || "")) || !p.startsWith(root.endsWith(sep) ? root : root + sep)) return null;
+    return p;
+  }
+  /**
+   * Zapis pliku skanu: plik tymczasowy → zmiana nazwy (plik nigdy nie jest „w połowie”), potem natychmiastowa kopia w backups\skany.
+   * Asynchronicznie — wysyłka dużych zdjęć przez wiele osób naraz nie wstrzymuje pracy pozostałych użytkowników.
+   */
+  async saveScan(rel, buf) {
+    const p = this.scanPath(rel); if (!p) throw new Error("Nieprawidłowa ścieżka skanu");
+    await mkdirA(dirname(p), { recursive: true });
+    const tmp = p + ".tmp-" + randomBytes(4).toString("hex");
+    try { await writeFileA(tmp, buf, { flag: "wx" }); await renameA(tmp, p); }
+    catch (e) { await unlinkA(tmp).catch(() => {}); throw e; }
+    try { const b = this.scanPath(rel, this.cfg.scansBackupDir); await mkdirA(dirname(b), { recursive: true }); await copyFileA(p, b); }
+    catch (e) { this.log("WARN", `Kopia skanu ${rel} nieudana: ${e.message}`); }
+    return p;
+  }
+  /**
+   * Kopia zapasowa skanów (jak kopie bazy): lustro folderu skanów w backups\skany oraz w folderze firmy (BACKUP_COPY_TO\skany).
+   * Kopiowane są tylko pliki nowe albo zmienione (rozmiar) — szybkie także przy tysiącach zdjęć. Pliki nie są usuwane z kopii.
+   */
+  syncScans() {
+    const src = this.cfg.scansDir, out = { files: 0, copied: 0, targets: [] };
+    if (!existsSync(src)) return out;
+    const targets = [this.cfg.scansBackupDir].concat((this.cfg.backup.copyTo || []).map(d => join(d, "skany")));
+    for (const dst of targets) {
+      let copied = 0;
+      try {
+        for (const folder of readdirSync(src)) {
+          if (!/^SKANY [A-ZĄĆĘŁŃÓŚŹŻ]+ \d{4}$/.test(folder)) continue;
+          const sd = join(src, folder), dd = join(dst, folder);
+          for (const f of readdirSync(sd)) {
+            if (f.includes(".tmp-")) continue;
+            const sp = join(sd, f), dp = join(dd, f), st = statSync(sp);
+            if (dst === targets[0]) out.files++;
+            let same = false; try { same = statSync(dp).size === st.size; } catch (e) { /* brak w kopii */ }
+            if (!same) { mkdirSync(dd, { recursive: true }); copyFileSync(sp, dp); copied++; }
+          }
+        }
+        out.targets.push({ dir: dst, ok: true, copied }); out.copied += copied;
+      } catch (e) {
+        out.targets.push({ dir: dst, ok: false, error: e.message });
+        this.log("WARN", `Kopia skanów NIEUDANA (${dst}): ${e.message}`);
+      }
+    }
+    if (out.copied) this.log("INFO", `Kopia skanów: ${out.copied} nowych plików (${out.files} w folderze skanów)`);
     return out;
   }
   listBackups() {

@@ -157,7 +157,7 @@ function relay() {
     await page.goto(BASE + "/"); await page.waitForSelector("#login-form");
     await page.fill("#lg-login", ADMIN); await page.fill("#lg-pass", ADMIN_PW); await page.click("#lg-submit");
     await page.waitForSelector("#nav .nav-item", { timeout: 10000 });
-    await page.evaluate(() => { location.hash = "#/wyglad"; }); await page.waitForSelector("#theme-custom-card");
+    await page.evaluate(() => { location.hash = "#/wyglad"; }); await page.waitForSelector("#ui-res");
     check("Telefon: Wygląd i język bez przewijania poziomego", await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
     await page.evaluate(() => { location.hash = "#/poczta"; }); await page.waitForSelector("#mail-config");
     check("Telefon: Konfiguracja poczty bez przewijania poziomego", await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));

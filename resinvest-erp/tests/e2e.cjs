@@ -49,6 +49,8 @@ async function login(page, email, pw = "demo1234") {
   await page.waitForSelector("#nav .nav-item", { timeout: 8000 });
   await page.waitForTimeout(150);
 }
+/** 3.14: listy z wpisywaniem (odbiorca, produkty, magazyny, operacje dodatkowe) — wybór pozycji po identyfikatorze. */
+const combo = (page, sel, v) => page.evaluate(([s, v]) => RIW_DEBUG.combo(s, v), [sel, v]);
 const go = (page, route) => page.evaluate(r => { location.hash = "#/" + r; }, route).then(() => page.waitForTimeout(150));
 const preset = async (page, p) => { await go(page, "pulpit"); await go(page, "nowa?preset=" + p); await page.waitForSelector("#opf"); };
 const bal = (page, pid, wh = "wh_zab") => page.evaluate(([p, w]) => RIW_DEBUG.R.Stock.balance(RIW_DEBUG.store.state, w, p), [pid, wh]);
@@ -119,29 +121,67 @@ async function fillForestDirect(page) {
     // 3.13: język i motyw tylko w Ustawienia → Wygląd i język (bez przycisków w górnym pasku)
     check("3.13 Górny pasek bez wyboru języka i motywu", await page.evaluate(() => !document.querySelector("#lang-btn") && !document.querySelector("#theme-btn")));
     check("3.13 Menu: Ustawienia → Wygląd i język", await page.evaluate(() => !!document.querySelector('#nav [data-nav="wyglad"]')));
-    await go(page, "wyglad"); await page.waitForSelector(".theme-cards");
-    check("3.13 Motywy: 12 kart w Ustawieniach (8 dotychczasowych, Office 98 / 2003 / 2007, Własny)", (await page.$$eval("[data-ptheme]", l => l.map(x => x.dataset.ptheme).join(","))) === "pearl,graphite,azure,ultra,premium,glass,aurum,waga,office98,office2003,office2007,custom");
-    const themeLook = async id => { await page.click(`[data-ptheme="${id}"]`); await page.waitForTimeout(200); return page.evaluate(() => ({ th: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor, cs: document.documentElement.style.colorScheme, saved: RIW_DEBUG.store.state.users.find(u => u.id === RIW_DEBUG.store.userId).theme })); };
+    await go(page, "wyglad"); await page.waitForSelector(".theme-list");
+    const ALL = "pearl,graphite,azure,ultra,premium,glass,aurum,waga,office2007,office2013,office2019,winxp,ubuntu,fedora,vector,render3d,gradient,custom";
+    check("3.14 Motywy: lista pionowa 18 pozycji z polem wyboru i ikonką kolorów (Office 98 / 2003 wycofane)", (await page.$$eval(".theme-row[data-ptheme]", l => l.map(x => x.dataset.ptheme).join(","))) === ALL
+      && (await page.$$(".theme-row input[type=radio]")).length === 18 && (await page.$$(".theme-row .tsw")).length === 18 && !!(await page.$("#look-save-btn")));
+    // wybór = podgląd; „Zapisz” utrwala w profilu
+    const themeLook = async id => { await go(page, "wyglad"); await page.waitForSelector(".theme-list"); await page.click(`.theme-row[data-ptheme="${id}"] label`); await page.waitForTimeout(150); await page.click("#look-save-btn"); await page.waitForTimeout(250); return page.evaluate(() => ({ th: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor, cs: document.documentElement.style.colorScheme, saved: RIW_DEBUG.store.state.users.find(u => u.id === RIW_DEBUG.store.userId).theme })); };
+    await page.click('.theme-row[data-ptheme="ubuntu"] label'); await page.waitForTimeout(150);
+    const pv = await page.evaluate(() => ({ th: document.documentElement.dataset.theme, saved: RIW_DEBUG.store.state.users.find(u => u.id === RIW_DEBUG.store.userId).theme, dirty: document.getElementById("look-state").classList.contains("dirty") }));
+    await go(page, "pulpit"); await page.waitForTimeout(150);
+    const back = await page.evaluate(() => document.documentElement.dataset.theme);
+    check("3.14 Podgląd bez „Zapisz”: motyw widać od razu, po wyjściu z ekranu wraca zapisany", pv.th === "ubuntu" && pv.saved !== "ubuntu" && pv.dirty && back !== "ubuntu", { pv, back });
     const ul = await themeLook("ultra");
     check("3.2 Ultra Dark: czarne tło (OLED), schemat ciemny, zapis w profilu", ul.th === "ultra" && ul.bg === "rgb(0, 0, 0)" && ul.cs === "dark" && ul.saved === "ultra", ul);
     const pr = await themeLook("premium");
     check("3.2 Light Premium: tło kość słoniowa, schemat jasny, granat marki", pr.th === "premium" && pr.bg === "rgb(247, 244, 238)" && pr.cs === "light" && (await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--brand").trim())) === "#1B2A4A", pr);
-    const cyc = []; for (let i = 0; i < 12; i++) { await page.keyboard.press("Control+d"); await page.waitForTimeout(80); cyc.push(await page.evaluate(() => document.documentElement.dataset.theme)); }
-    check("3.2 Ctrl+D przełącza przez dwanaście motywów", cyc.join(",") === "glass,aurum,waga,office98,office2003,office2007,custom,pearl,graphite,azure,ultra,premium", cyc);
+    const cyc = []; for (let i = 0; i < 18; i++) { await page.keyboard.press("Control+d"); await page.waitForTimeout(60); cyc.push(await page.evaluate(() => document.documentElement.dataset.theme)); }
+    check("3.2 Ctrl+D przełącza przez osiemnaście motywów", cyc.join(",") === "glass,aurum,waga,office2007,office2013,office2019,winxp,ubuntu,fedora,vector,render3d,gradient,custom,pearl,graphite,azure,ultra,premium", cyc);
     const wg = await themeLook("waga");
     check("3.11 Stacja wagowa: granatowa belka górna, stalowe tło, schemat jasny, zapis w profilu", wg.th === "waga" && wg.cs === "light" && wg.saved === "waga" && (await page.evaluate(() => getComputedStyle(document.querySelector(".topbar")).backgroundImage)).includes("gradient"), wg);
     const gl = await themeLook("glass");
     check("3.7 Szkło: pastelowe tło z gradientem, szklane karty z rozmyciem, zielona marka, zapis w profilu", gl.th === "glass" && gl.cs === "light" && gl.saved === "glass" && await page.evaluate(() => { const c = getComputedStyle(document.querySelector(".card, .theme-cards") || document.body); return getComputedStyle(document.body).backgroundImage.includes("radial-gradient") && getComputedStyle(document.documentElement).getPropertyValue("--brand").trim() === "#1F7F45"; }) && await page.evaluate(() => /blur/.test(getComputedStyle(document.querySelector(".sidebar")).backdropFilter)), gl);
-    // 3.13: Office 98 / 2003 / 2007
-    const o98 = await themeLook("office98");
-    check("3.13 Office 98: szare okna, granatowe paski tytułu, kanciaste przyciski, zapis w profilu", o98.th === "office98" && o98.saved === "office98" && await page.evaluate(() => getComputedStyle(document.querySelector(".card")).backgroundColor === "rgb(192, 192, 192)" && getComputedStyle(document.querySelector(".card-h")).backgroundImage.includes("gradient") && getComputedStyle(document.querySelector(".btn")).borderRadius === "0px"), o98);
-    const o03 = await themeLook("office2003");
-    check("3.13 Office 2003: niebieski gradient paska, pomarańczowe zaznaczenie w menu", o03.th === "office2003" && await page.evaluate(() => getComputedStyle(document.querySelector(".topbar")).backgroundImage.includes("gradient") && getComputedStyle(document.querySelector('.sidebar .nav-item[aria-current="page"]')).backgroundImage.includes("gradient")), o03);
+    // 3.14: nowe motywy — wygląd i zapis w profilu
+    const xp = await themeLook("winxp");
+    check("3.14 Windows XP: niebieski pasek tytułu (gradient), beżowe okna, zielony przycisk główny", xp.th === "winxp" && xp.saved === "winxp" && await page.evaluate(() => getComputedStyle(document.querySelector(".topbar")).backgroundImage.includes("gradient") && getComputedStyle(document.querySelector(".card")).backgroundColor === "rgb(236, 233, 216)"), xp);
+    const ub = await themeLook("ubuntu");
+    check("3.14 Ubuntu: bakłażanowe menu, pomarańczowy akcent", ub.th === "ubuntu" && await page.evaluate(() => getComputedStyle(document.querySelector(".sidebar")).backgroundImage.includes("gradient") && getComputedStyle(document.documentElement).getPropertyValue("--brand").trim() === "#C7451A"), ub);
+    const vc = await themeLook("vector");
+    check("3.14 Grafika wektorowa: wzór geometryczny w tle (SVG), grube kontury kart", vc.th === "vector" && await page.evaluate(() => getComputedStyle(document.body).backgroundImage.includes("svg") && getComputedStyle(document.querySelector(".card")).borderTopWidth === "2px"), vc);
+    const r3 = await themeLook("render3d");
+    check("3.14 Grafika 3D: wypukłe karty (podwójny cień: światło i cień)", r3.th === "render3d" && await page.evaluate(() => (getComputedStyle(document.querySelector(".card")).boxShadow.match(/rgb/g) || []).length >= 2), r3);
+    for (const id of ["office2013", "office2019", "fedora"]) { const r = await themeLook(id); check(`3.14 Motyw ${id}: zapis w profilu`, r.th === id && r.saved === id, r); }
+    check("3.14 Znak wodny „ResInvest ERP” w tle", await page.evaluate(() => getComputedStyle(document.querySelector(".shell"), "::after").content.includes("ResInvest ERP")));
+    // gradient z dwóch kolorów
+    await go(page, "wyglad"); await page.waitForSelector(".theme-list"); await page.click('.theme-row[data-ptheme="gradient"] label'); await page.waitForSelector('[data-tg-hex="from"]');
+    await page.fill('[data-tg-hex="from"]', "#FDE68A"); await page.fill('[data-tg-hex="to"]', "#F472B6"); await page.click("#look-save-btn"); await page.waitForTimeout(250);
+    const gr = await page.evaluate(() => { const u = RIW_DEBUG.store.state.users.find(x => x.id === RIW_DEBUG.store.userId); return { th: document.documentElement.dataset.theme, bgi: getComputedStyle(document.body).backgroundImage, g: u.themeGradient, saved: u.theme }; });
+    check("3.14 Gradient: dwa kolory użytkownika w tle, zapis w profilu", gr.th === "gradient" && gr.saved === "gradient" && /linear-gradient/.test(gr.bgi) && gr.g && gr.g.from === "#FDE68A" && gr.g.to === "#F472B6", gr);
+    const gradAll = await page.evaluate(() => {
+      const { Clr, gradientThemeVars } = RIWUI, bad = [], pal = ["#FFFFFF", "#000000", "#FF0000", "#FFFF00", "#00FF00", "#0000FF", "#808080", "#FDE68A", "#4F46E5", "#06B6D4"];
+      for (const from of pal) for (const to of pal) {
+        const v = gradientThemeVars({ from, to }).vars, base = /rgba\(15,19,28/.test(v["--surface"]) ? "#0F131C" : "#FFFFFF", a = base === "#FFFFFF" ? 0.9 : 0.86;
+        const eff = [from, to, Clr.mix(from, to, 0.5)].map(x => Clr.mix(x, base, a));
+        const w = c => Math.min(...eff.map(e => Clr.contrast(c, e)));
+        if (w(v["--text"]) < 4.5 || w(v["--brand"]) < 3 || w(v["--text-3"]) < 4.5) bad.push({ from, to, t: w(v["--text"]).toFixed(2), b: w(v["--brand"]).toFixed(2) });
+      }
+      return bad;
+    });
+    check("3.14 Gradient: każda para z 10×10 kolorów czytelna (tekst ≥ 4,5:1, akcent ≥ 3:1)", gradAll.length === 0, gradAll.slice(0, 5));
+    // rozdzielczość ekranu (skala interfejsu)
+    await go(page, "wyglad"); await page.waitForSelector("#ui-res");
+    await page.selectOption("#ui-res", "1366x768"); await page.waitForTimeout(150); await page.click("#look-save-btn"); await page.waitForTimeout(250);
+    const zr = await page.evaluate(() => ({ z: document.documentElement.style.zoom, res: RIW_DEBUG.store.state.users.find(x => x.id === RIW_DEBUG.store.userId).uiRes, sw: screen.width }));
+    check("3.14 Rozdzielczość ekranu 1366×768: skala interfejsu = szerokość ekranu / 1366, zapis w profilu", zr.res === "1366x768" && Math.abs(parseFloat(zr.z) - Math.round(Math.min(1.6, zr.sw / 1366) * 100) / 100) < 0.011, zr);
+    await page.selectOption("#ui-res", "auto"); await page.click("#look-save-btn"); await page.waitForTimeout(250);
+    check("3.14 Rozdzielczość automatyczna: bez skalowania", await page.evaluate(() => !document.documentElement.style.zoom));
     const o07 = await themeLook("office2007");
     check("3.13 Office 2007: wstążka (gradient paska), granatowe nagłówki", o07.th === "office2007" && (await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--text-head").trim())) === "#15428B", o07);
     // 3.13: motyw własny — trzy kolory z pełnej palety, czytelny tekst dobrany automatycznie, zapis w profilu
+    await go(page, "wyglad"); await page.waitForSelector(".theme-list"); await page.click('.theme-row[data-ptheme="custom"] label'); await page.waitForSelector('[data-tc-hex="bg"]');
     await page.fill('[data-tc-hex="bg"]', "#1B1F2A"); await page.fill('[data-tc-hex="accent"]', "#FF7A00"); await page.fill('[data-tc-hex="bar"]', "#F5E6C8");
-    await page.click("#tc-apply"); await page.waitForTimeout(250);
+    await page.click("#look-save-btn"); await page.waitForTimeout(250);
     const cu = await page.evaluate(() => { const cs = getComputedStyle(document.documentElement), u = RIW_DEBUG.store.state.users.find(x => x.id === RIW_DEBUG.store.userId);
       return { th: document.documentElement.dataset.theme, bg: getComputedStyle(document.body).backgroundColor, scheme: document.documentElement.style.colorScheme, sb: getComputedStyle(document.querySelector(".sidebar")).backgroundColor,
         navInk: getComputedStyle(document.querySelector(".sidebar .nav-item")).color, brand: cs.getPropertyValue("--brand").trim(), saved: u.theme, colors: u.themeColors, ls: localStorage.getItem("riw.themeVars") || "" }; });
@@ -212,19 +252,19 @@ async function fillForestDirect(page) {
     const nB = await opsN(page);
     await page.click("#summary [data-save]"); await page.waitForTimeout(300);
     check("§31.16 B: zatwierdzenie zablokowane — brak okna i brak zapisu", !(await page.$("#confirm-op")) && (await opsN(page)) === nB && nb(await page.textContent("#toasts")).includes("Nie można zatwierdzić"));
-    await page.selectOption("#f-production-outProductId", "pr_drewno"); await page.waitForTimeout(150);
+    await combo(page, "#f-production-outProductId", "pr_drewno"); await page.waitForTimeout(150);
     check("§31.16 C: surowiec = produkt wyjściowy zablokowany", (await msg(page, "production.outProductId")).includes("różnymi produktami"));
     await setUser(page, "u_kier");
 
     /* ------------- §22 TEST 2: WZ ------------- */
     await preset(page, "wz");
-    await page.selectOption("#f-sale-productId", "pr_zr_lesna"); await page.waitForTimeout(100);
+    await combo(page, "#f-sale-productId", "pr_zr_lesna"); await page.waitForTimeout(100);
     check("§9 WZ: stan dostępny 8 793 MP", (await out(page, "sale.onStock")) === "8 793 MP");
     await fillTab(page, "#f-sale-qty", "8793,01");
     check("§9 WZ ponad stan: „Nie można sprzedać … Dostępny stan: 8 793 MP.”", (await msg(page, "sale.qty")) === "Nie można sprzedać 8 793,01 MP. Dostępny stan: 8 793 MP.", await msg(page, "sale.qty"));
     await fillTab(page, "#f-sale-qty", "500");
     check("§9 WZ: stan po WZ 8 293 MP", (await out(page, "sale.after")) === "8 293 MP");
-    await page.fill("#f-sale-price", "90"); await page.selectOption("#f-sale-buyerId", "pa_ec_zab"); await page.waitForTimeout(100);
+    await page.fill("#f-sale-price", "90"); await combo(page, "#f-sale-buyerId", "pa_ec_zab"); await page.waitForTimeout(100);
     check("WZ: miejsce dostawy = odbiorca", (await page.inputValue("#f-transport-place")) === "Elektrociepłownia Zabrze S.A.");
     check("WZ: 1 dokument po zatwierdzeniu", (await approve(page)) === 1);
     const wzOp = await lastOp(page);
@@ -235,7 +275,7 @@ async function fillForestDirect(page) {
     await fillForestDirect(page);
     await fillTab(page, "#f-production-outQty", "600");
     check("§8 Bezpośrednia: surowiec liczony (150 m³, nie ze stanu)", (await out(page, "production.rawQty")).startsWith("150 m³"), await out(page, "production.rawQty"));
-    await page.selectOption("#f-sale-buyerId", "pa_elektrownia"); await page.fill("#f-sale-price", "88");
+    await combo(page, "#f-sale-buyerId", "pa_elektrownia"); await page.fill("#f-sale-price", "88");
     await fillTab(page, "#f-sale-qtyMP", "650");
     check("§31.16 I: sprzedaż 650 MP z produkcji 600 MP zablokowana", (await msg(page, "sale.qtyMP")).includes("Nie można sprzedać 650 MP z produkcji 600 MP"));
     await fillTab(page, "#f-sale-qtyMP", "");
@@ -256,17 +296,20 @@ async function fillForestDirect(page) {
 
     /* ------------- MM: wybór źródła i celu, walidacja, tonaż, tryb dwuetapowy, przyjęcie ------------- */
     await preset(page, "mm");
-    check("MM: pole magazynu źródłowego aktywne, domyślnie magazyn użytkownika", !(await page.isDisabled("#f-mm-fromWhId")) && (await page.inputValue("#f-mm-fromWhId")) === "wh_zab");
-    const srcOpts = await page.$$eval("#f-mm-fromWhId option", o => o.map(x => x.value));
-    const dstOpts = await page.$$eval("#f-mm-toWhId option", o => o.map(x => x.value).filter(Boolean));
-    check("MM: listy magazynów z danych — źródło: dostępne użytkownikowi, cel: wszystkie aktywne", srcOpts.join() === "wh_zab,wh_bra" && ["wh_zab", "wh_bra", "wh_rok"].every(w => dstOpts.includes(w)), [srcOpts, dstOpts]);
+    check("MM: pole magazynu źródłowego aktywne (z wpisywaniem), domyślnie magazyn użytkownika", !(await page.isDisabled("#f-mm-fromWhId")) && (await page.evaluate(() => RIWForm.draft.mm.fromWhId)) === "wh_zab" && (await page.inputValue("#f-mm-fromWhId")) === "RiC Zabrze");
+    const dlOpts = sel => page.$eval(sel, el => Array.from(document.getElementById(el.getAttribute("list")).options).map(o => o.value));
+    const whName = id => page.evaluate(i => RIW_DEBUG.store.state.warehouses.find(w => w.id === i).name, id);
+    const srcOpts = await Promise.all((await dlOpts("#f-mm-fromWhId")).map(async n => n)), wn = {};
+    for (const w of ["wh_zab", "wh_bra", "wh_rok"]) wn[w] = await whName(w);
+    const dstOpts = (await dlOpts("#f-mm-toWhId")).map(n => n.replace(/ — .*$/, ""));
+    check("MM: listy magazynów z danych — źródło: dostępne użytkownikowi, cel: wszystkie aktywne", srcOpts.join() === [wn.wh_zab, wn.wh_bra].join() && ["wh_zab", "wh_bra", "wh_rok"].every(w => dstOpts.includes(wn[w])), [srcOpts, dstOpts]);
     check("MM: informacja o trybie dwuetapowym", nb(await page.textContent("#mm-mode-info")).includes("dwuetapowy"));
-    await page.selectOption("#f-mm-productId", "pr_zr_lesna"); await page.waitForTimeout(100);
+    await combo(page, "#f-mm-productId", "pr_zr_lesna"); await page.waitForTimeout(100);
     await fillTab(page, "#f-mm-qty", "300");
-    await page.selectOption("#f-mm-toWhId", "wh_zab"); await page.waitForTimeout(120);
+    await combo(page, "#f-mm-toWhId", "wh_zab"); await page.waitForTimeout(120);
     await page.click("#summary [data-save]"); await page.waitForTimeout(200);
     check("MM: ten sam magazyn źródłowy i docelowy — błąd walidacji", (await msg(page, "mm.toWhId")).includes("nie mogą być takie same") && !(await page.$("#confirm-op")), await msg(page, "mm.toWhId"));
-    await page.selectOption("#f-mm-toWhId", "wh_bra"); await page.waitForTimeout(120);
+    await combo(page, "#f-mm-toWhId", "wh_bra"); await page.waitForTimeout(120);
     check("MM: źródło 8 293 → 7 993 MP, cel 220 → 520 MP po przyjęciu", (await out(page, "mm.srcBal")) === "8 293 MP → 7 993 MP" && (await out(page, "mm.dstBal")) === "220 MP → 520 MP po przyjęciu", [await out(page, "mm.srcBal"), await out(page, "mm.dstBal")]);
     check("MM: tonaż automatyczny z przelicznika (300 MP × 0,33 = 99 t)", (await out(page, "mm.weightAuto")) === "≈ 99,00 t", await out(page, "mm.weightAuto"));
     await page.selectOption("#f-mm-weightMode", "manual"); await page.waitForSelector("#f-mm-weightManual");
@@ -574,10 +617,10 @@ async function fillForestDirect(page) {
     const p2 = await ctx.newPage(); watch(p2, "karta2"); await boot(p2);
     for (const p of [p1, p2]) {
       await preset(p, "wz");
-      await p.selectOption("#f-sale-productId", "pr_zr_lesna");
+      await combo(p, "#f-sale-productId", "pr_zr_lesna");
       await fillTab(p, "#f-sale-qty", "5000");
       await p.fill("#f-sale-price", "90");
-      await p.selectOption("#f-sale-buyerId", "pa_ec_zab");
+      await combo(p, "#f-sale-buyerId", "pa_ec_zab");
     }
     await p1.click("#summary [data-save]"); await p1.waitForSelector("#confirm-op");
     await p2.click("#summary [data-save]"); await p2.waitForSelector("#confirm-op");
@@ -637,7 +680,7 @@ async function fillForestDirect(page) {
     await login(page, "ewa.nowicka@resinvest.group", "Rejestracja2026");
     await preset(page, "wz");
     check("3.1 Magazynier: przycisk „Przekaż do zatwierdzenia…”", nb(await page.textContent("#summary [data-save]")) === "Przekaż do zatwierdzenia…");
-    await page.selectOption("#f-sale-productId", "pr_zr_lesna"); await fillTab(page, "#f-sale-qty", "120"); await page.fill("#f-sale-price", "90"); await page.selectOption("#f-sale-buyerId", "pa_ec_zab"); await page.waitForTimeout(100);
+    await combo(page, "#f-sale-productId", "pr_zr_lesna"); await fillTab(page, "#f-sale-qty", "120"); await page.fill("#f-sale-price", "90"); await combo(page, "#f-sale-buyerId", "pa_ec_zab"); await page.waitForTimeout(100);
     const n0 = await opsN(page), st0 = await bal(page, "pr_zr_lesna");
     await page.click("#summary [data-save]"); await page.waitForSelector("#confirm-op"); await page.click("#confirm-yes"); await page.waitForTimeout(500);
     check("3.1 Przekazana operacja: bez numeru i bez zmiany stanu", (await opsN(page)) === n0 && (await bal(page, "pr_zr_lesna")) === st0 && (await page.evaluate(() => RIW_DEBUG.store.state.drafts.filter(d => d.status === "PENDING").length)) === 1);
@@ -758,11 +801,11 @@ async function fillForestDirect(page) {
     await fillTab(page, "#f-production-outQty", "100");
     check("3.4 Produkcja: checkbox „Dodaj operację dodatkową”", !!(await page.$("#f-extras-enabled")) && nb(await page.textContent("#opf")).includes("Dodaj operację dodatkową"));
     await tick(page, "f-extras-enabled"); await page.waitForSelector("#f-extras-items-0-typeId");
-    await page.selectOption("#f-extras-items-0-typeId", "xt_holowanie"); await page.waitForTimeout(120);
-    await page.selectOption("#f-extras-items-0-vehicleId", "ve_scania"); await page.waitForTimeout(80);
+    await combo(page, "#f-extras-items-0-typeId", "xt_holowanie"); await page.waitForTimeout(120);
+    await combo(page, "#f-extras-items-0-vehicleId", "ve_scania"); await page.waitForTimeout(80);
     await fillTab(page, "#f-extras-items-0-cost", "500");
     await page.click("#extra-add"); await page.waitForSelector("#f-extras-items-1-typeId");
-    await page.selectOption("#f-extras-items-1-typeId", "xt_ladowarka"); await page.waitForTimeout(120);
+    await combo(page, "#f-extras-items-1-typeId", "xt_ladowarka"); await page.waitForTimeout(120);
     await fillTab(page, "#f-extras-items-1-qty", "2");
     check("3.4 Produkcja: koszt pozycji = ilość × stawka domyślna (2 h × 160 zł)", (await out(page, "extra.1.cost")).includes("320,00"), await out(page, "extra.1.cost"));
     check("3.4 Produkcja: suma operacji dodatkowych 820,00 zł", (await out(page, "extras.total")).includes("820,00"), await out(page, "extras.total"));
@@ -777,9 +820,9 @@ async function fillForestDirect(page) {
     await closeModals(page);
     // sprzedaż z tonażem ręcznym i ręcznym numerem WZ
     await preset(page, "wz");
-    await page.selectOption("#f-sale-productId", "pr_zr_lesna"); await page.waitForTimeout(100);
+    await combo(page, "#f-sale-productId", "pr_zr_lesna"); await page.waitForTimeout(100);
     await fillTab(page, "#f-sale-qty", "60");
-    await page.fill("#f-sale-price", "90"); await page.selectOption("#f-sale-buyerId", "pa_ec_zab"); await page.waitForTimeout(100);
+    await page.fill("#f-sale-price", "90"); await combo(page, "#f-sale-buyerId", "pa_ec_zab"); await page.waitForTimeout(100);
     await page.selectOption("#f-sale-weightMode", "manual"); await page.waitForSelector("#f-sale-weightManual");
     await fillTab(page, "#f-sale-weightManual", "20,35");
     check("3.4 Sprzedaż: linia „60 MP | 20,35 t | RĘCZNY”", (await out(page, "sale.tonLine")) === "60 MP | 20,35 t | RĘCZNY", await out(page, "sale.tonLine"));
@@ -789,15 +832,15 @@ async function fillForestDirect(page) {
     await fillTab(page, "#f-docDate", "2026-09-22");
     check("3.4.1 Sprzedaż z magazynu: sekcja operacji dodatkowych dostępna", !!(await page.$("#f-extras-enabled")));
     await tick(page, "f-extras-enabled"); await page.waitForSelector("#f-extras-items-0-typeId");
-    await page.selectOption("#f-extras-items-0-typeId", "xt_holowanie"); await page.waitForTimeout(100);
+    await combo(page, "#f-extras-items-0-typeId", "xt_holowanie"); await page.waitForTimeout(100);
     await fillTab(page, "#f-extras-items-0-cost", "150");
     check("3.4 Sprzedaż z ręcznym numerem WZ zapisana", (await approve(page)) === 1);
     const wz = await page.evaluate(() => { const o = RIW_DEBUG.store.state.operations.at(-1), d = o.documents.find(x => x.type === "WZ"); return { id: o.id, no: d.no, docDate: d.docDate, mode: d.weightMode, w: o.sale.weightT }; });
     check("3.4 WZ: numer ręczny WZ/27, data dokumentu 22.09, tonaż RĘCZNY 20,35 t", wz.no === "WZ/27" && wz.docDate === "2026-09-22" && wz.mode === "manual" && wz.w === 20.35, wz);
     check("3.4.1 WZ: operacja dodatkowa zapisana przy sprzedaży (150 zł)", await page.evaluate(() => { const o = RIW_DEBUG.store.state.operations.at(-1); return o.extras.length === 1 && o.totals.extraCost === 150; }));
     await preset(page, "wz");
-    await page.selectOption("#f-sale-productId", "pr_zr_lesna"); await page.waitForTimeout(100);
-    await fillTab(page, "#f-sale-qty", "10"); await page.fill("#f-sale-price", "90"); await page.selectOption("#f-sale-buyerId", "pa_ec_zab"); await page.waitForTimeout(100);
+    await combo(page, "#f-sale-productId", "pr_zr_lesna"); await page.waitForTimeout(100);
+    await fillTab(page, "#f-sale-qty", "10"); await page.fill("#f-sale-price", "90"); await combo(page, "#f-sale-buyerId", "pa_ec_zab"); await page.waitForTimeout(100);
     await page.selectOption("#f-docNoMode-WZ", "manual"); await page.waitForSelector("#f-docNos-WZ");
     await fillTab(page, "#f-docNos-WZ", "wz/27");
     check("3.4 Numer WZ/27 drugi raz w magazynie i roku — odrzucony", (await msg(page, "docNos.WZ")).includes("już użyty"), await msg(page, "docNos.WZ"));
@@ -1010,7 +1053,7 @@ async function fillForestDirect(page) {
     const order = await page.evaluate(() => { const a = document.querySelector("#f-production-enabled"), b = document.querySelector("#f-sale-direct"), c = document.querySelector("#f-skind-firma"); return !!(a && b && c) && !!(a.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING) && !!(b.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING); });
     check("3.6 Zakup: opcje produkcji i sprzedaży bezpośredniej przed wyborem grupy dostawcy", order);
     check("3.6 Zakup: obie opcje dostępne od razu (nie wyszarzone)", !(await page.isDisabled("#f-production-enabled")) && !(await page.isDisabled("#f-sale-direct")));
-    await page.selectOption("#f-purchase-productId", "pr_zr_tow"); await page.waitForTimeout(150);
+    await combo(page, "#f-purchase-productId", "pr_zr_tow"); await page.waitForTimeout(150);
     await tick(page, "f-sale-direct"); await page.waitForSelector("#f-production-kwit");
     const st = await page.evaluate(() => { const d = RIWForm.draft; return { p: d.purchase.productId, prod: d.production.enabled, sale: d.sale.enabled, direct: d.sale.direct }; });
     check("3.6 Zakup: „sprzedaż bezpośrednia z lasu” włącza produkcję i ustawia drewno", st.p === "pr_drewno" && st.prod && st.sale && st.direct, st);
@@ -1020,7 +1063,7 @@ async function fillForestDirect(page) {
     await fillTab(page, "#f-purchase-lesnictwo", "Stanica");
     await fillTab(page, "#f-purchase-qty", "20"); await page.fill("#f-purchase-price", "230");
     await page.fill("#f-production-kwit", "KW 0900/09/2026");
-    await page.selectOption("#f-sale-buyerId", "pa_ec_zab"); await page.waitForTimeout(100); await fillTab(page, "#f-sale-price", "90");
+    await combo(page, "#f-sale-buyerId", "pa_ec_zab"); await page.waitForTimeout(100); await fillTab(page, "#f-sale-price", "90");
     const z0 = [await bal(page, "pr_drewno"), await bal(page, "pr_zr_lesna")];
     check("3.6 Zakup bezpośredni: zatwierdzenie z formularza", (await approve(page)) === 1);
     const zop = await page.evaluate(() => { const o = RIW_DEBUG.store.state.operations.at(-1); return { direct: o.direct, scope: o.scope, led: RIW_DEBUG.store.state.ledger.filter(l => l.opId === o.id).map(l => `${l.kind}:${l.qty}:${l.direct ? 1 : 0}`) }; });

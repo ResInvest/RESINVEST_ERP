@@ -1,11 +1,11 @@
 ﻿<#
 =========================================================================
- ResInvest ERP Serwer 3.13 — test odbiorczy na Windows: WSZYSTKIE 3 WARIANTY
+ ResInvest ERP Serwer 3.14 — test odbiorczy na Windows: WSZYSTKIE 3 WARIANTY
 
  Uruchomienie: dwuklik Uruchom-test.cmd (prosi o uprawnienia administratora) albo
    PowerShell jako administrator:  C:\ResInvest-test\Test-ResInvestERP.ps1
- W C:\ResInvest-test muszą być: 3 instalatory ResInvestERP_Serwer_Setup_3.13.0_{Gmail,BezOgraniczen,Firma}.exe
- i paczka ResInvestERP-testy-3.13.0.zip.
+ W C:\ResInvest-test muszą być: 3 instalatory ResInvestERP_GoogleSerwer.exe, ResInvestERP_SerwerNoLimit.exe,
+ ResInvestERP_SerwerFirma.exe i paczka ResInvestERP-testy-3.14.0.zip.
 
  Dla każdego wariantu (kolejność: Gmail → Bez ograniczeń → Firma, Firma zostaje zainstalowana na końcu):
    1. instalacja cicha jak na czystym komputerze (ustawienia poprzedniej instalacji odsunięte na czas testu),
@@ -43,12 +43,12 @@ function Check([string]$name, [bool]$ok, [string]$detail = "") {
 
 # oczekiwania wariantów (te same co installer\editions\*.json)
 $E = @{
-  gmail   = @{ suffix = "Gmail";         domains = "gmail.com,googlemail.com"; envDomains = "gmail.com,googlemail.com"; smtp = "smtp.gmail.com";     admin = "";                        foreign = "ktos@resinvest.group"; share = $false }
-  otwarta = @{ suffix = "BezOgraniczen"; domains = "";                         envDomains = "*";                        smtp = "";                   admin = "magazyn@resinvest.group"; foreign = $null;                  share = $false }
-  firma   = @{ suffix = "Firma";         domains = "resinvest.group";          envDomains = "resinvest.group";          smtp = "smtp.office365.com"; admin = "magazyn@resinvest.group"; foreign = "ktos@gmail.com";       share = $true }
+  gmail   = @{ file = "ResInvestERP_GoogleSerwer";  suffix = "Gmail";         domains = "gmail.com,googlemail.com"; envDomains = "gmail.com,googlemail.com"; smtp = "smtp.gmail.com";     admin = "";                        foreign = "ktos@resinvest.group"; share = $false }
+  otwarta = @{ file = "ResInvestERP_SerwerNoLimit"; suffix = "BezOgraniczen"; domains = "";                         envDomains = "*";                        smtp = "";                   admin = "magazyn@resinvest.group"; foreign = $null;                  share = $false }
+  firma   = @{ file = "ResInvestERP_SerwerFirma";   suffix = "Firma";         domains = "resinvest.group";          envDomains = "resinvest.group";          smtp = "smtp.office365.com"; admin = "magazyn@resinvest.group"; foreign = "ktos@gmail.com";       share = $true }
 }
 
-Log "ResInvest ERP 3.13 — test odbiorczy 3 wariantów · komputer $env:COMPUTERNAME · użytkownik $env:USERNAME"
+Log "ResInvest ERP 3.14 — test odbiorczy 3 wariantów · komputer $env:COMPUTERNAME · użytkownik $env:USERNAME"
 $os = Get-CimInstance Win32_OperatingSystem
 Log ("System: {0} {1} (build {2}), {3}" -f $os.Caption, $os.OSArchitecture, $os.BuildNumber, (Get-Culture).Name)
 $admin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -84,8 +84,8 @@ foreach ($ed in $Editions) {
     Check "Odinstalowanie poprzedniej wersji (kod $($u.ExitCode))" ($u.ExitCode -eq 0 -and -not (Test-Path $menu))
   }
   foreach ($f in @($envFile, $srvCfg)) { if (Test-Path $f) { Remove-Item $f -Force } }
-  $inst = (Get-ChildItem -Path $Root, $PSScriptRoot -Filter ("ResInvestERP_Serwer_Setup_*_{0}.exe" -f $X.suffix) -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
-  Check "Instalator znaleziony" ([bool]$inst) $(if ($inst) { $inst.Name } else { "brak pliku *_$($X.suffix).exe w $Root" })
+  $inst = (Get-ChildItem -Path $Root, $PSScriptRoot -Filter ("{0}.exe" -f $X.file) -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+  Check "Instalator znaleziony" ([bool]$inst) $(if ($inst) { $inst.Name } else { "brak pliku $($X.file).exe w $Root" })
   if (-not $inst) { continue }
   $isLog = Join-Path $Root "instalator-$ed-$stamp.log"
   $p = Start-Process -FilePath $inst.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=`"$isLog`"" -Wait -PassThru
@@ -123,7 +123,8 @@ foreach ($ed in $Editions) {
   for ($i = 0; $i -lt 60 -and -not $health; $i++) { Start-Sleep -Milliseconds 500; try { $health = Invoke-RestMethod "$base/api/health" -TimeoutSec 3 } catch { } }
   Check "Serwer uruchomiony z instalacji" ([bool]$health) $out
   if ($health) {
-    Check "Wersja 3.13.0" ($health.version -eq "3.13.0") $health.version
+    Check "Wersja 3.14.0" ($health.version -eq "3.14.0") $health.version
+    Check "Folder skanów dokumentów i zdjęć (3.14)" (Test-Path (Join-Path $data "skany")) (Join-Path $data "skany")
     Check "Domeny w /api/health: $(if ($X.domains) { $X.domains } else { 'dowolne' })" ((@($health.companyDomains) -join ",") -eq $X.domains) (@($health.companyDomains) -join ",")
     $script:ws = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     $pw = "Biomasa-Test-" + (Get-Random -Minimum 1000 -Maximum 9999)
@@ -173,13 +174,13 @@ foreach ($ed in $Editions) {
 $script:edition = "testy"
 if (-not $SkipTests -and (Test-Path $node)) {
   $pack = Get-ChildItem -Path $Root, $PSScriptRoot -Filter "ResInvestERP-testy-*.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
-  Check "Paczka testów znaleziona" ([bool]$pack) $(if ($pack) { $pack.FullName } else { "skopiuj ResInvestERP-testy-3.13.0.zip do $Root" })
+  Check "Paczka testów znaleziona" ([bool]$pack) $(if ($pack) { $pack.FullName } else { "skopiuj ResInvestERP-testy-3.14.0.zip do $Root" })
   if ($pack) {
     $tdir = Join-Path $Root "testy-$stamp"
     Expand-Archive -Path $pack.FullName -DestinationPath $tdir -Force
     $tlog = Join-Path $Root "testy-$stamp.log"
     # Start-Process zamiast „& node … *>”: w Windows PowerShell 5.1 przekierowany strumień błędów programu przerywa skrypt
-    $files = "tests\engine.test.mjs tests\features311.test.mjs tests\features312.test.mjs tests\editions312.test.mjs tests\server.test.mjs tests\storage.test.mjs tests\auth.test.mjs"
+    $files = "tests\engine.test.mjs tests\features311.test.mjs tests\features312.test.mjs tests\editions312.test.mjs tests\server.test.mjs tests\storage.test.mjs tests\auth.test.mjs tests\mail313.test.mjs tests\features314.test.mjs tests\scans314.test.mjs"
     $tp = Start-Process -FilePath $node -ArgumentList "--disable-warning=ExperimentalWarning --test $files" -WorkingDirectory (Join-Path $tdir "resinvest-erp") -RedirectStandardOutput $tlog -RedirectStandardError "$tlog.err" -Wait -PassThru -WindowStyle Hidden
     $sum = Select-String -Path $tlog -Pattern "^# (tests|pass|fail) " | ForEach-Object { $_.Line.TrimStart("# ") }
     Check "Testy automatyczne na Windows (node --test)" ($tp.ExitCode -eq 0) (($sum -join ", ") + " · log: $tlog")

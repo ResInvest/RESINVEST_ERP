@@ -4,7 +4,13 @@ import { readFileSync } from "node:fs";
 const css = readFileSync(new URL("../app/src/styles.css", import.meta.url), "utf8");
 const themes = {};
 for (const m of css.matchAll(/(?:^|\n)(?::root,)?\[data-theme="(\w+)"\]\{([\s\S]*?)\n\}/g)) {
-  const vars = {}; for (const v of m[2].matchAll(/--([\w-]+):\s*(#[0-9A-Fa-f]{6})/g)) vars[v[1]] = v[2]; themes[m[1]] = vars;
+  const vars = {}; for (const v of m[2].matchAll(/--([\w-]+):\s*(#[0-9A-Fa-f]{6})/g)) vars[v[1]] = v[2];
+  /* półprzezroczyste powierzchnie (motyw gradientowy, szkło) — kolor wypadkowy na tle --bg */
+  for (const v of m[2].matchAll(/--([\w-]+):\s*rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/g)) if (!vars[v[1]] && vars.bg) {
+    const a = +v[5], base = [1, 3, 5].map(i => parseInt(vars.bg.slice(i, i + 2), 16));
+    vars[v[1]] = "#" + [v[2], v[3], v[4]].map((c, i) => Math.round(+c * a + base[i] * (1 - a)).toString(16).padStart(2, "0")).join("");
+  }
+  themes[m[1]] = vars;
 }
 const lum = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
 const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };

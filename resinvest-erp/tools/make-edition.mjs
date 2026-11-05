@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* =========================================================================
-   ResInvest ERP 3.12 — pliki wariantu instalacji (firma / gmail / otwarta).
+   ResInvest ERP 3.14 — pliki wariantu instalacji (firma / gmail / otwarta).
    Użycie:  node tools/make-edition.mjs <id> [--out <katalog>]
    Wejście: installer/editions/<id>.json, config/app.config.json, config/server.config.json, .env.example
    Wyjście (domyślnie installer/build/<id>/):
@@ -72,9 +72,14 @@ export function makeEdition(id, outDir) {
   // UTF-8 z BOM — plik dołączany do ResInvestERP.iss (Inno Setup 7 wymaga zgodnego kodowania)
   writeFileSync(join(out, "edition.iss"), "\ufeff" + [
     `#define EditionId "${ed.id}"`, `#define EditionSuffix "${ed.suffix}"`, `#define EditionName "${q(ed.name)}"`,
+    // 3.14: nazwa pliku instalatora (installer\Output\<nazwa>.exe)
+    `#define EditionOutput "${q(ed.output || "ResInvestERP_Serwer_Setup_" + ed.suffix)}"`,
     `#define EditionDomains "${q(domains.length ? domains.map(d => "@" + d).join(", ") : "dowolne")}"`,
     `#define EditionShare "${q(ed.shareDir || "")}"`,
-    `#define EditionAdmin "${q(srv.initialAdmin.email || "")}"`, `#define EditionAdminPassword "${q(srv.initialAdmin.password || "")}"`, ""].join("\r\n"));
+    `#define EditionAdmin "${q(srv.initialAdmin.email || "")}"`, `#define EditionAdminPassword "${q(srv.initialAdmin.password || "")}"`,
+    // 3.13: strona „Poczta” kreatora — wartości startowe (bez haseł)
+    `#define EditionSmtpHost "${q(ed.mail.SMTP_HOST || "")}"`, `#define EditionSmtpPort "${q(ed.mail.SMTP_PORT || "")}"`,
+    `#define EditionSmtpSecure "${q(ed.mail.SMTP_SECURE || "")}"`, `#define EditionSmtpUser "${q(ed.mail.SMTP_USER || "")}"`, ""].join("\r\n"));
   return { id: ed.id, out, domains, initialAdmin: srv.initialAdmin.email };
 }
 

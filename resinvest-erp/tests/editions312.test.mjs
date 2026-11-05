@@ -50,6 +50,8 @@ test("generator wariantów: domeny, poczta SMTP (EMAIL_TRANSPORT=smtp), bez sekr
     const iss = readFileSync(join(out, "edition.iss"));
     assert.deepEqual([...iss.subarray(0, 3)], [0xef, 0xbb, 0xbf], "UTF-8 z BOM");
     assert.match(iss.toString("utf8"), new RegExp(`#define EditionId "${id}"`));
+    // 3.14: nazwy plików instalatorów
+    assert.match(iss.toString("utf8"), new RegExp(`#define EditionOutput "${{ firma: "ResInvestERP_SerwerFirma", gmail: "ResInvestERP_GoogleSerwer", otwarta: "ResInvestERP_SerwerNoLimit" }[id]}"`), id);
   }
 });
 

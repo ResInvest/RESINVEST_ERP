@@ -25,7 +25,7 @@
   /** Tekst do zapisania w danych: struktura {k, p} (tłumaczona przy wyświetlaniu). */
   const Lx = (k, p) => ({ k, p: p || {} });
 
-  const VERSION = "3.13.0";
+  const VERSION = "3.14.0";
   const SCHEMA = 9;
   const Q = 6;                 // precyzja wewnętrzna ilości
   const EPS = 1e-6;
@@ -235,13 +235,14 @@
     "roles.assign": N_("Role i uprawnienia — zmiana"), "warehouses.edit": N_("Magazyny — dodawanie i edycja"),
     "settings.edit": N_("Konfiguracja systemu"), "data.backup": N_("Kopia zapasowa"), "data.import": N_("Import kopii"),
     "planner.edit": N_("Planer zakupów — wpisywanie planu dnia"), "notifications.manage": N_("Powiadomienia i poczta — zgody, dziennik wysyłki"),
-    "factors.edit": N_("Przeliczniki miesiąca — pozostawienie albo zmiana po zamknięciu okresu")
+    "factors.edit": N_("Przeliczniki miesiąca — pozostawienie albo zmiana po zamknięciu okresu"),
+    "scans.add": N_("Skany dokumentów i zdjęcia — dodawanie do operacji"), "scans.delete": N_("Skany dokumentów i zdjęcia — usuwanie")
   };
   const CREATE_PERMS = ["receipts.create", "issues.create", "production.create", "mm.create"];
   const ROLE_DEFAULTS = {
     admin: ["*"],
-    kierownik: [...CREATE_PERMS, "mm.receive", "op.approve", "documents.cancel", "documents.delete", "documents.correct", "inventory.correct", "production.correct", "sales.correct", "purchases.correct", "inv.open", "inv.count", "inv.close", "factors.edit", "fleet.edit", "master.edit", "planner.edit", "report.view", "reports.export", "history.read", "users.read"],
-    magazynier: [...CREATE_PERMS, "mm.receive", "inv.count", "report.view", "history.read"],
+    kierownik: [...CREATE_PERMS, "mm.receive", "op.approve", "documents.cancel", "documents.delete", "documents.correct", "inventory.correct", "production.correct", "sales.correct", "purchases.correct", "inv.open", "inv.count", "inv.close", "factors.edit", "fleet.edit", "master.edit", "planner.edit", "report.view", "reports.export", "history.read", "users.read", "scans.add", "scans.delete"],
+    magazynier: [...CREATE_PERMS, "mm.receive", "inv.count", "report.view", "history.read", "scans.add"],
     obserwator: ["report.view", "history.read"],
     audytor: ["report.view", "reports.export", "history.read", "audit.read", "users.read"]
   };
@@ -410,8 +411,11 @@
     { id: "xt_pryzmy", name: N_("Podgarnianie pryzm ładowarką"), desc: N_("Formowanie i podgarnianie pryzm na placu"), unit: "h", rate: null },
     { id: "xt_plac", name: N_("Czyszczenie placu"), desc: N_("Sprzątanie placu składowego"), unit: "", rate: null },
     { id: "xt_ladowarka", name: N_("Praca ładowarką"), desc: N_("Praca ładowarki rozliczana godzinowo"), unit: "h", rate: null },
-    { id: "xt_przemieszczanie", name: N_("Przemieszczanie biomasy"), desc: N_("Przemieszczanie materiału w obrębie placu"), unit: "", rate: null }
+    { id: "xt_przemieszczanie", name: N_("Przemieszczanie biomasy"), desc: N_("Przemieszczanie materiału w obrębie placu"), unit: "", rate: null },
+    { id: "xt_wagony", name: N_("Załadunek wagonów (za tonę)"), desc: N_("Załadunek składu kolejowego — rozliczenie za tony załadowane do wagonów"), unit: "t", rate: null }
   ];
+  /** 3.14: rodzaj dopisywany do istniejących kartotek przy migracji (sprzedaż koleją — opłata za załadowane tony). */
+  const WAGON_EXTRA = DEFAULT_EXTRA_TYPES[DEFAULT_EXTRA_TYPES.length - 1];
   const EXTRA_UNITS = { "": N_("ryczałt"), h: N_("godz."), km: "km", szt: N_("szt."), t: "t", MP: "MP", m3: "m³" };
   const MAX_EXTRAS = 20;
   const INV_STATUS = { OTWARTA: N_("OTWARTA"), ZAMKNIETA: N_("ZAMKNIĘTA") };
@@ -464,7 +468,30 @@
     for (const k of Object.keys(colls)) if (!has(next, k)) return null;
     return next;
   }
-  const byId = (list, id) => (list || []).find(x => x.id === id) || null;
+  /**
+   * 3.14: wyszukiwanie po identyfikatorze z indeksem (lista ≥ 64 rekordów). Indeks trzyma pozycję rekordu, a wynik jest zawsze
+   * sprawdzany (list[i].id === id) — podmiana rekordu na kopię (zapis) zwraca bieżący obiekt; zmiana długości listy albo
+   * niepasująca pozycja przebudowuje indeks; brak w indeksie → zwykłe przeszukanie (wynik zawsze jak Array.find).
+   */
+  const ID_INDEX = typeof WeakMap === "function" ? new WeakMap() : null;
+  function byId(list, id) {
+    if (!list) return null;
+    if (!ID_INDEX || list.length < 64) return list.find(x => x.id === id) || null;
+    for (let pass = 0; pass < 2; pass++) {
+      let c = ID_INDEX.get(list);
+      if (!c || c.len !== list.length) {
+        c = { len: list.length, m: new Map() };
+        for (let i = 0; i < list.length; i++) { const x = list[i]; if (x && x.id != null && !c.m.has(x.id)) c.m.set(x.id, i); }
+        ID_INDEX.set(list, c);
+      }
+      const i = c.m.get(id);
+      if (i === undefined) break;
+      const x = list[i];
+      if (x && x.id === id) return x;
+      c.len = -1;                                               // pozycje przesunięte — przebudowa i ponowna próba
+    }
+    return list.find(x => x.id === id) || null;
+  }
   const str = v => String(v == null ? "" : v).trim();
   const nowIso = ctx => (ctx && ctx.now) || new Date().toISOString();
   const EMAIL_RE = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
@@ -508,6 +535,12 @@
     if (Array.isArray(s.users) && s.users.some(u => !ROLES[u.role])) e.push(t("Użytkownik z nieznaną rolą"));
     if (Array.isArray(s.ledger)) for (const l of s.ledger) {
       if (!Number.isFinite(l.qty) || !l.productId || !l.whId || !Dates.isISO(l.date) || !l.cat) { e.push(t("Uszkodzony zapis księgi: {id}", { id: l.id || "?" })); break; }
+    }
+    // 3.14: skany — tylko pliki z folderów „SKANY <MIESIĄC> <ROK>” (kopia nie może wskazać innego pliku na serwerze)
+    if (Array.isArray(s.operations)) for (const o of s.operations) {
+      if (o.scans === undefined) continue;
+      const bad = !Array.isArray(o.scans) || o.scans.some(x => !x || !/^sc_[a-z0-9]{6,40}$/.test(str(x.id)) || !SCAN_KINDS[x.kind] || !SCAN_FILE_RE.test(str(x.file)));
+      if (bad) { e.push(t("Nieprawidłowe dane skanów w operacji {no}", { no: o.no || o.id || "?" })); break; }
     }
     return e;
   }
@@ -601,6 +634,20 @@
     // 3.12: historia przeliczników miesięcznych (bez zmiany schematu); rola zamykająca okresy decyduje o przelicznikach
     if (s.config && !Array.isArray(s.config.factorHistory)) s.config.factorHistory = [];
     for (const [role, list] of Object.entries(s.rolePerms || {})) if (Array.isArray(list) && list.includes("inv.close") && !list.includes("factors.edit")) s.rolePerms[role] = list.concat("factors.edit");
+    // 3.14: skany dokumentów — role wprowadzające operacje dodają skany, role usuwające dokumenty usuwają skany
+    for (const role of Object.keys(s.rolePerms || {})) {
+      let list = s.rolePerms[role];
+      if (!Array.isArray(list)) continue;
+      if (list.some(p => CREATE_PERMS.includes(p)) && !list.includes("scans.add")) list = list.concat("scans.add");
+      if (list.includes("documents.delete") && !list.includes("scans.delete")) list = list.concat("scans.delete");
+      s.rolePerms[role] = list;
+    }
+    // 3.14: motywy wycofane (Office 98 / 2003) → Office 2007; rodzaj „Załadunek wagonów” (rozliczenie za tonę przy sprzedaży koleją)
+    for (const u of s.users || []) if (THEME_ALIASES[u.theme]) u.theme = THEME_ALIASES[u.theme];
+    if (Array.isArray(s.extraTypes) && !s.extraTypes.some(x => x.id === WAGON_EXTRA.id)) {
+      const ts = (s.meta && s.meta.createdAt) || new Date().toISOString();
+      s.extraTypes.push(Object.assign({}, WAGON_EXTRA, { active: true, createdAt: ts, updatedAt: ts, createdBy: "System" }));
+    }
     return { state: s, from, to: SCHEMA, notes };
   }
 
@@ -668,7 +715,7 @@
       date: ctx && ctx.today ? ctx.today : Dates.localToday(),
       purchase: { supplierKind: "firma", supplierId: "", supplierName: "", lesnictwo: "", basis: "KZR", productId: "", qty: "", unit: "m3", priceUnit: "", price: "", weightMode: "auto", weightManual: "" },
       production: { enabled: false, type: "lesna", rawProductId: "", outProductId: "", outQty: "", consumeQty: "", diffReason: "", rawCost: "", ndl: "", lesnictwo: "", kwit: "", investSite: "", sourceDoc: "", chipperId: "", chipperName: "", operatorId: "", operatorName: "", chipRate: "" },
-      sale: { enabled: false, direct: false, productId: "", qty: "", unit: "MP", buyerId: "", qtyMP: "", price: "", priceUnit: "MP", weightMode: "auto", weightManual: "" },
+      sale: { enabled: false, direct: false, productId: "", qty: "", unit: "MP", buyerId: "", buyerName: "", qtyMP: "", price: "", priceUnit: "MP", weightMode: "auto", weightManual: "" },
       mm: { fromWhId: "", productId: "", qty: "", unit: "MP", toWhId: "", weightMode: "auto", weightManual: "" },
       transport: {
         mode: "none", place: "", placeTouched: false,
@@ -681,7 +728,7 @@
       notes: "", extDoc: ""
     };
   }
-  function blankExtra() { return { typeId: "", vehicleId: "", qty: "", rate: "", cost: "", desc: "" }; }
+  function blankExtra() { return { typeId: "", typeName: "", vehicleId: "", vehicleName: "", qtySource: "", qty: "", rate: "", cost: "", desc: "" }; }
 
   /* ------------------------------------------------------------------ */
   /* Plan operacji — pełna walidacja i skutki (jedno źródło prawdy)      */
@@ -703,6 +750,24 @@
     };
     const prodOf = id => byId(state.products, id);
     const partyName = id => (byId(state.partners, id) || {}).name || "";
+    /**
+     * 3.14: odbiorca z listy albo wpisany z klawiatury. Nazwa zgodna z kartoteką (bez względu na wielkość liter)
+     * wskazuje istniejącego kontrahenta; nowa nazwa = nowy odbiorca, dopisywany do kartoteki przy zatwierdzeniu.
+     */
+    function resolveBuyer(S_) {
+      const typed = str(S_.buyerName).replace(/\s+/g, " ");
+      let buyer = byId(state.partners, S_.buyerId), newBuyer = null;
+      if (buyer && typed && typed.toLowerCase() !== str(buyer.name).toLowerCase()) buyer = null;
+      if (!buyer && typed) {
+        buyer = state.partners.find(p => str(p.name).toLowerCase() === typed.toLowerCase()) || null;
+        if (!buyer) newBuyer = { name: typed };
+      }
+      if (!buyer && !newBuyer) err("sale.buyerId", t("Wpisz nazwę odbiorcy albo wybierz z listy"));
+      else if (newBuyer && typed.length < 3) err("sale.buyerId", t("Nazwa odbiorcy musi mieć co najmniej 3 znaki"));
+      else if (buyer && !["buyer", "both"].includes(buyer.role)) err("sale.buyerId", t("„{n}” jest w kartotece jako dostawca, nie odbiorca", { n: buyer.name }));
+      else if (buyer && buyer.active === false) err("sale.buyerId", t("Odbiorca „{n}” jest nieaktywny", { n: buyer.name }));
+      return { id: buyer ? buyer.id : "", name: buyer ? buyer.name : newBuyer ? newBuyer.name : "", newBuyer };
+    }
     const U = u => Units.label(u);
 
     if (!user) err("_user", t("Brak zalogowanego użytkownika"));
@@ -846,9 +911,7 @@
     }
     /** Sprzedaż wyniku produkcji (łańcuch zakupu / sprzedaż bezpośrednia). */
     function planSaleOfOutput(outProduct, outQty, direct) {
-      const buyer = byId(state.partners, S.buyerId);
-      if (!S.buyerId) err("sale.buyerId", t("Wybierz odbiorcę"));
-      else if (!buyer || !["buyer", "both"].includes(buyer.role) || buyer.active === false) err("sale.buyerId", t("Nieznany lub nieaktywny odbiorca"));
+      const B = resolveBuyer(S);
       let saleQ = outQty;
       if (str(S.qtyMP) !== "") { const q = num("sale.qtyMP", S.qtyMP, { gt: 0, label: N_("ilość sprzedaży") }); saleQ = q === null ? 0 : rq(q); }
       if (outProduct && saleQ > outQty + EPS) err("sale.qtyMP", t("Nie można sprzedać {a} {u} z produkcji {b} {u}", { a: fmtQ(saleQ), b: fmtQ(outQty), u: U(outProduct.unit) }));
@@ -858,7 +921,7 @@
       const sw = saleWeight(outProduct, saleQ), weightT = sw.weightT;
       totals.revenue = price !== null ? round((S.priceUnit === "t" ? weightT : saleQ) * price, 2) : 0;
       if (direct && outQty - saleQ > EPS) warnings.push(t("Nie cała produkcja jest sprzedana — pozostałe {a} {u} zostanie przyjęte na stan magazynu.", { a: fmtQ(outQty - saleQ), u: outProduct ? U(outProduct.unit) : "" }));
-      norm.sale = { direct, fromStock: false, buyerId: S.buyerId, productId: outProduct ? outProduct.id : "", qty: saleQ, unit: outProduct ? outProduct.unit : "MP", stockQty: saleQ, price, priceUnit: S.priceUnit, revenue: totals.revenue, weightT, weightMode: sw.weightMode, autoWeight: sw.autoWeight };
+      norm.sale = { direct, fromStock: false, buyerId: B.id, buyerName: B.name, newBuyer: B.newBuyer, productId: outProduct ? outProduct.id : "", qty: saleQ, unit: outProduct ? outProduct.unit : "MP", stockQty: saleQ, price, priceUnit: S.priceUnit, revenue: totals.revenue, weightT, weightMode: sw.weightMode, autoWeight: sw.autoWeight };
       return saleQ;
     }
     const push = (kind, productId, qty, extra) => postings.push(Object.assign({ kind, cat: kind, whId, productId, qty: rq(qty) }, extra || {}));
@@ -947,7 +1010,7 @@
           }
           if (outProduct && saleQ > 0) {
             push("SPRZEDAZ", outProduct.id, -saleQ, direct ? { direct: true } : null);
-            documents.push(Object.assign({ type: "WZ", kind: "SPRZEDAZ", productId: outProduct.id, qty: saleQ, unit: outProduct.unit, stockQty: saleQ, stockUnit: outProduct.unit, weightT: norm.sale.weightT, weightMode: norm.sale.weightMode, value: totals.revenue, price: norm.sale.price, priceUnit: S.priceUnit, partnerId: S.buyerId, partner: partyName(S.buyerId), stock: "−" }, direct ? { meta: { direct: N_("sprzedaż bezpośrednia z lasu (bez magazynowania)") } } : {}));
+            documents.push(Object.assign({ type: "WZ", kind: "SPRZEDAZ", productId: outProduct.id, qty: saleQ, unit: outProduct.unit, stockQty: saleQ, stockUnit: outProduct.unit, weightT: norm.sale.weightT, weightMode: norm.sale.weightMode, value: totals.revenue, price: norm.sale.price, priceUnit: S.priceUnit, partnerId: norm.sale.buyerId, partner: norm.sale.buyerName, stock: "−" }, direct ? { meta: { direct: N_("sprzedaż bezpośrednia z lasu (bez magazynowania)") } } : {}));
           }
         }
       } else if (S.enabled) err("sale.enabled", t("W zakupie sprzedaż korzysta z wyniku produkcji — zaznacz produkcję albo użyj operacji „Sprzedaż” (WZ z magazynu)"));
@@ -962,17 +1025,15 @@
       const stockQty = qty !== null && unitOk ? Units.convert(qty, S.unit, product.unit, product, cfg) : 0;
       const onStock = product ? stockOf(product.id) : 0;
       if (product && qty !== null && stockQty > onStock + EPS) err("sale.qty", t("Nie można sprzedać {a} {u}. Dostępny stan: {b} {u}.", { a: fmtQ(stockQty), b: fmtQ(onStock), u: U(product.unit) }), "STOCK");
-      const buyer = byId(state.partners, S.buyerId);
-      if (!S.buyerId) err("sale.buyerId", t("Wybierz odbiorcę"));
-      else if (!buyer || !["buyer", "both"].includes(buyer.role) || buyer.active === false) err("sale.buyerId", t("Nieznany lub nieaktywny odbiorca"));
+      const B = resolveBuyer(S);
       const price = num("sale.price", S.price, { min: 0, label: N_("cenę sprzedaży") });
       if (price === 0) warnings.push(t("Cena sprzedaży wynosi 0 zł."));
       totals.revenue = qty !== null && price !== null ? round(qty * price, 2) : 0;
       const sw = saleWeight(product, stockQty), weightT = sw.weightT;
-      norm.sale = { direct: false, fromStock: true, buyerId: S.buyerId, productId: S.productId, qty, unit: S.unit, stockQty, stockUnit: product ? product.unit : null, onStock, after: rq(onStock - stockQty), price, priceUnit: S.unit, revenue: totals.revenue, weightT, weightMode: sw.weightMode, autoWeight: sw.autoWeight };
+      norm.sale = { direct: false, fromStock: true, buyerId: B.id, buyerName: B.name, newBuyer: B.newBuyer, productId: S.productId, qty, unit: S.unit, stockQty, stockUnit: product ? product.unit : null, onStock, after: rq(onStock - stockQty), price, priceUnit: S.unit, revenue: totals.revenue, weightT, weightMode: sw.weightMode, autoWeight: sw.autoWeight };
       if (product && stockQty > 0) {
         push("SPRZEDAZ", product.id, -stockQty);
-        documents.push({ type: "WZ", kind: "SPRZEDAZ", productId: product.id, qty, unit: S.unit, stockQty, stockUnit: product.unit, weightT, weightMode: sw.weightMode, value: totals.revenue, price, priceUnit: S.unit, partnerId: S.buyerId, partner: partyName(S.buyerId), stock: "−" });
+        documents.push({ type: "WZ", kind: "SPRZEDAZ", productId: product.id, qty, unit: S.unit, stockQty, stockUnit: product.unit, weightT, weightMode: sw.weightMode, value: totals.revenue, price, priceUnit: S.unit, partnerId: norm.sale.buyerId, partner: norm.sale.buyerName, stock: "−" });
       }
     } else if (type === "SPRZEDAZ" && S.direct) {
       /* ============ D. PRODUKCJA + SPRZEDAŻ BEZPOŚREDNIA (las → odbiorca) ============ */
@@ -990,7 +1051,7 @@
       }
       if (outProduct && saleQ > 0) {
         push("SPRZEDAZ", outProduct.id, -saleQ, { direct: true });
-        documents.push({ type: "WZ", kind: "SPRZEDAZ", productId: outProduct.id, qty: saleQ, unit: outProduct.unit, stockQty: saleQ, stockUnit: outProduct.unit, weightT: norm.sale.weightT, weightMode: norm.sale.weightMode, value: totals.revenue, price: norm.sale.price, priceUnit: S.priceUnit, partnerId: S.buyerId, partner: partyName(S.buyerId), stock: "−", meta: { direct: N_("sprzedaż bezpośrednia po produkcji / prosto z lasu") } });
+        documents.push({ type: "WZ", kind: "SPRZEDAZ", productId: outProduct.id, qty: saleQ, unit: outProduct.unit, stockQty: saleQ, stockUnit: outProduct.unit, weightT: norm.sale.weightT, weightMode: norm.sale.weightMode, value: totals.revenue, price: norm.sale.price, priceUnit: S.priceUnit, partnerId: norm.sale.buyerId, partner: norm.sale.buyerName, stock: "−", meta: { direct: N_("sprzedaż bezpośrednia po produkcji / prosto z lasu") } });
       }
     } else if (type === "PRODUKCJA") {
       /* ================= C. PRODUKCJA NA MAGAZYN (surowiec ze stanu) ================= */
@@ -1326,26 +1387,38 @@
       if (items.length > MAX_EXTRAS) err("extras.items", t("Maksymalnie {n} operacji dodatkowych w jednej operacji", { n: MAX_EXTRAS }));
       items.slice(0, MAX_EXTRAS).forEach((x, i) => {
         const K = f => `extras.items.${i}.${f}`;
-        const ty = byId(state.extraTypes, x.typeId);
-        if (!str(x.typeId)) err(K("typeId"), t("Wybierz rodzaj operacji dodatkowej"));
-        else if (!ty) err(K("typeId"), t("Nieznany rodzaj operacji dodatkowej"));
-        else if (ty.active === false && !corr) err(K("typeId"), t("Rodzaj „{n}” jest nieaktywny w kartotece", { n: ty.name }));
-        let veh = null;
-        if (str(x.vehicleId)) {
-          veh = byId(state.fleet.vehicles, x.vehicleId);
-          if (!veh) err(K("vehicleId"), t("Nieznany pojazd"));
-          else if (veh.status === "wycofany" && !corr) err(K("vehicleId"), t("Pojazd ma status „{s}” — wybierz aktywny", { s: t(ASSET_STATUS[veh.status]) }));
-        }
+        // 3.14: rodzaj z kartoteki albo wpisany z klawiatury (nowy rodzaj dopisywany do kartoteki przy zatwierdzeniu)
+        const typedT = str(x.typeName).replace(/\s+/g, " ");
+        let ty = byId(state.extraTypes, x.typeId), newType = null;
+        if (ty && typedT && typedT.toLowerCase() !== str(ty.name).toLowerCase()) ty = null;
+        if (!ty && typedT) { ty = (state.extraTypes || []).find(e => str(e.name).toLowerCase() === typedT.toLowerCase()) || null; if (!ty) newType = { name: typedT, unit: x.qtySource === "train" ? "t" : "" }; }
+        if (!ty && !newType) err(K("typeId"), str(x.typeId) ? t("Nieznany rodzaj operacji dodatkowej") : t("Wybierz albo wpisz rodzaj operacji dodatkowej"));
+        else if (newType && typedT.length < 3) err(K("typeId"), t("Nazwa rodzaju musi mieć co najmniej 3 znaki"));
+        else if (ty && ty.active === false && !corr) err(K("typeId"), t("Rodzaj „{n}” jest nieaktywny w kartotece", { n: ty.name }));
+        // pojazd z Floty albo wpisany opisowo (numer rejestracyjny / nazwa) — bez dopisywania do kartoteki
+        const typedV = str(x.vehicleName).replace(/\s+/g, " ");
+        let veh = byId(state.fleet.vehicles, x.vehicleId);
+        if (veh && typedV && ![str(veh.reg), str(veh.name), `${veh.reg} · ${veh.name}`].some(v => v.toLowerCase() === typedV.toLowerCase())) veh = null;
+        if (!veh && typedV) veh = state.fleet.vehicles.find(v => [str(v.reg), str(v.name), `${v.reg} · ${v.name}`].some(n => n.toLowerCase() === typedV.toLowerCase())) || null;
+        if (str(x.vehicleId) && !veh && !typedV) err(K("vehicleId"), t("Nieznany pojazd"));
+        else if (veh && veh.status === "wycofany" && !corr) err(K("vehicleId"), t("Pojazd ma status „{s}” — wybierz aktywny", { s: t(ASSET_STATUS[veh.status]) }));
         let qty = null, rate = null, cost = null;
-        if (str(x.qty) !== "") qty = num(K("qty"), x.qty, { gt: 0, label: N_("ilość") });
+        // 3.14: sprzedaż koleją — ilość = tony załadowane do wagonów (z sekcji transportu „Pociąg”)
+        if (x.qtySource === "train") {
+          if (transport.mode !== "train") err(K("qty"), t("Ilość z pociągu: wybierz transport „Pociąg”"));
+          else if (!(transport.totalT > 0)) err(K("qty"), t("Ilość z pociągu: podaj tonaż wagonów w sekcji transportu"));
+          else qty = rq(transport.totalT);
+        } else if (str(x.qty) !== "") qty = num(K("qty"), x.qty, { gt: 0, label: N_("ilość") });
         if (str(x.rate) !== "") rate = num(K("rate"), x.rate, { min: 0, label: N_("stawkę") });
         else if (ty && ty.rate !== null && ty.rate !== undefined && str(ty.rate) !== "" && Number(ty.rate) >= 0) rate = Number(ty.rate);
-        if (str(x.cost) !== "") cost = num(K("cost"), x.cost, { min: 0, label: N_("koszt") });
+        if (x.qtySource === "train" && str(x.cost) !== "") err(K("cost"), t("Przy ilości z pociągu koszt = tony × stawka — wyczyść pole kosztu albo wyłącz ilość z pociągu"));
+        if (str(x.cost) !== "" && x.qtySource !== "train") cost = num(K("cost"), x.cost, { min: 0, label: N_("koszt") });
         else if (qty !== null && rate !== null) cost = round(qty * rate, 2);
+        else if (x.qtySource === "train" && qty !== null && rate === null) err(K("rate"), t("Podaj stawkę za tonę"));
         else if (!errors[K("qty")] && !errors[K("rate")]) err(K("cost"), t("Podaj koszt (kwotę) albo ilość i stawkę"));
-        norm.extras.push({ no: i + 1, typeId: ty ? ty.id : str(x.typeId), typeName: ty ? ty.name : "", unit: ty ? (ty.unit || "") : "",
-          vehicleId: veh ? veh.id : "", vehicleName: veh ? veh.name : "", reg: veh ? veh.reg : "",
-          qty, rate, cost: cost === null ? 0 : round(cost, 2), costBasis: str(x.cost) !== "" ? "amount" : "qtyRate", desc: str(x.desc).slice(0, 300) });
+        norm.extras.push({ no: i + 1, typeId: ty ? ty.id : "", typeName: ty ? ty.name : newType ? newType.name : "", unit: ty ? (ty.unit || "") : newType ? newType.unit : "", newType,
+          vehicleId: veh ? veh.id : "", vehicleName: veh ? veh.name : typedV, reg: veh ? veh.reg : "", qtySource: x.qtySource === "train" ? "train" : "",
+          qty, rate, cost: cost === null ? 0 : round(cost, 2), costBasis: str(x.cost) !== "" && x.qtySource !== "train" ? "amount" : "qtyRate", desc: str(x.desc).slice(0, 300) });
       });
       totals.extraCost = round(norm.extras.reduce((a, x) => a + x.cost, 0), 2);
     }
@@ -1503,6 +1576,35 @@
    * Ta sama nowa pozycja w kilku kursach jest dopisywana raz; pozycje wycofane / w serwisie wracają do pracy.
    * Uzupełnia identyfikatory w danych znormalizowanych (n) i w danych wejściowych operacji (input). Każda zmiana — wpis audytu.
    */
+  /**
+   * 3.14: nowe pozycje kartotek wpisane w operacji z klawiatury — odbiorca (sprzedaż) i rodzaje operacji dodatkowych.
+   * Dopisywane przy zatwierdzeniu (ta sama, atomowa zmiana), z wpisem w dzienniku audytu.
+   */
+  function materializeRefs(state, n, input, ctx, refNo, docs) {
+    const src = (ctx && ctx.source) || N_("Formularz „Nowa operacja”"), at = nowIso(ctx), by = ctx && ctx.user ? ctx.user.name : "System";
+    if (n.sale && n.sale.newBuyer) {
+      const nb = { id: uid("pa"), name: n.sale.newBuyer.name, role: "buyer", kind: "firma", city: "", active: true, createdAt: at, createdBy: by };
+      state.partners.push(nb);
+      n.sale.buyerId = nb.id; n.sale.buyerName = nb.name; n.sale.newBuyer = null;
+      (docs || []).forEach(d => { if (d.type === "WZ") { d.partnerId = nb.id; d.partner = nb.name; } });
+      if (input && input.sale) { input.sale.buyerId = nb.id; input.sale.buyerName = nb.name; }
+      audit(state, ctx, { entity: "partner", entityId: nb.id, opNo: nb.name, relatedNo: refNo || null, event: "partner", act: Lx("Nowy odbiorca — dodany przy sprzedaży {no}", { no: refNo || "—" }), before: null, after: { nazwa: nb.name, rola: PARTNER_ROLES.buyer }, source: src });
+    }
+    const made = new Map();
+    (n.extras || []).forEach((x, i) => {
+      if (!x.newType) return;
+      const key = x.newType.name.toLowerCase();
+      let ty = made.get(key);
+      if (!ty) {
+        ty = { id: uid("xt"), name: x.newType.name, desc: "", unit: x.newType.unit || "", rate: null, active: true, createdAt: at, updatedAt: at, createdBy: by };
+        state.extraTypes.push(ty); made.set(key, ty);
+        audit(state, ctx, { entity: "master", entityId: ty.id, opNo: ty.name, relatedNo: refNo || null, event: "master", act: Lx("Nowy rodzaj operacji dodatkowej — dodany przy operacji {no}", { no: refNo || "—" }), before: null, after: { nazwa: ty.name, jednostka: ty.unit || "ryczałt" }, source: src });
+      }
+      x.typeId = ty.id; x.typeName = ty.name; x.unit = ty.unit; x.newType = null;
+      const it = input && input.extras && input.extras.items && input.extras.items[i];
+      if (it) { it.typeId = ty.id; it.typeName = ty.name; }
+    });
+  }
   function materializeFleet(state, n, input, ctx, refNo) {
     const made = { vehicles: new Map(), drivers: new Map(), chippers: new Map(), operators: new Map() };
     const src = (ctx && ctx.source) || N_("Formularz „Nowa operacja”"), at = nowIso(ctx), by = ctx && ctx.user ? ctx.user.name : "System";
@@ -1595,6 +1697,7 @@
     const mainNo = main ? main.no : null;
     const input = clone(draft); delete input.idemKey; delete input.draftId;
     materializeFleet(state, n, input, ctx, mainNo);
+    materializeRefs(state, n, input, ctx, mainNo, docs);
     // nowy dostawca wpisany ręcznie → kartoteka kontrahentów (w tej samej, atomowej zmianie)
     if (n.purchase && n.purchase.newSupplier) {
       const ns = { id: uid("pa"), name: n.purchase.newSupplier.name, role: "supplier", kind: n.purchase.newSupplier.kind, city: "", active: true, createdAt: nowIso(ctx), createdBy: ctx.user.name };
@@ -1769,7 +1872,7 @@
     if (plan.type === "ZAKUP") return [name(n.purchase.productId), q(n.purchase.qty, n.purchase.unit), party(n.purchase.supplierId) || (n.purchase.newSupplier ? n.purchase.newSupplier.name : "")].filter(Boolean).join(" · ");
     if (plan.type === "PRODUKCJA") return [name(n.production.outProductId), q(n.production.outQty, n.production.outUnit)].filter(Boolean).join(" · ");
     if (plan.type === "MM") return [name(n.mm.productId), q(n.mm.qty, n.mm.unit), (byId(state.warehouses, n.mm.toWhId) || {}).name].filter(Boolean).join(" · ");
-    return [name(n.sale.productId), q(n.sale.qty, n.sale.unit), party(n.sale.buyerId)].filter(Boolean).join(" · ");
+    return [name(n.sale.productId), q(n.sale.qty, n.sale.unit), party(n.sale.buyerId) || n.sale.buyerName].filter(Boolean).join(" · ");
   }
   /** Zatwierdzenie operacji przekazanej przez magazyniera (opcjonalnie z poprawionym formularzem). */
   function approvePending(state, id, draftOverride, ctx) {
@@ -2007,6 +2110,7 @@
     op.input = Object.assign(clone(newDraft), { date: op.date }); delete op.input.idemKey; delete op.input.draftId;
     Object.assign(op, pc.nextOp, { place: pc.nextOp.transport.place, totals: pc.plan.totals, status: "CORRECTED" });
     materializeFleet(state, op, op.input, ctx, no);
+    materializeRefs(state, op, op.input, ctx, no, op.documents);
     rememberCarriers(state, op.transport);
     op.documents.forEach(dc => { if (dc.type === "PZ" || dc.type === "WZ") dc.docDate = op.docDate; if (dc.type === "WZ" && op.sale) { dc.weightT = op.sale.weightT; dc.weightMode = op.sale.weightMode; } });
     if (pc.valueChanged) op.valueEvents.push(Object.assign({ date: today, ts: nowIso(ctx), kind: "correct", no }, pc.valueDelta));
@@ -2611,12 +2715,21 @@
     { id: "glass", label: N_("Szkło (pastelowy)"), scheme: "light", icon: "layers", sw: ["#FFFFFF", "#E4E2FB", "#DDF4E8", "#1F7F45"] },
     { id: "aurum", label: N_("Złota biomasa (granat i złoto)"), scheme: "light", icon: "gem", sw: ["#FBF8F1", "#14213A", "#B8913A"] },
     { id: "waga", label: N_("Stacja wagowa (klasyczny przemysłowy)"), scheme: "light", icon: "scale", sw: ["#F2F4F7", "#1F3C73", "#BDEFF5", "#FF2B1C"] },
-    // 3.13: klasyczne motywy biurowe i motyw własny (trzy kolory użytkownika)
-    { id: "office98", label: N_("Office 98 (klasyczny szary)"), scheme: "light", icon: "file", sw: ["#FFFFFF", "#C0C0C0", "#000080"] },
-    { id: "office2003", label: N_("Office 2003 (niebieski Luna)"), scheme: "light", icon: "layers", sw: ["#FFFFFF", "#C3DAF9", "#316AC5", "#FFC973"] },
-    { id: "office2007", label: N_("Office 2007 (wstążka)"), scheme: "light", icon: "layers", sw: ["#FFFFFF", "#D5E5FA", "#15428B", "#FFD350"] },
-    { id: "custom", label: N_("Własny (trzy kolory)"), scheme: "light", icon: "drop", sw: ["#FFFFFF", "#EEF2EF", "#1E6B45"], custom: true }
+    // 3.13–3.14: motywy w stylu systemów i programów biurowych, grafika, gradient i motyw własny
+    { id: "office2007", label: N_("Office 2007 (wstążka)"), desc: N_("niebieska wstążka, złote zaznaczenie"), scheme: "light", icon: "layers", sw: ["#FFFFFF", "#D5E5FA", "#15428B", "#FFD350"] },
+    { id: "office2013", label: N_("Office 2013 (płaski)"), desc: N_("płaska biel, niebieski akcent, cienkie linie"), scheme: "light", icon: "layers", sw: ["#FFFFFF", "#F3F3F3", "#2B579A"] },
+    { id: "office2019", label: N_("Office 2019 (kolorowy)"), desc: N_("niebieski pasek, jasnoszare tło, delikatne cienie"), scheme: "light", icon: "layers", sw: ["#FFFFFF", "#F3F2F1", "#185ABD"] },
+    { id: "winxp", label: N_("Windows XP (Luna)"), desc: N_("niebieskie paski tytułu, beżowe okna, zielony przycisk"), scheme: "light", icon: "file", sw: ["#ECE9D8", "#245EDC", "#3C9A3C"] },
+    { id: "ubuntu", label: N_("Linux Ubuntu (Yaru)"), desc: N_("bakłażanowe menu, pomarańczowy akcent"), scheme: "light", icon: "drop", sw: ["#FAFAFA", "#2C001E", "#E95420"] },
+    { id: "fedora", label: N_("Linux Fedora (GNOME)"), desc: N_("granat Fedory, jasne zaokrąglone karty"), scheme: "light", icon: "drop", sw: ["#FAFAFA", "#294172", "#3C6EB4"] },
+    { id: "vector", label: N_("Grafika wektorowa"), desc: N_("geometryczne tło, wyraźne kontury, żywe kolory"), scheme: "light", icon: "layers", sw: ["#FFF8E7", "#1B1B3A", "#EE4266", "#3BCEAC"] },
+    { id: "render3d", label: N_("Grafika 3D"), desc: N_("wypukłe karty i przyciski, miękkie światło"), scheme: "light", icon: "gem", sw: ["#E3E8F0", "#FFFFFF", "#4D6CFA"] },
+    { id: "gradient", label: N_("Gradient (dwa kolory)"), desc: N_("tło z przejściem między dwoma kolorami"), scheme: "light", icon: "drop", sw: ["#FFFFFF", "#4F46E5", "#06B6D4"], gradient: true },
+    { id: "custom", label: N_("Własny (tło i trzy kolory)"), desc: N_("tło, akcent i menu boczne z pełnej palety"), scheme: "light", icon: "drop", sw: ["#FFFFFF", "#EEF2EF", "#1E6B45"], custom: true }
   ];
+  /** 3.14: motywy wycofane → najbliższy dostępny (profil użytkownika i kopia w przeglądarce). */
+  const THEME_ALIASES = { office98: "office2007", office2003: "office2007" };
+  const themeId = id => THEME_ALIASES[id] || id;
   /** 3.13: kolory motywu własnego — tło, akcent (przyciski, zaznaczenia), pasek menu. Format #RRGGBB. */
   const THEME_COLOR_KEYS = ["bg", "accent", "bar"];
   const DEFAULT_THEME_COLORS = { bg: "#EEF2EF", accent: "#1E6B45", bar: "#14213A" };
@@ -2628,6 +2741,89 @@
     return out;
   }
   const THEMES = Object.fromEntries(THEME_REGISTRY.map(x => [x.id, x.label]));
+  /* ------------------------------------------------------------------ */
+  /* 3.14: skany dokumentów i zdjęcia operacji                           */
+  /* ------------------------------------------------------------------ */
+  const SCAN_KINDS = { PZ: N_("PZ — przyjęcie"), WZ: N_("WZ — wydanie"), MM: N_("MM — przesunięcie"), KWIT: N_("Kwit wywozowy"),
+    WAGA: N_("Zdjęcie tonażu z wagi"), ZREBKA: N_("Zdjęcie zrębki"), INNE: N_("Inny dokument") };
+  /** Dozwolone pliki: typ MIME → rozszerzenie (zawartość sprawdzana po sygnaturze pliku, nie po nazwie). */
+  const SCAN_TYPES = { "application/pdf": "pdf", "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/heic": "heic", "image/tiff": "tif" };
+  const SCAN_MAX_BYTES = 25 * 1024 * 1024, SCAN_MAX_PER_OP = 80;
+  const MONTHS_UP = ["STYCZEŃ", "LUTY", "MARZEC", "KWIECIEŃ", "MAJ", "CZERWIEC", "LIPIEC", "SIERPIEŃ", "WRZESIEŃ", "PAŹDZIERNIK", "LISTOPAD", "GRUDZIEŃ"];
+  /** Folder miesiąca operacji: „SKANY MAJ 2026” (co miesiąc nowy folder). */
+  const scanFolder = date => { const [y, m] = String(date || "").split("-"); return `SKANY ${MONTHS_UP[Math.min(12, Math.max(1, +m || 1)) - 1]} ${/^\d{4}$/.test(y) ? y : "0000"}`; };
+  const scanFileName = (op, kind, id, ext) => `${String(op.no || op.id).replace(/[\\/:*?"<>|\s]+/g, "-").replace(/[^A-Za-z0-9._-]/g, "")}_${kind}_${String(id).replace(/[^a-z0-9]/gi, "").slice(-10)}.${ext}`;
+  const SCAN_FILE_RE = /^SKANY [A-ZĄĆĘŁŃÓŚŹŻ]+ \d{4}\/[A-Za-z0-9._-]{3,160}$/;
+  /** Sygnatura pliku → typ MIME (null = niedozwolony). Na serwerze i w przeglądarce (Uint8Array). */
+  function scanSniff(b) {
+    if (!b || b.length < 12) return null;
+    const at = (i, arr) => arr.every((x, k) => b[i + k] === x);
+    if (at(0, [0x25, 0x50, 0x44, 0x46])) return "application/pdf";
+    if (at(0, [0xFF, 0xD8, 0xFF])) return "image/jpeg";
+    if (at(0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) return "image/png";
+    if (at(0, [0x52, 0x49, 0x46, 0x46]) && at(8, [0x57, 0x45, 0x42, 0x50])) return "image/webp";
+    if (at(4, [0x66, 0x74, 0x79, 0x70]) && [[0x68, 0x65, 0x69, 0x63], [0x68, 0x65, 0x69, 0x78], [0x6D, 0x69, 0x66, 0x31], [0x6D, 0x73, 0x66, 0x31]].some(t => at(8, t))) return "image/heic";
+    if (at(0, [0x49, 0x49, 0x2A, 0x00]) || at(0, [0x4D, 0x4D, 0x00, 0x2A])) return "image/tiff";
+    return null;
+  }
+  const Scans = {
+    live(op) { return ((op && op.scans) || []).filter(x => !x.deletedAt); },
+    /** Dostęp do operacji: magazyn operacji albo (MM) magazyn docelowy. */
+    access(user, op) { return !!op && (canAccessWh(user, op.whId) || (!!op.toWhId && canAccessWh(user, op.toWhId))); },
+    /** Dołączenie skanu (metadane — plik zapisuje serwer albo magazyn przeglądarki przed wywołaniem). */
+    attach(state, a, ctx) {
+      const user = ctx && ctx.user, op0 = byId(state.operations, a && a.opId), x = (a && a.scan) || {};
+      if (!op0) return { ok: false, error: t("Nie znaleziono operacji") };
+      if (!this.access(user, op0)) return { ok: false, code: "FORBIDDEN", error: t("Brak dostępu do magazynu tej operacji") };
+      if (!SCAN_KINDS[x.kind]) return { ok: false, error: t("Wybierz rodzaj skanu") };
+      if (!SCAN_TYPES[x.type]) return { ok: false, error: t("Dozwolone pliki: PDF, JPG, PNG, WEBP, HEIC, TIFF") };
+      if (!/^sc_[a-z0-9]{6,40}$/.test(str(x.id)) || !SCAN_FILE_RE.test(str(x.file))) return { ok: false, error: t("Nieprawidłowe dane pliku") };
+      if (!(Number(x.size) > 0) || Number(x.size) > SCAN_MAX_BYTES) return { ok: false, error: t("Plik jest za duży (najwięcej {n} MB)", { n: SCAN_MAX_BYTES / 1048576 }) };
+      if (this.live(op0).length >= SCAN_MAX_PER_OP) return { ok: false, error: t("Najwięcej {n} skanów w jednej operacji", { n: SCAN_MAX_PER_OP }) };
+      if ((op0.scans || []).some(s => s.id === x.id)) return { ok: true, unchanged: true };
+      const op = own(state, "operations", op0);
+      const rec = { id: x.id, kind: x.kind, name: str(x.name).replace(/[\u0000-\u001f]/g, "").slice(0, 160) || x.file.split("/").pop(), file: x.file, folder: x.file.split("/")[0],
+        type: x.type, size: Math.round(Number(x.size)), sha: /^[0-9a-f]{64}$/.test(str(x.sha)) ? x.sha : "", at: nowIso(ctx), byId: user.id, by: user.name };
+      op.scans = (op.scans || []).concat(rec);
+      state.rev += 1;
+      audit(state, ctx, { entity: "operation", entityId: op.id, opNo: op.no, event: "scan", act: Lx("Skan dołączony: {k} — {n}", { k: { t: SCAN_KINDS[rec.kind] }, n: rec.name }), before: null, after: { plik: rec.file, rozmiar: rec.size, typ: rec.type }, source: (ctx && ctx.source) || N_("Skany dokumentów") });
+      return { ok: true, scan: rec };
+    },
+    /** Usunięcie z operacji (plik zostaje w folderze i w kopii — ślad w dzienniku audytu). */
+    remove(state, a, ctx) {
+      const user = ctx && ctx.user, op0 = byId(state.operations, a && a.opId);
+      if (!op0) return { ok: false, error: t("Nie znaleziono operacji") };
+      if (!this.access(user, op0)) return { ok: false, code: "FORBIDDEN", error: t("Brak dostępu do magazynu tej operacji") };
+      const i = (op0.scans || []).findIndex(x => x.id === (a && a.scanId) && !x.deletedAt);
+      if (i < 0) return { ok: false, error: t("Nie znaleziono skanu") };
+      const op = own(state, "operations", op0);
+      const prev = op.scans[i];
+      op.scans = op.scans.map((x, k) => k === i ? Object.assign({}, x, { deletedAt: nowIso(ctx), deletedBy: user.name, deleteReason: str(a.reason).slice(0, 200) }) : x);
+      state.rev += 1;
+      audit(state, ctx, { entity: "operation", entityId: op.id, opNo: op.no, event: "scan", act: Lx("Skan usunięty z operacji: {k} — {n}", { k: { t: SCAN_KINDS[prev.kind] }, n: prev.name }), before: { plik: prev.file }, after: { powod: str(a.reason) || "—" }, source: (ctx && ctx.source) || N_("Skany dokumentów") });
+      return { ok: true };
+    }
+  };
+  /** 3.14: motyw „Gradient” — dwa kolory użytkownika (od / do). */
+  const DEFAULT_THEME_GRADIENT = { from: "#4F46E5", to: "#06B6D4" };
+  function themeGradient(v) {
+    if (!v || typeof v !== "object" || !HEX_RE.test(String(v.from || "")) || !HEX_RE.test(String(v.to || ""))) return null;
+    return { from: String(v.from).toUpperCase(), to: String(v.to).toUpperCase() };
+  }
+  /**
+   * 3.14: rozdzielczość robocza interfejsu — program wygląda jak na ekranie o tej rozdzielczości
+   * (skala = szerokość ekranu / szerokość wybranej rozdzielczości). „auto” = bez skalowania.
+   */
+  const UI_RESOLUTIONS = [
+    { id: "auto", label: N_("Automatyczna (jak system)"), w: 0 },
+    { id: "1280x720", label: "1280 × 720 (HD)", w: 1280 },
+    { id: "1366x768", label: "1366 × 768 (laptop)", w: 1366 },
+    { id: "1600x900", label: "1600 × 900 (HD+)", w: 1600 },
+    { id: "1920x1080", label: "1920 × 1080 (Full HD)", w: 1920 },
+    { id: "2560x1440", label: "2560 × 1440 (QHD / 2K)", w: 2560 },
+    { id: "3840x2160", label: "3840 × 2160 (4K UHD)", w: 3840 }
+  ];
+  const UI_RES = Object.fromEntries(UI_RESOLUTIONS.map(x => [x.id, x]));
   const Users = {
     fullName(r) { return [str(r.firstName), str(r.lastName)].filter(Boolean).join(" ") || str(r.name); },
     validate(state, rec, prev) {
@@ -2644,7 +2840,7 @@
       if ((rec.warehouseIds || []).some(id => !byId(state.warehouses, id))) e.warehouseIds = t("Nieznany magazyn");
       if (!USER_STATUS[rec.status]) e.status = t("Wybierz status");
       if (rec.lang && !I18N.has(rec.lang)) e.lang = t("Nieznany język");
-      if (rec.theme && !THEMES[rec.theme]) e.theme = t("Nieznany motyw");
+      if (rec.theme && !THEMES[themeId(rec.theme)]) e.theme = t("Nieznany motyw");
       return e;
     },
     /** Liczba aktywnych administratorów po zmianie (zabezpieczenie przed zablokowaniem systemu). */
@@ -2771,14 +2967,19 @@
     setPrefs(state, prefs, ctx) {
       const u = ctx && ctx.user && byId(state.users, ctx.user.id);
       if (!u) return { ok: false, error: t("Brak zalogowanego użytkownika") };
-      const next = { lang: prefs.lang === undefined ? u.lang : prefs.lang, theme: prefs.theme === undefined ? u.theme : prefs.theme };
+      const next = { lang: prefs.lang === undefined ? u.lang : prefs.lang, theme: themeId(prefs.theme === undefined ? u.theme : prefs.theme) };
       if (next.lang && !I18N.has(next.lang)) return { ok: false, error: t("Nieznany język") };
       if (next.theme && !THEMES[next.theme]) return { ok: false, error: t("Nieznany motyw") };
-      let colors = u.themeColors || null;
+      let colors = u.themeColors || null, grad = u.themeGradient || null, res = u.uiRes || "";
       if (prefs.themeColors !== undefined) { colors = themeColors(prefs.themeColors); if (!colors) return { ok: false, error: t("Nieprawidłowe kolory motywu (format #RRGGBB)") }; }
-      if (next.lang === u.lang && next.theme === u.theme && JSON.stringify(colors) === JSON.stringify(u.themeColors || null)) return { ok: true, unchanged: true };
+      if (prefs.themeGradient !== undefined) { grad = themeGradient(prefs.themeGradient); if (!grad) return { ok: false, error: t("Nieprawidłowe kolory motywu (format #RRGGBB)") }; }
+      if (prefs.uiRes !== undefined) { res = str(prefs.uiRes); if (res && !UI_RES[res]) return { ok: false, error: t("Nieznana rozdzielczość") }; if (res === "auto") res = ""; }
+      if (next.lang === u.lang && next.theme === u.theme && JSON.stringify(colors) === JSON.stringify(u.themeColors || null)
+        && JSON.stringify(grad) === JSON.stringify(u.themeGradient || null) && res === (u.uiRes || "")) return { ok: true, unchanged: true };
       u.lang = next.lang || ""; u.theme = next.theme || "";
       if (colors) u.themeColors = colors;
+      if (grad) u.themeGradient = grad;
+      u.uiRes = res;
       state.rev += 1;
       return { ok: true };
     }
@@ -3131,7 +3332,9 @@
     VERSION, SCHEMA, EPS, Q, NumParse, own, applyDelta, FleetPick, materializeFleet, Templates, Scale, round, rq, fmt, fmtQ, money, Dates, Units, PERMS, ROLES, can, OP_TYPES, STATUS, KINDS, CATS, DOC_LABEL, BASIS,
     PROD_TYPES, MAX_EXT_COMPANIES, DIFF_REASONS, SUPPLIER_KINDS, partnerKind, ndlName, blankRun, blankExtRun, blankExtra, CORRECTION_REASONS,
     CHIPPER_OWNERS, VEHICLE_OWNERS, BODY_TYPES, DIM_LIMITS, compartmentMP, vehicleCapacityMP, WEIGHT_SOURCES, DEFAULT_EXTRA_TYPES, EXTRA_UNITS, MAX_EXTRAS, extrasText, docNoTaken, suggestDocNo, deleteOperation, DOC_NO_TYPES, NO_MODES, docNoModeOf, DOC_SERIES, WAREHOUSE_DOCS, DOC_NUMBERING, unifiedNumbering, seriesNoOf, TRANSPORT_MODES, VEHICLE_TYPES, ASSET_STATUS, INV_STATUS, HISTORY_TYPES, REPORT_COLS, uid, clone, byId,
-    PRODUCT_CATS, PARTNER_ROLES, CAT_UNIT, THEMES, THEME_REGISTRY, THEME_COLOR_KEYS, DEFAULT_THEME_COLORS, themeColors, ROLE_INFO, ROLE_DEFAULTS, CREATE_PERMS, USER_STATUS, statusOf, applyRoles, permsOf, whAccess, canAccessWh,
+    PRODUCT_CATS, PARTNER_ROLES, CAT_UNIT, THEMES, THEME_REGISTRY, THEME_COLOR_KEYS, DEFAULT_THEME_COLORS, themeColors, THEME_ALIASES, themeId,
+    DEFAULT_THEME_GRADIENT, themeGradient, UI_RESOLUTIONS, UI_RES,
+    SCAN_KINDS, SCAN_TYPES, SCAN_MAX_BYTES, SCAN_MAX_PER_OP, scanFolder, scanFileName, scanSniff, Scans, ROLE_INFO, ROLE_DEFAULTS, CREATE_PERMS, USER_STATUS, statusOf, applyRoles, permsOf, whAccess, canAccessWh,
     normalizeEmail, validateCompanyEmail, Roles, Settings, Factors, Lx, EMAIL_RE, companyEmail, nipValid, trReason, auditText, loginFrom, migrate, I18N,
     submitOperation, approvePending, rejectPending, canApprove, planSummary,
     MM_MODES, MM_STATES, MM_DIFF_REASONS, mmMode, mmState, planReceive, receiveTransfer, mmInTransit, draftWhId,

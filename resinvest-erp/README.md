@@ -1,4 +1,4 @@
-# ResInvest ERP 3.11 (3.11.0)
+# ResInvest ERP 3.14 (3.14.0)
 
 *Program stworzony przez Roesner Mateusz dla ResInvest Commodities.*
 
@@ -45,6 +45,46 @@ Jeden interfejs — plik **`ResInvest_ERP.html`** — działa w dwóch trybach:
 Program nie korzysta z bibliotek zewnętrznych pobieranych z sieci (CDN) — wszystko jest w pliku HTML
 (dołączony dekoder kodów QR jsQR 1.4.0, licencja Apache-2.0: `app/vendor/jsQR.LICENSE`). Internet jest potrzebny tylko
 serwerowi do wysyłki e-maili (Resend); bez poczty zaproszenia zapisują się jako pliki `.eml`.
+
+## Nowe w 3.14.0
+* **Trzy instalatory pod nowymi nazwami**, każdy wielostanowiskowy (serwer SQLite + praca w przeglądarce na wielu komputerach i telefonach):
+  * `ResInvestERP_SerwerFirma.exe` — konta `@resinvest.group`, poczta Microsoft 365;
+  * `ResInvestERP_GoogleSerwer.exe` — konta Gmail, poczta Gmail (hasło aplikacji);
+  * `ResInvestERP_SerwerNoLimit.exe` — dowolna domena e-mail, dowolny serwer SMTP.
+
+  Kreator otwiera się **na pełnym ekranie**. Strona **Poczta** kreatora zapisuje skrzynkę i od razu wysyła wiadomość testową
+  (hasło tylko na tym komputerze, nie trafia do wiersza poleceń ani do dziennika). Pliki tymczasowe budowy są usuwane po kompilacji.
+* **Ustawienia → Wygląd i język** w nowym układzie:
+  * pionowa lista motywów: pole wyboru, mała próbka kolorów, nazwa i opis; na dole **Zapisz** / **Anuluj** (podgląd od razu);
+  * **rozdzielczość ekranu** (rozdzielczość robocza programu): 1280 × 720 … 3840 × 2160 albo automatyczna — skaluje cały interfejs;
+  * motywy: Perła, Grafit, Lazur, Ultra, Premium, Szkło, Aurum, Waga, **Office 2007**, **Office 2013**, **Office 2019**,
+    **Windows XP**, **Linux Ubuntu**, **Linux Fedora**, **Grafika wektorowa**, **Grafika 3D**, **Gradient (dwa kolory)**
+    i **Własny (tło + trzy kolory)**. Office 98 i 2003 zastąpiono motywem Office 2007 (ustawienie przechodzi automatycznie);
+  * w tle każdego motywu delikatny napis **ResInvest ERP**; kontrast tekstu każdego motywu sprawdza `tools/theme-contrast.mjs`.
+* **Ekran logowania premium**: pełnoekranowe tło z kadrem intro, opis systemu i cztery fakty o bezpieczeństwie danych.
+* **Skany dokumentów i zdjęcia w każdej operacji** (formularz i szczegóły operacji): PZ, WZ, MM, kwity wywozowe,
+  zdjęcia tonażu z wagi, zdjęcia zrębki i inne.
+  * Pliki z dysku, z aparatu telefonu albo przeciągnięte; zdjęcia zmniejszane do 2560 px; PDF, JPG, PNG, WEBP, HEIC, TIFF do 25 MB.
+  * Serwer zapisuje je w folderach **`SKANY <MIESIĄC> <ROK>`** (np. `SKANY MAJ 2026` — co miesiąc nowy folder, według daty operacji)
+    w `C:\ProgramData\ResInvestERP\skany`, od razu kopiuje do `backups\skany`, a przy każdej kopii bazy uzupełnia kopię skanów
+    (także w folderze firmy). Typ pliku sprawdzany po zawartości (HTML / EXE udające zdjęcie są odrzucane).
+  * Usunięcie skanu z operacji (z powodem) trafia do dziennika audytu; plik zostaje w folderze i w kopii.
+  * Tryb lokalny: pliki w przeglądarce + **Pobierz kopię skanów (ZIP)** w Administracji.
+* **Sprzedaż koleją — opłata za załadowane tony**: w operacjach dodatkowych sprzedaży z transportem „Pociąg” pole
+  **Ilość z pociągu** bierze tonaż wagonów, koszt = tony × stawka (nowy rodzaj „Załadunek wagonów (za tonę)”).
+* **Ręczne wpisywanie w każdej liście operacji**: odbiorca, rębak, operator, pojazd, kierowca, rodzaj operacji dodatkowej —
+  można wybrać z listy albo wpisać z klawiatury; nowy odbiorca / rodzaj trafia do kartotek przy zapisie operacji.
+* **Wydajność i niezawodność** (testy obciążeniowe `node tools/loadtest.mjs`):
+  * zapis skanów asynchroniczny — przy 40 jednoczesnych wysyłkach zdjęć 3 MB inne żądania odpowiadają w ok. 0,1 s (wcześniej 2,8 s);
+  * 40 stanowisk, 4500 żądań w 30 s, fala 60 jednoczesnych zapisów, 280 skanów: 0 błędów, 0 utraconych zapisów,
+    każdy skan w operacji, w folderze danych i w kopii; baza po latach pracy (3000 operacji) — zapis p95 31 ms;
+  * strona programu z pamięci podręcznej (gzip, ETag / 304), duże odpowiedzi kompresowane bez blokowania serwera;
+  * rejestry dokumentów: 200 najnowszych wierszy + „Pokaż wcześniejsze” (widok z 3000 operacji: 2,5 s → 43 ms);
+  * awaria procesu serwera → automatyczny restart (skrót *ResInvest ERP Serwer - uruchom*).
+* **Wczytanie zapisu** (Administracja → *Wczytaj kopię*) w przeglądarce działa także w trybie serwera; kopia ze
+  zmienionymi ścieżkami plików skanów jest odrzucana.
+* Testy: `tests/features314.test.mjs`, `tests/scans314.test.mjs`, `tests/e2e314.cjs`, rozszerzone `tests/mail313.test.mjs`
+  (strona „Poczta” instalatora) i `tests/editions312.test.mjs` (nazwy instalatorów).
 
 ## Nowe w 3.13.0
 * **Poczta działa po instalacji bez edycji plików.** Diagnoza i plan: [`docs/POCZTA_I_INSTALATORY_PLAN_3_13.md`](docs/POCZTA_I_INSTALATORY_PLAN_3_13.md).
@@ -98,9 +138,9 @@ serwerowi do wysyłki e-maili (Resend); bez poczty zaproszenia zapisują się ja
 
   | Instalator | Konta (e-mail) | Poczta (`EMAIL_TRANSPORT=smtp`) |
   |---|---|---|
-  | `ResInvestERP_Serwer_Setup_3.12.0_Firma.exe` | tylko `@resinvest.group` | Microsoft 365 (`smtp.office365.com:587`) |
-  | `ResInvestERP_Serwer_Setup_3.12.0_Gmail.exe` | `@gmail.com`, `@googlemail.com` | Gmail (`smtp.gmail.com:465`, hasło aplikacji) |
-  | `ResInvestERP_Serwer_Setup_3.12.0_BezOgraniczen.exe` | dowolna domena (tryb firmowy bez ograniczenia) | dowolny SMTP |
+  | `ResInvestERP_SerwerFirma.exe` (do 3.13: `…_Firma.exe`) | tylko `@resinvest.group` | Microsoft 365 (`smtp.office365.com:587`) |
+  | `ResInvestERP_GoogleSerwer.exe` (do 3.13: `…_Gmail.exe`) | `@gmail.com`, `@googlemail.com` | Gmail (`smtp.gmail.com:465`, hasło aplikacji) |
+  | `ResInvestERP_SerwerNoLimit.exe` (do 3.13: `…_BezOgraniczen.exe`) | dowolna domena (tryb firmowy bez ograniczenia) | dowolny SMTP |
 
   Domeny ustawia nowa zmienna serwera `COMPANY_DOMAINS` (lista albo `*`). Wariant zapisuje ją w `config\edition.env`,
   a `server.env` administratora ma pierwszeństwo. Zmiana przy starcie serwera trafia do dziennika audytu.
@@ -548,7 +588,7 @@ Różnice:
 
 ## Instalacja (Windows)
 
-Uruchom instalator wariantu — **`ResInvestERP_Serwer_Setup_3.12.0_Firma.exe`**, `…_Gmail.exe` albo `…_BezOgraniczen.exe` ([opis wariantów](docs/INSTALATORY_3_12.md); budowanie — niżej) — i wybierz:
+Uruchom instalator wariantu — **`ResInvestERP_SerwerFirma.exe`**, **`ResInvestERP_GoogleSerwer.exe`** albo **`ResInvestERP_SerwerNoLimit.exe`** ([opis wariantów](docs/INSTALATORY_3_12.md); budowanie — niżej) — i wybierz:
 
 * **Pełna instalacja** — program + serwer. Instalator dołącza środowisko Node.js (`runtime\node.exe`),
   tworzy folder danych `C:\ProgramData\ResInvestERP` i skróty w menu Start:
@@ -726,7 +766,7 @@ Plik `.iss` jest zapisany w UTF-8 z BOM (polskie i czeskie znaki w Inno Setup 7)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
-# → installer\Output\ResInvestERP_Serwer_Setup_3.12.0_{Firma,Gmail,BezOgraniczen}.exe
+# → installer\Output\ResInvestERP_SerwerFirma.exe, ResInvestERP_GoogleSerwer.exe, ResInvestERP_SerwerNoLimit.exe
 #   (skrypt uruchamia też testy; -SkipTests pomija; -Editions firma — tylko wybrany wariant)
 ```
 

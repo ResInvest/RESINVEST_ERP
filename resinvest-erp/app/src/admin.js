@@ -560,62 +560,94 @@
   /* ================================================================== */
   /* 3.13: Ustawienia → Wygląd i język (jedyne miejsce wyboru)            */
   /* ================================================================== */
+  /** Mała ikonka kolorów motywu (menu · tło · akcent) — dla motywu własnego i gradientu z kolorów użytkownika. */
   const swatch = x => {
+    if (x.gradient) { const g = Prefs.gradientColors(); return `<span class="tsw" aria-hidden="true" style="display:block;background:linear-gradient(135deg,${g.from},${g.to})"></span>`; }
     const c = x.custom ? Prefs.customColors() : null, [a, b, k] = c ? [c.bar, c.bg, c.accent] : x.sw;
-    return `<div class="sw" style="background:${b}"><i style="background:${a}"></i><i style="background:linear-gradient(90deg,${k} 0 30%,${b} 30%)"></i></div>`;
+    return `<span class="tsw" aria-hidden="true" style="background:${b}"><i style="background:${a}"></i><i style="background:linear-gradient(90deg,${k} 0 34%,${b} 34%)"></i></span>`;
   };
   const COLOR_FIELDS = [["bg", N_("Tło"), N_("strona i karty")], ["accent", N_("Akcent"), N_("przyciski, zaznaczenia, wykresy")], ["bar", N_("Menu boczne"), N_("pasek nawigacji")]];
+  const GRAD_FIELDS = [["from", N_("Kolor początkowy"), N_("lewy górny róg")], ["to", N_("Kolor końcowy"), N_("prawy dolny róg")]];
+  const colorField = (pfx, k, l, h, val) => `<label for="${pfx}-${k}">${th(l)}<small class="dim">${th(h)}</small>
+    <span class="clr"><input type="color" id="${pfx}-${k}" data-${pfx}="${k}" value="${esc(val.toLowerCase())}" aria-label="${th(l)}"><input class="ctrl" data-${pfx}-hex="${k}" value="${esc(val)}" maxlength="7" spellcheck="false" aria-label="${th(l)} (#RRGGBB)"></span></label>`;
+  /**
+   * 3.14: Ustawienia → Wygląd i język. Motywy w liście pionowej (pole wyboru, ikonka kolorów, nazwa i opis);
+   * wybór od razu pokazuje podgląd, „Zapisz” utrwala motyw, kolory i rozdzielczość w profilu użytkownika.
+   */
   Views.wyglad = {
     html() {
-      const c = Prefs.customColors(), cv = UI.customThemeVars(c).vars;
-      return `<div class="page-head"><div class="titles"><h2>${th("Wygląd i język")}</h2><p>${th("Język i motyw zapisują się w Twoim profilu — działają na każdym komputerze po zalogowaniu.")}</p></div></div>
-        <div class="card mb4"><div class="card-h"><h3>${th("Język")}</h3></div><div class="card-b">
-          <div class="set-row"><div class="sl"><b>${th("Język programu")}</b><small>${th("Interfejs, raporty, wydruki i PDF")}</small></div>
-            <div class="seg" role="group" aria-label="${th("Język")}">${Object.values(I18N.LANGS).map(L => `<button type="button" data-plang="${L.code}" lang="${L.code}" aria-pressed="${L.code === I18N.lang}">${esc(L.label)}</button>`).join("")}</div></div></div></div>
-        <div class="card mb4"><div class="card-h"><h3>${th("Motyw")}</h3><span class="spacer"></span><small class="dim">${th("Skrót klawiszowy: Ctrl+D")}</small></div><div class="card-b">
-          <div class="theme-cards">${THEME_LIST.map(x => `<button class="theme-card" type="button" data-ptheme="${x.id}" aria-pressed="${x.id === Prefs.theme}">${swatch(x)}<b>${esc(t(x.label))}</b></button>`).join("")}</div></div></div>
-        <div class="card" id="theme-custom-card"><div class="card-h"><h3>${th("Motyw własny — trzy kolory")}</h3></div><div class="card-b">
-          <p class="muted">${th("Wybierz dowolne kolory z pełnej palety. Program sam dobierze kolor tekstu i odcienie tak, aby wszystko było czytelne (kontrast co najmniej 3:1).")}</p>
-          <div class="theme-custom">${COLOR_FIELDS.map(([k, l, h]) => `<label for="tc-${k}">${th(l)}<small class="dim">${th(h)}</small>
-            <span class="clr"><input type="color" id="tc-${k}" data-tc="${k}" value="${esc(c[k].toLowerCase())}" aria-label="${th(l)}"><input class="ctrl" data-tc-hex="${k}" value="${esc(c[k])}" maxlength="7" spellcheck="false" aria-label="${th(l)} (#RRGGBB)"></span></label>`).join("")}</div>
-          <div class="theme-preview" id="tc-preview" aria-hidden="true">${this.preview(cv)}</div>
-          <div class="row wrap mt4"><button class="btn primary" type="button" id="tc-apply">${ic("check", 15)} ${th("Zastosuj motyw własny")}</button>
-            <button class="btn" type="button" id="tc-reset">${th("Kolory domyślne")}</button></div></div></div>`;
+      const cur = Prefs.theme, c = Prefs.customColors(), g = Prefs.gradientColors(), saved = Prefs.saved ? Prefs.saved.theme : cur;
+      const res = Prefs.uiRes || "auto", sw = (root.screen && screen.width) || 0, sh = (root.screen && screen.height) || 0, dpr = root.devicePixelRatio || 1;
+      const rows = THEME_LIST.map(x => {
+        const on = x.id === cur;
+        let sub = "";
+        if (on && x.custom) sub = `<li class="theme-sub" id="theme-custom-card"><div class="theme-custom">${COLOR_FIELDS.map(([k, l, h]) => colorField("tc", k, l, h, c[k])).join("")}</div>
+          <div class="theme-preview" id="tc-preview" aria-hidden="true">${this.preview(UI.customThemeVars(c).vars)}</div>
+          <div class="row wrap mt3"><button class="btn sm" type="button" id="tc-reset">${th("Kolory domyślne")}</button></div></li>`;
+        if (on && x.gradient) sub = `<li class="theme-sub" id="theme-gradient-card"><div class="theme-custom">${GRAD_FIELDS.map(([k, l, h]) => colorField("tg", k, l, h, g[k])).join("")}</div>
+          <div class="row wrap mt3"><button class="btn sm" type="button" id="tg-reset">${th("Kolory domyślne")}</button></div></li>`;
+        return `<li class="theme-row ${on ? "on" : ""}" data-ptheme="${x.id}"><input type="radio" name="look-theme" id="th-${x.id}" value="${x.id}" ${on ? "checked" : ""}>${swatch(x)}
+          <label class="tn" for="th-${x.id}"><b>${esc(t(x.label))}</b>${x.desc ? `<small>${esc(t(x.desc))}</small>` : ""}</label>${x.id === saved ? `<span class="tcur">${th("zapisany")}</span>` : ""}</li>${sub}`;
+      }).join("");
+      return `<div class="page-head"><div class="titles"><h2>${th("Wygląd i język")}</h2><p>${th("Wybierz język, rozdzielczość ekranu i motyw. Podgląd działa od razu — kliknij „Zapisz”, aby zachować ustawienia w profilu (działają na każdym komputerze po zalogowaniu).")}</p></div></div>
+        <div class="look-grid">
+          <div class="stack">
+            <div class="card"><div class="card-h"><h3>${th("Język")}</h3></div><div class="card-b">
+              <div class="set-row"><div class="sl"><b>${th("Język programu")}</b><small>${th("Interfejs, raporty, wydruki i PDF")}</small></div>
+                <div class="seg" role="group" aria-label="${th("Język")}">${Object.values(I18N.LANGS).map(L => `<button type="button" data-plang="${L.code}" lang="${L.code}" aria-pressed="${L.code === I18N.lang}">${esc(L.label)}</button>`).join("")}</div></div></div></div>
+            <div class="card" id="look-res"><div class="card-h"><h3>${th("Rozdzielczość ekranu")}</h3></div><div class="card-b">
+              <div class="field"><label for="ui-res">${th("Rozdzielczość robocza programu")}</label>
+                <select class="ctrl" id="ui-res">${R.UI_RESOLUTIONS.map(r => `<option value="${r.id}" ${r.id === res ? "selected" : ""}>${esc(t(r.label))}${r.w ? ` — ${esc(t("skala {p}%", { p: Math.round(UI.uiZoomFor(r.id) * 100) }))}` : ""}</option>`).join("")}</select></div>
+              <p class="res-info">${esc(t("Ten ekran: {w} × {h} pkt (skalowanie systemu {s}%). Mniejsza rozdzielczość = większe litery i przyciski; większa = więcej danych na ekranie.", { w: sw, h: sh, s: Math.round(dpr * 100) }))}</p></div></div>
+          </div>
+          <div class="card"><div class="card-h"><h3>${th("Motyw")}</h3><span class="spacer"></span><small class="dim">${th("Skrót klawiszowy: Ctrl+D")}</small></div>
+            <ul class="theme-list" role="radiogroup" aria-label="${th("Motyw")}">${rows}</ul></div>
+        </div>
+        <div class="look-save" id="look-save"><span class="state ${Prefs.dirty() ? "dirty" : ""}" id="look-state">${Prefs.dirty() ? th("Niezapisane zmiany — podgląd") : th("Ustawienia zapisane")}</span><span class="spacer"></span>
+          <button class="btn" type="button" id="look-cancel" ${Prefs.dirty() ? "" : "disabled"}>${th("Anuluj")}</button>
+          <button class="btn primary" type="button" id="look-save-btn">${ic("check", 15)} ${th("Zapisz")}</button></div>`;
     },
     preview(v) {
       return `<div class="tp-bar" style="background:${v["--bar"]};color:${v["--bar-ink"]}"><i style="background:${v["--bar-ink"]};width:70%"></i><i style="background:${v["--bar-ink"]};width:55%"></i><i style="background:${v["--brand"]};width:80%;opacity:1"></i></div>
         <div class="tp-main" style="background:${v["--bg"]}"><div class="tp-card" style="background:${v["--surface"]};border:1px solid ${v["--border"]};color:${v["--text"]};font-size:12px;padding:6px 8px">${esc(t("Stany magazynowe"))}</div><span class="tp-btn" style="background:${v["--brand"]};color:${v["--brand-ink"]}">${esc(t("Zapisz"))}</span></div>`;
     },
     bind(page) {
+      const state = () => { const d = Prefs.dirty(), el = $("#look-state", page); if (el) { el.textContent = d ? t("Niezapisane zmiany — podgląd") : t("Ustawienia zapisane"); el.classList.toggle("dirty", d); } const cb = $("#look-cancel", page); if (cb) cb.disabled = !d; };
       $$("[data-plang]", page).forEach(b => b.onclick = () => Prefs.setLang(b.dataset.plang));
-      $$("[data-ptheme]", page).forEach(b => b.onclick = async () => {
-        if (b.dataset.ptheme === "custom") await Prefs.setCustom(this.read(page) || Prefs.customColors()); else await Prefs.setTheme(b.dataset.ptheme);
-        App.render();
+      $$("[data-ptheme]", page).forEach(row => row.onclick = e => {
+        const id = row.dataset.ptheme; if (id === Prefs.theme && e.target.tagName !== "INPUT") return;
+        Prefs.preview(id); App.render();
+        const r = $(`#th-${id}`); if (r) r.focus({ preventScroll: true });
       });
-      const sync = (k, val, from) => {
-        const v = String(val || "").trim().toUpperCase(), ok = /^#[0-9A-F]{6}$/.test(v);
-        const hex = $(`[data-tc-hex="${k}"]`, page), pick = $(`[data-tc="${k}"]`, page);
-        hex.classList.toggle("bad", !ok);
-        if (!ok) return;
-        if (from !== "hex") hex.value = v;
-        if (from !== "pick") pick.value = v.toLowerCase();
-        const c = this.read(page); if (c) $("#tc-preview", page).innerHTML = this.preview(UI.customThemeVars(c).vars);
+      $("#ui-res", page).onchange = e => { Prefs.previewRes(e.target.value); App.render(); };
+      const bindColors = (pfx, keys, read, apply) => {
+        const sync = (k, val, from) => {
+          const v = String(val || "").trim().toUpperCase(), ok = /^#[0-9A-F]{6}$/.test(v);
+          const hex = $(`[data-${pfx}-hex="${k}"]`, page), pick = $(`[data-${pfx}="${k}"]`, page);
+          if (!hex) return; hex.classList.toggle("bad", !ok);
+          if (!ok) return;
+          if (from !== "hex") hex.value = v;
+          if (from !== "pick") pick.value = v.toLowerCase();
+          const c = read(); if (c) { apply(c); state(); }
+        };
+        $$(`[data-${pfx}]`, page).forEach(x => x.oninput = () => sync(x.dataset[pfx], x.value, "pick"));
+        $$(`[data-${pfx}-hex]`, page).forEach(x => x.oninput = () => { const k = x.getAttribute(`data-${pfx}-hex`); sync(k, x.value.startsWith("#") ? x.value : "#" + x.value, "hex"); });
+        return sync;
       };
-      $$("[data-tc]", page).forEach(x => x.oninput = () => sync(x.dataset.tc, x.value, "pick"));
-      $$("[data-tc-hex]", page).forEach(x => x.oninput = () => sync(x.dataset.tcHex, x.value.startsWith("#") ? x.value : "#" + x.value, "hex"));
-      $("#tc-apply", page).onclick = async () => {
-        const c = this.read(page);
-        if (!c) return Toast.err(t("Nieprawidłowe kolory motywu (format #RRGGBB)"));
-        const r = await Prefs.setCustom(c);
+      const readC = () => { const o = {}; for (const [k] of COLOR_FIELDS) o[k] = String(($(`[data-tc-hex="${k}"]`, page) || {}).value || "").trim().toUpperCase(); return R.themeColors(o); };
+      const readG = () => { const o = {}; for (const [k] of GRAD_FIELDS) o[k] = String(($(`[data-tg-hex="${k}"]`, page) || {}).value || "").trim().toUpperCase(); return R.themeGradient(o); };
+      const syncC = bindColors("tc", COLOR_FIELDS, readC, c => { Prefs.preview("custom", c); const pv = $("#tc-preview", page); if (pv) pv.innerHTML = this.preview(UI.customThemeVars(c).vars); });
+      const syncG = bindColors("tg", GRAD_FIELDS, readG, g => Prefs.preview("gradient", null, g));
+      const rc = $("#tc-reset", page); if (rc) rc.onclick = () => Object.entries(R.DEFAULT_THEME_COLORS).forEach(([k, v]) => syncC(k, v));
+      const rg = $("#tg-reset", page); if (rg) rg.onclick = () => Object.entries(R.DEFAULT_THEME_GRADIENT).forEach(([k, v]) => syncG(k, v));
+      $("#look-cancel", page).onclick = () => { Prefs.cancelPreview(); App.render(); };
+      $("#look-save-btn", page).onclick = async e => {
+        const btn = e.currentTarget; btn.disabled = true;
+        const r = await Prefs.saveLook();
+        btn.disabled = false;
         if (r && r.ok === false) return Toast.err(t("Nie zapisano"), r.error || "");
-        Toast.ok(t("Motyw własny zastosowany")); App.render();
+        Toast.ok(t("Zapisano ustawienia wyglądu")); App.render();
       };
-      $("#tc-reset", page).onclick = () => { Object.entries(R.DEFAULT_THEME_COLORS).forEach(([k, v]) => sync(k, v)); };
-    },
-    read(page) {
-      const out = {};
-      for (const [k] of COLOR_FIELDS) out[k] = String(($(`[data-tc-hex="${k}"]`, page) || {}).value || "").trim().toUpperCase();
-      return R.themeColors(out);
     }
   };
 
@@ -635,6 +667,9 @@
             <div class="row wrap"><button class="btn primary" type="button" id="bk-export" ${App.can("data.backup") ? "" : "disabled"}>${ic("dl", 15)} ${th("Pobierz kopię (JSON)")}</button>
               <button class="btn" type="button" id="bk-import" ${App.can("data.import") ? "" : "disabled"}>${ic("up", 15)} ${th("Wczytaj kopię")}</button>
               <input type="file" id="bk-file" accept="application/json,.json" class="hidden"></div>
+            <div class="dd-sep"></div>
+            <p class="muted" id="scans-backup-info">${srv ? th("Skany dokumentów i zdjęcia: serwer zapisuje je w folderach „SKANY <MIESIĄC> <ROK>” (C:\\ProgramData\\ResInvestERP\\skany), od razu kopiuje do backups\\skany, a przy każdej kopii bazy uzupełnia kopię skanów (także w folderze firmy).") : th("Skany dokumentów i zdjęcia są w tej przeglądarce. Pobierz ich kopię (ZIP z folderami „SKANY <MIESIĄC> <ROK>”) razem z kopią danych.")}</p>
+            ${srv ? "" : `<div><button class="btn" type="button" id="bk-scans" ${App.can("data.backup") ? "" : "disabled"}>${ic("dl", 15)} ${th("Pobierz kopię skanów (ZIP)")}</button></div>`}
             <p class="help">${esc(t("Wymagana rola: Administrator. Rozmiar danych: {kb} kB (rewizja {rev}, schemat {s}).", { kb: fmt(size / 1024, 1), rev: S.rev, s: S.schema }))}</p></div></div>
           ${App.can("settings.edit") ? `<div class="card" id="access-card"><div class="card-h"><h3>${th("Konfiguracja dostępu")}</h3></div><div class="card-b stack">
             <label class="inline-opt"><input type="checkbox" id="cfg-approval" ${S.config.requireApproval ? "checked" : ""}> ${th("Obieg zatwierdzania operacji")}</label>
@@ -687,6 +722,7 @@
       const cm = $("#cfg-mmmode", page); if (cm) cm.onchange = e => setCfg("mmMode", e.target.value);
       const cd = $("#cfg-docno", page); if (cd) cd.onchange = e => setCfg("docNumbering", e.target.value);
       const cs = $("#cfg-selfreg", page); if (cs) cs.onchange = e => setCfg("allowSelfRegistration", e.target.checked);
+      const bs = $("#bk-scans", page); if (bs) bs.onclick = () => UI.Scans && UI.Scans.exportZip();
       $("#bk-export", page).onclick = async () => {
         download(`resinvest_kopia_${App.today()}.json`, JSON.stringify(Store.state, null, 1), "application/json");
         await Store.exec("data.backupLogged", { format: "json" }, N_("Administracja"));

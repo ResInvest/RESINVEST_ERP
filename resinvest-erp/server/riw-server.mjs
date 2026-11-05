@@ -14,11 +14,11 @@
    ========================================================================= */
 import { createServer as createHttp } from "node:http";
 import { createServer as createHttps } from "node:https";
-import { readFileSync, writeFileSync, existsSync, copyFileSync, createReadStream, statSync, renameSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { gzipSync } from "node:zlib";
+import { readFileSync, writeFileSync, existsSync, copyFileSync, createReadStream, statSync, renameSync, mkdirSync, unlinkSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { gzipSync, gzip } from "node:zlib";
 import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { networkInterfaces } from "node:os";
 import { ROOT, Store, ROWS, loadConfig, loadEnv, parseDomains, makeLogger, verifyPassword, I18N, R, AuthLib, Service } from "./core.mjs";
 import { mailConfig, mailInfo, mailHint, sendMail, compose, sendRaw } from "./mail.mjs";
@@ -91,8 +91,18 @@ function send(req, res, status, body, type = "application/json; charset=utf-8", 
   if (view) {
     const rest = JSON.stringify(Object.assign({}, body)).slice(1, -1);          // pola odpowiedzi poza stanem (ok, res, mail…)
     if (rest === '"ok":true' && wantGz) {                                          // odczyt stanu — gotowa, zapamiętana kompresja
-      if (!view.gz) view.gz = gzipSync("{" + rest + "," + view.body + "}", { level: 1 });
-      data = view.gz;
+      if (view.gz) data = view.gz;
+      else {
+        // 3.14: pełny stan (MB) kompresowany w wątku roboczym — serwer w tym czasie obsługuje innych; równoczesne prośby
+        // o ten sam widok czekają na jedną kompresję (wcześniej gzipSync blokował serwer przy otwieraniu programu przez wiele osób)
+        if (!view.gzWait) view.gzWait = new Promise((ok, fail) => gzip(Buffer.from("{" + rest + "," + view.body + "}"), { level: 1 }, (e, out) => e ? fail(e) : ok(out)));
+        view.gzWait.then(out => { view.gz = out; send(req, res, status, body, type, extra); }, e => {
+          log("ERROR", "Kompresja stanu: " + e.message); view.gzWait = null;
+          const raw = "{" + rest + "," + view.body + "}";               // bez kompresji (awaryjnie)
+          res.writeHead(status, Object.assign({ "Content-Type": type, "Cache-Control": "no-store" }, SEC_HEADERS, extra, { "Content-Length": Buffer.byteLength(raw) })); res.end(raw);
+        });
+        return;
+      }
     } else data = "{" + (rest ? rest + "," : "") + view.body + "}";
   } else data = typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body);
   const headers = Object.assign({ "Content-Type": type, "Cache-Control": "no-store" }, SEC_HEADERS, extra);
@@ -104,10 +114,22 @@ function send(req, res, status, body, type = "application/json; charset=utf-8", 
 const json = (req, res, status, obj, extra) => send(req, res, status, obj, "application/json; charset=utf-8", extra);
 function readBody(req, limit = 60 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
+    if (Number(req.headers["content-length"] || 0) > limit) { reject(new Error("too large")); req.resume(); return; }
     const chunks = []; let n = 0;
     req.on("data", c => { n += c.length; if (n > limit) { reject(new Error("too large")); req.destroy(); } else chunks.push(c); });
     req.on("end", () => { try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {}); } catch (e) { reject(e); } });
     req.on("error", reject);
+  });
+}
+/** 3.14: surowa treść żądania (pliki skanów) z limitem rozmiaru; przekroczenie → błąd „too large”. */
+function readRaw(req, limit) {
+  return new Promise((resolve, reject) => {
+    const declared = Number(req.headers["content-length"] || 0);
+    if (declared > limit) { reject(Object.assign(new Error("too large"), { code: "TOO_LARGE" })); req.resume(); return; }
+    const chunks = []; let n = 0, done = false;
+    req.on("data", c => { if (done) return; n += c.length; if (n > limit) { done = true; reject(Object.assign(new Error("too large"), { code: "TOO_LARGE" })); req.resume(); } else chunks.push(c); });
+    req.on("end", () => { if (!done) { done = true; resolve(Buffer.concat(chunks)); } });
+    req.on("error", e => { if (!done) { done = true; reject(e); } });
   });
 }
 const cookies = req => Object.fromEntries(String(req.headers.cookie || "").split(";").map(x => x.trim().split("=")).filter(x => x[0]).map(([k, ...v]) => [k, decodeURIComponent(v.join("="))]));
@@ -246,6 +268,34 @@ function saveMailConfig(b) {
   return { ok: true, info: mailInfo(mailCfg), file, passChanged: passChanged || !!b.clearPass, overridden: MAIL_KEYS.filter(k => process.env[k] !== undefined && process.env[k] !== "") };
 }
 const addr = s => { const m = /<([^>]+)>/.exec(String(s)); return (m ? m[1] : String(s)).trim(); };
+
+/**
+ * 3.13: --mail-setup <plik.json> — zapis poczty z kreatora instalatora (strona „Poczta”) i wiadomość testowa.
+ * Plik JSON (tymczasowy, usuwany przez instalator): { host, port, secure, user, pass, appUrl, test }.
+ * Hasło nie trafia do wiersza poleceń ani do dziennika. Wynik: jedna linia tekstu; kod 0 = zapisano (i wysłano test),
+ * 2 = błędne dane, 3 = zapisano, ale wiadomość testowa nie wyszła (z przyczyną i wskazówką).
+ */
+if (arg("--mail-setup")) {
+  let b = {};
+  // wynik także do pliku (UTF-8 z BOM — odczyt w instalatorze Inno Setup)
+  const say = text => { console.log(text); if (b.resultFile) { try { writeFileSync(String(b.resultFile), "\uFEFF" + text + "\r\n"); } catch (e) { /* tylko konsola */ } } };
+  try { b = JSON.parse(readFileSync(String(arg("--mail-setup")), "utf8").replace(/^\uFEFF/, "")); }
+  catch (e) { console.log("Błąd: nie można odczytać ustawień poczty (" + e.message + ")"); process.exit(2); }
+  const user = String(b.user || "").trim();
+  const prev = String(env.EMAIL_FROM || "");
+  const r = saveMailConfig({ transport: "smtp", host: b.host, port: b.port, secure: b.secure || "", user, pass: String(b.pass || ""),
+    from: b.from || (/@/.test(user) ? `ResInvest ERP <${user}>` : prev), appUrl: b.appUrl || env.APP_URL || "" });
+  if (!r.ok) { say("Błąd: " + r.error); store.close(); process.exit(2); }
+  log("INFO", `Konfiguracja poczty z instalatora: ${r.info.smtp ? r.info.smtp.host + ":" + r.info.smtp.port : r.info.transport}${r.info.configured ? "" : " (niepełna: " + r.info.problem + ")"}`);
+  if (!b.test || !r.info.configured) { say(r.info.configured ? "Zapisano konfigurację poczty." : "Zapisano. Niepełna konfiguracja: " + r.info.problem); store.close(); process.exit(0); }
+  const to = String(b.to || user).trim();
+  if (!R.EMAIL_RE.test(to)) { say("Zapisano konfigurację poczty. Wiadomość testowa pominięta — brak adresu odbiorcy."); store.close(); process.exit(0); }
+  const msg = compose("test", to, { name: "Administrator", transport: "smtp", by: "Instalator ResInvest ERP" });
+  const sent = await sendRaw(mailCfg, msg, log);
+  if (store.state) store.logMail("test", to, null, sent, mailCfg.transport);
+  say(sent.ok ? `Zapisano konfigurację poczty. Wiadomość testowa wysłana na ${to}.` : `Zapisano konfigurację, ale wiadomość testowa nie wyszła: ${sent.error}${sent.hint ? "\n" + sent.hint : ""}`);
+  store.close(); process.exit(sent.ok ? 0 : 3);
+}
 /** Wysyłka z szablonu + zapis w kolejce `outbox`. Komunikat dla użytkownika bez szczegółów technicznych. */
 async function mailTo(template, u, data, email) {
   const to = email || u.email || u.login;
@@ -390,14 +440,14 @@ async function handleApi(req, res, url) {
   if (path === "/api/health") return json(req, res, 200, { ok: true, app: "resinvest-erp", mode: "server", version: VERSION, setup: !store.hasAccounts(), integrity: store.integrity.ok, host: req.headers.host, selfRegistration: !!(store.state && store.state.config.allowSelfRegistration), mailReady: !mailInfo(mailCfg).problem && mailCfg.transport !== "file", companyDomains: store.state ? (store.state.config.companyDomains || []) : ((globalThis.RIW_CONFIG && globalThis.RIW_CONFIG.companyDomains) || []) });
   if (path === "/api/setup" && method === "POST") {
     if (store.hasAccounts()) return json(req, res, 409, { ok: false, error: t("Serwer jest już skonfigurowany") });
-    const b = await readBody(req);
+    const b = await readBody(req, 64 * 1024);                                    // 3.14: bez sesji — mały limit treści
     const r = store.setup(b);
     return json(req, res, r.ok ? 200 : 400, r);
   }
   if (path === "/api/auth/login" && method === "POST") {
     const ip = ipOf(req);
     if (rateLimited(ip)) return json(req, res, 429, { ok: false, code: "RATE", error: t("Zbyt wiele prób logowania z tego adresu. Spróbuj za kilka minut.") });
-    const b = await readBody(req);
+    const b = await readBody(req, 64 * 1024);
     if (!store.state) return json(req, res, 503, { ok: false, error: t("Serwer nie jest skonfigurowany") });
     const r = store.login(b.login, b.password, ip);
     if (!r.ok) return json(req, res, 401, r);
@@ -508,7 +558,7 @@ async function handleApi(req, res, url) {
   const must = acc && acc.must_change;
   if (path === "/api/auth/me") return json(req, res, 200, { ok: true, userId: user.id, mustChange: !!must, idleMinutes: cfg.session.idleMinutes, user: { id: user.id, name: user.name, login: user.login, lang: user.lang, theme: user.theme } });
   if (path === "/api/auth/password" && method === "POST") {
-    const b = await readBody(req);
+    const b = await readBody(req, 64 * 1024);
     if (!AuthLib || !store.account(user.id)) return json(req, res, 400, { ok: false, error: t("Nie znaleziono konta") });
     if (!verifyPassword(b.old, store.account(user.id))) { store.logLogin(user.login, user.id, false, N_("zmiana hasła — błędne obecne hasło"), ipOf(req)); return json(req, res, 400, { ok: false, field: "old", error: t("Obecne hasło jest nieprawidłowe") }); }
     const pe = AuthLib.passwordError(b.new, user.login); if (pe) return json(req, res, 400, { ok: false, field: "new", error: pe });
@@ -528,9 +578,56 @@ async function handleApi(req, res, url) {
     clients.add(res); req.on("close", () => clients.delete(res));
     return;
   }
+  /* ---- 3.14: skany dokumentów i zdjęcia operacji ---- */
+  if (path === "/api/scans" && method === "POST") {
+    R.applyRoles(store.state);
+    if (!R.can(user, "scans.add")) return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Nie masz uprawnień do wykonania tej operacji.") });
+    const opId = String(url.searchParams.get("opId") || ""), kind = String(url.searchParams.get("kind") || ""), name = String(url.searchParams.get("name") || "").slice(0, 160);
+    const op = R.byId(store.state.operations, opId);
+    if (!op) { req.resume(); return json(req, res, 404, { ok: false, error: t("Nie znaleziono operacji") }); }
+    if (!R.Scans.access(user, op)) { req.resume(); return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Brak dostępu do magazynu tej operacji") }); }
+    if (!R.SCAN_KINDS[kind]) { req.resume(); return json(req, res, 400, { ok: false, error: t("Wybierz rodzaj skanu") }); }
+    let buf;
+    try { buf = await readRaw(req, R.SCAN_MAX_BYTES); }
+    catch (e) { return json(req, res, e.code === "TOO_LARGE" ? 413 : 400, { ok: false, error: e.code === "TOO_LARGE" ? t("Plik jest za duży (najwięcej {n} MB)", { n: R.SCAN_MAX_BYTES / 1048576 }) : t("Nie udało się odebrać pliku") }); }
+    const type = R.scanSniff(buf);
+    if (!type) return json(req, res, 415, { ok: false, error: t("Dozwolone pliki: PDF, JPG, PNG, WEBP, HEIC, TIFF") });
+    const id = R.uid("sc").replace(/[^a-z0-9_]/gi, "").toLowerCase();
+    const rel = `${R.scanFolder(op.date)}/${R.scanFileName(op, kind, id, R.SCAN_TYPES[type])}`;
+    try { await store.saveScan(rel, buf); }
+    catch (e) { log("ERROR", `Zapis skanu ${rel}: ${e.message}`); return json(req, res, 500, { ok: false, error: t("Nie udało się zapisać pliku na serwerze") }); }
+    const sha = createHash("sha256").update(buf).digest("hex");
+    // operacja mogła zostać anulowana / usunięta w trakcie wysyłki — silnik sprawdza to ponownie przy dołączaniu
+    const r = store.execute(user.id, "scan.attach", { opId, scan: { id, kind, name: name || rel.split("/").pop(), file: rel, type, size: buf.length, sha }, source: N_("Skany dokumentów") }, L, metaOf(req));
+    const changed = !!r.__changed; delete r.__changed; delete r.before;
+    if (!r.ok) { try { unlinkSync(store.scanPath(rel)); } catch (e) { /* plik zostaje w kopii */ } return json(req, res, r.code === "FORBIDDEN" ? 403 : 400, { ok: false, error: r.error }); }
+    if (changed) broadcast(store.state.rev, user.id);
+    // druga kopia w folderze firmy (udział) — w tle, bez czekania na VPN
+    if ((cfg.backup.copyTo || []).length) setImmediate(() => { for (const d of cfg.backup.copyTo) { try { const dst = join(d, "skany", rel); mkdirSync(dirname(dst), { recursive: true }); copyFileSync(store.scanPath(rel), dst); } catch (e) { log("WARN", `Kopia skanu w folderze firmy NIEUDANA (${d}): ${e.message}`); } } });
+    // zmiany od rewizji przeglądarki (bez „haveRev” — bez stanu: przeglądarka dostanie zmiany przez SSE, serwer nie liczy pełnego widoku)
+    const since = sinceOf(url.searchParams.get("haveRev"));
+    return json(req, res, 200, Object.assign({ ok: true, scan: r.scan }, changed && since != null ? statePayload(user.id, since) : {}));
+  }
+  if (path === "/api/scans/file" && method === "GET") {
+    const op = R.byId(store.state.operations, String(url.searchParams.get("opId") || ""));
+    const sc = op && (op.scans || []).find(x => x.id === String(url.searchParams.get("id") || ""));
+    if (!op || !sc) return json(req, res, 404, { ok: false, error: t("Nie znaleziono skanu") });
+    R.applyRoles(store.state);
+    if (!R.Scans.access(user, op)) return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Brak dostępu do magazynu tej operacji") });
+    const p = store.scanPath(sc.file);
+    let st = null; try { st = p && statSync(p); } catch (e) { /* brak pliku */ }
+    if (!st) return json(req, res, 404, { ok: false, error: t("Plik skanu nie istnieje w folderze serwera (sprawdź kopię w backups\\skany)") });
+    const dl = url.searchParams.get("download") === "1";
+    res.writeHead(200, Object.assign({}, SEC_HEADERS, { "Content-Type": R.SCAN_TYPES[sc.type] ? sc.type : "application/octet-stream", "Content-Length": st.size, "Cache-Control": "private, max-age=3600",
+      "Content-Disposition": `${dl ? "attachment" : "inline"}; filename="${sc.file.split("/").pop()}"; filename*=UTF-8''${encodeURIComponent(sc.name)}` }));
+    createReadStream(p).pipe(res);
+    return;
+  }
   if (path === "/api/cmd" && method === "POST") {
     const b = await readBody(req);
     const cmd = String(b.cmd || ""), args = b.args || {};
+    // 3.14: skan dołącza wyłącznie serwer po zapisaniu pliku (/api/scans) — nie z polecenia przeglądarki
+    if (cmd === "scan.attach") return json(req, res, 403, { ok: true, res: { ok: false, code: "FORBIDDEN", error: t("Skany dodaje się przez wysłanie pliku") }, today: store.today() });
     // nowe konto w trybie FIRMOWYM tylko przez zaproszenie (/api/users/invite) albo z hasłem tymczasowym (/api/users)
     if (cmd === "user.save" && !(args.rec && args.rec.id)) return json(req, res, 403, { ok: true, res: { ok: false, code: "FORBIDDEN", error: t("Nowe konto dodaje się przez zaproszenie e-mail") }, today: store.today() });
     const r = store.execute(user.id, cmd, args, L, metaOf(req));
@@ -711,13 +808,34 @@ async function handleApi(req, res, url) {
   return json(req, res, 404, { ok: false, error: t("Nie znaleziono") });
 }
 
+/**
+ * 3.14: program (ResInvest_ERP.html, ok. 7 MB) w pamięci — odczyt i kompresja raz, ponownie tylko po zmianie pliku
+ * (aktualizacja instalatorem). Wcześniej każde otwarcie programu czytało i kompresowało plik, blokując serwer dla innych.
+ */
+let pageCache = null;
+function programPage() {
+  let st; try { st = statSync(HTML_FILE); } catch (e) { return null; }
+  const key = `${st.size}:${st.mtimeMs}`;
+  if (!pageCache || pageCache.key !== key) {
+    const raw = readFileSync(HTML_FILE);
+    pageCache = { key, raw, gz: gzipSync(raw, { level: 6 }), etag: `"riw-${VERSION}-${createHash("sha1").update(raw).digest("hex").slice(0, 16)}"` };
+  }
+  return pageCache;
+}
 async function handler(req, res) {
   const url = new URL(req.url, "http://localhost");
   try {
     if (url.pathname.startsWith("/api/")) return await handleApi(req, res, url);
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html" || url.pathname === "/ResInvest_ERP.html")) {
-      if (!existsSync(HTML_FILE)) return send(req, res, 500, "Brak pliku ResInvest_ERP.html — uruchom: npm run build", "text/plain; charset=utf-8");
-      return send(req, res, 200, readFileSync(HTML_FILE), "text/html; charset=utf-8");
+      const page = programPage();
+      if (!page) return send(req, res, 500, "Brak pliku ResInvest_ERP.html — uruchom: npm run build", "text/plain; charset=utf-8");
+      // 3.14: ten sam plik dla wszystkich — przygotowany raz (także skompresowany); przeglądarka sprawdza ETag (304 bez przesyłania)
+      const head = Object.assign({}, SEC_HEADERS, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", ETag: page.etag, Vary: "Accept-Encoding" });
+      if (req.headers["if-none-match"] === page.etag) { res.writeHead(304, head); return res.end(); }
+      const gz = /\bgzip\b/.test(req.headers["accept-encoding"] || "");
+      const data = gz ? page.gz : page.raw;
+      res.writeHead(200, Object.assign(head, gz ? { "Content-Encoding": "gzip" } : {}, { "Content-Length": data.length }));
+      return res.end(data);
     }
     if (url.pathname === "/favicon.ico") { res.writeHead(204); return res.end(); }
     send(req, res, 404, "Not found", "text/plain; charset=utf-8");
@@ -753,6 +871,7 @@ if (!store.hasAccounts() && cfg.initialAdmin && cfg.initialAdmin.email) {
 const server = tls ? createHttps({ cert: readFileSync(cfg.tls.cert), key: readFileSync(cfg.tls.key) }, handler) : createHttp(handler);
 server.requestTimeout = 120000;
 server.listen(cfg.port, cfg.host, () => {
+  try { programPage(); } catch (e) { log("WARN", "Program HTML: " + e.message); }   // przygotowanie pliku programu przed pierwszym otwarciem
   const proto = tls ? "https" : "http";
   const ips = Object.values(networkInterfaces()).flat().filter(n => n && n.family === "IPv4" && !n.internal).map(n => n.address);
   log("INFO", `ResInvest ERP Serwer ${VERSION} — ${proto}://localhost:${cfg.port}` + (cfg.host === "0.0.0.0" && ips.length ? ` · w sieci: ${ips.map(ip => `${proto}://${ip}:${cfg.port}`).join(", ")}` : ""));
@@ -778,5 +897,17 @@ function shutdown(sig) {
   server.close(() => { store.close(); process.exit(0); });
   setTimeout(() => { store.close(); process.exit(0); }, 3000).unref();
 }
+// 3.14: odporność — błąd w obsłudze jednego żądania nie zatrzymuje serwera; błąd krytyczny: zapis w dzienniku, zamknięcie bazy
+// i kod 70 (program uruchamiający ResInvestERP-Serwer.cmd startuje serwer ponownie po 5 s; baza jest transakcyjna)
+process.on("unhandledRejection", e => log("ERROR", "Nieobsłużony błąd (serwer działa dalej): " + ((e && e.stack) || e)));
+process.on("uncaughtException", e => {
+  log("ERROR", "BŁĄD KRYTYCZNY — ponowne uruchomienie serwera: " + ((e && e.stack) || e));
+  try { store.close(); } catch (x) { /* baza już zamknięta */ }
+  process.exit(70);
+});
+server.on("error", e => {
+  if (e && e.code === "EADDRINUSE") { log("ERROR", `Port ${cfg.port} jest zajęty — serwer ResInvest ERP już działa na tym komputerze albo port zajął inny program.`); process.exit(2); }
+  log("ERROR", "Serwer HTTP: " + ((e && e.stack) || e));
+});
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));

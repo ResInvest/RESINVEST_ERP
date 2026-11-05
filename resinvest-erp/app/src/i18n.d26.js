@@ -11,16 +11,9 @@
   "przyciski, zaznaczenia, wykresy": ["tlačítka, výběr, grafy", "buttons, selection, charts"],
   "Menu boczne": ["Boční menu", "Side menu"],
   "pasek nawigacji": ["navigační panel", "navigation bar"],
-  "Motyw własny — trzy kolory": ["Vlastní motiv — tři barvy", "Custom theme — three colours"],
-  "Wybierz dowolne kolory z pełnej palety. Program sam dobierze kolor tekstu i odcienie tak, aby wszystko było czytelne (kontrast co najmniej 3:1).": ["Vyberte libovolné barvy z celé palety. Program sám zvolí barvu textu a odstíny tak, aby vše bylo čitelné (kontrast alespoň 3:1).", "Pick any colours from the full palette. The program chooses text colours and shades so that everything stays readable (contrast at least 3:1)."],
-  "Zastosuj motyw własny": ["Použít vlastní motiv", "Apply custom theme"],
   "Kolory domyślne": ["Výchozí barvy", "Default colours"],
   "Nieprawidłowe kolory motywu (format #RRGGBB)": ["Neplatné barvy motivu (formát #RRGGBB)", "Invalid theme colours (format #RRGGBB)"],
-  "Motyw własny zastosowany": ["Vlastní motiv použit", "Custom theme applied"],
-  "Office 98 (klasyczny szary)": ["Office 98 (klasická šedá)", "Office 98 (classic grey)"],
-  "Office 2003 (niebieski Luna)": ["Office 2003 (modrá Luna)", "Office 2003 (Luna blue)"],
   "Office 2007 (wstążka)": ["Office 2007 (pás karet)", "Office 2007 (ribbon)"],
-  "Własny (trzy kolory)": ["Vlastní (tři barvy)", "Custom (three colours)"],
 
   /* ---- ekran ładowania ---- */
   "Uruchamianie programu…": ["Spouštění programu…", "Starting the program…"],
@@ -94,6 +87,7 @@
   "Serwer poczty odmówił połączenia — sprawdź port (587 STARTTLS albo 465 SSL).": ["Poštovní server odmítl spojení — zkontrolujte port (587 STARTTLS nebo 465 SSL).", "The mail server refused the connection — check the port (587 STARTTLS or 465 SSL)."],
   "Brak odpowiedzi serwera poczty — zapora, antywirus lub sieć firmowa blokuje port 587/465. Sprawdź z działem IT.": ["Poštovní server neodpovídá — firewall, antivir nebo firemní síť blokuje port 587/465. Ověřte s oddělením IT.", "No reply from the mail server — a firewall, antivirus or the company network blocks port 587/465. Check with IT."],
   "Nie można zweryfikować certyfikatu serwera poczty — najczęściej antywirus przechwytuje połączenia SSL. Dodaj wyjątek dla node.exe albo dla serwera SMTP.": ["Certifikát poštovního serveru nelze ověřit — nejčastěji antivir zachytává spojení SSL. Přidejte výjimku pro node.exe nebo pro server SMTP.", "The mail server certificate cannot be verified — usually antivirus intercepts SSL connections. Add an exception for node.exe or for the SMTP server."],
+  "Hasło wysyłane jest tylko szyfrowanym połączeniem: ustaw szyfrowanie SSL (port 465) albo STARTTLS (port 587).": ["Heslo se odesílá jen šifrovaným spojením: nastavte šifrování SSL (port 465) nebo STARTTLS (port 587).", "The password is only sent over an encrypted connection: set SSL (port 465) or STARTTLS (port 587)."],
   "Zmień szyfrowanie: port 465 → SSL, port 587 → STARTTLS.": ["Změňte šifrování: port 465 → SSL, port 587 → STARTTLS.", "Change encryption: port 465 → SSL, port 587 → STARTTLS."],
   "Uzupełnij klucz API dostawcy w Poczta → Konfiguracja poczty albo wybierz SMTP.": ["Doplňte klíč API poskytovatele v Pošta → Nastavení pošty nebo zvolte SMTP.", "Enter the provider's API key in Mail → E-mail settings or choose SMTP."]
 }); })(typeof globalThis !== "undefined" ? globalThis : this);

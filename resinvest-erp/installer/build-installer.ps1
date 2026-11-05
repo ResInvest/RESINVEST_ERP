@@ -1,4 +1,5 @@
-﻿# Buduje ResInvest ERP 3.12 i instalatory Windows ResInvest ERP Serwer (warianty: firma, gmail, otwarta).
+﻿# Buduje ResInvest ERP 3.14 i instalatory Windows ResInvest ERP Serwer (warianty: firma, gmail, otwarta):
+#   installer\Output\ResInvestERP_SerwerFirma.exe, ResInvestERP_GoogleSerwer.exe, ResInvestERP_SerwerNoLimit.exe
 # Uruchom z katalogu resinvest-erp:
 #   powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 [-NodeVersion 22.22.2] [-SkipTests] [-Editions firma,gmail,otwarta]
 # Wymagania: Node.js >= 22.13 (do budowania), Inno Setup 7 lub 6 (ISCC.exe), dostęp do nodejs.org
@@ -20,7 +21,7 @@ if ($LASTEXITCODE -ne 0) { throw "Niekompletne tłumaczenia (tools/i18n-extract.
 
 if (-not $SkipTests) {
   Write-Host "== 2/4 Testy jednostkowe i integracyjne"
-  node --test tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs
+  node --test tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs tests/mail313.test.mjs tests/features314.test.mjs tests/scans314.test.mjs
   if ($LASTEXITCODE -ne 0) { throw "Testy nie przeszły — instalator nie zostanie zbudowany" }
 }
 
@@ -74,4 +75,8 @@ foreach ($ed in $Editions) {
   & $iscc "/DEditionId=$ed" "installer\ResInvestERP.iss"
   if ($LASTEXITCODE -ne 0) { throw "Kompilacja instalatora ($ed) nieudana" }
 }
-Get-ChildItem "installer\Output\ResInvestERP_Serwer_Setup_*.exe" | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name }
+# pliki tymczasowe budowy (pliki wariantów, rozpakowany Node.js) — usuwane po skompilowaniu instalatorów
+Remove-Item (Join-Path $PSScriptRoot "build") -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $env:TEMP "riw-node-$NodeVersion") -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $env:TEMP "node-v$NodeVersion-win-x64.zip") -Force -ErrorAction SilentlyContinue
+Get-ChildItem "installer\Output\ResInvestERP_*.exe" | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name }

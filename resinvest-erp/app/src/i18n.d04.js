@@ -67,8 +67,6 @@
   "Podaj miejsce wycinki / inwestycję": ["Zadejte místo kácení / investici", "Enter the clearing site / project"],
   "Nieznany rębak": ["Neznámý štěpkovač", "Unknown chipper"],
   "cenę za rąbanie": ["cenu za štěpkování", "chipping price"],
-  "Wybierz odbiorcę": ["Vyberte odběratele", "Select the customer"],
-  "Nieznany lub nieaktywny odbiorca": ["Neznámý nebo neaktivní odběratel", "Unknown or inactive customer"],
   "ilość sprzedaży": ["množství prodeje", "sale quantity"],
   "Nie można sprzedać {a} {u} z produkcji {b} {u}": ["Nelze prodat {a} {u} z výroby {b} {u}", "Cannot sell {a} {u} out of production of {b} {u}"],
   "Wybierz jednostkę ceny": ["Vyberte jednotku ceny", "Select the price unit"],

@@ -106,6 +106,26 @@
   const numIn = (key, v, { suffix = "", placeholder = "" } = {}) =>
     `<div class="input-wrap"><input class="ctrl num-in" type="text" inputmode="decimal" autocomplete="off" spellcheck="false"
       id="${fid(key)}" data-bind="${esc(key)}" data-num value="${esc(v)}" placeholder="${esc(placeholder)}">${suffix ? `<span class="suffix">${esc(suffix)}</span>` : ""}</div>`;
+  /**
+   * 3.14: lista z możliwością wpisywania z klawiatury (pole tekstowe + podpowiedzi). Wybór z podpowiedzi albo nazwa
+   * zgodna z kartoteką ustawia identyfikator (klucz `key`); inny tekst zostaje w polu, a walidacja mówi, co zrobić.
+   */
+  const comboSeq = { n: 0 }, COMBO_OPTS = new Map(), COMBO_TYPED = new Map();
+  const comboIn = (key, options, v, { placeholder = "", disabled = false, typed = "" } = {}) => {
+    COMBO_OPTS.set(key, options);
+    const cur = options.find(o => o.v && o.v === v), id = "cb-" + fid(key) + "-" + (comboSeq.n++);
+    const text = cur ? cur.l : (typed || COMBO_TYPED.get(key) || "");
+    return `<input class="ctrl combo" type="text" id="${fid(key)}" data-combo="${esc(key)}" value="${esc(text)}" placeholder="${esc(placeholder || t("wpisz lub wybierz z listy"))}" autocomplete="off" spellcheck="false" list="${id}" ${disabled ? "disabled" : ""}>
+      <datalist id="${id}">${options.filter(o => o.v && !o.disabled).map(o => `<option value="${esc(o.l)}"${o.hint ? ` label="${esc(o.hint)}"` : ""}>`).join("")}</datalist>`;
+  };
+  /** Testy i automatyzacja: wybór pozycji listy z wpisywaniem po identyfikatorze (jak wybór podpowiedzi przez użytkownika). */
+  DBG.combo = (sel, value) => {
+    const el = document.querySelector(sel); if (!el || !el.dataset.combo) throw new Error("Brak pola listy: " + sel);
+    const o = (COMBO_OPTS.get(el.dataset.combo) || []).find(x => x.v === value); if (!o) throw new Error(`Brak pozycji ${value} w ${el.dataset.combo}`);
+    el.value = o.l; el.dispatchEvent(new Event("change", { bubbles: true })); return true;
+  };
+  /** Klucz z nazwą wpisaną ręcznie (nowa pozycja kartoteki tworzona przy zatwierdzeniu) dla list, które to dopuszczają. */
+  const comboTypedKey = key => key === "sale.buyerId" ? "sale.buyerName" : (/^extras\.items\.\d+\.(typeId|vehicleId)$/.test(key) ? key.replace(/Id$/, "Name") : "");
   const selIn = (key, options, v, { struct = false, disabled = false } = {}) =>
     `<select class="ctrl" id="${fid(key)}" data-bind="${esc(key)}" ${struct ? "data-struct" : ""} ${disabled ? "disabled" : ""}>${options.map(o =>
       `<option value="${esc(o.v)}" ${String(o.v) === String(v == null ? "" : v) ? "selected" : ""} ${o.disabled ? "disabled" : ""}>${esc(o.l)}</option>`).join("")}</select>`;
@@ -487,9 +507,9 @@
         const ru = raw ? Units.label(raw.unit) : "", ou = out ? Units.label(out.unit) : "MP";
         head = `
           ${field({ key: "production.wh", label: t("Magazyn"), control: outBox("production.wh", esc(App.whName(this.whId()))), help: false })}
-          ${field({ key: "production.rawProductId", label: t("Surowiec (ze stanu)"), req: true, span: "span2", control: selIn("production.rawProductId", [pick(t("wybierz surowiec"))].concat(S.products.filter(p => active(p) && (stock.get(p.id) || 0) > R.EPS || p.id === P_.rawProductId).map(p => ({ v: p.id, l: t("{p} — na stanie {q} {u}", { p: p.name, q: fmtQ(stock.get(p.id) || 0), u: Units.label(p.unit) }) }))), P_.rawProductId, { struct: true }) })}
+          ${field({ key: "production.rawProductId", label: t("Surowiec (ze stanu)"), req: true, span: "span2", control: comboIn("production.rawProductId", [pick(t("wybierz surowiec"))].concat(S.products.filter(p => active(p) && (stock.get(p.id) || 0) > R.EPS || p.id === P_.rawProductId).map(p => ({ v: p.id, l: t("{p} — na stanie {q} {u}", { p: p.name, q: fmtQ(stock.get(p.id) || 0), u: Units.label(p.unit) }) }))), P_.rawProductId, { struct: true }) })}
           ${field({ key: "production.stock", label: t("Stan surowca"), control: outBox("production.stock", "—"), help: false })}
-          ${field({ key: "production.outProductId", label: t("Produkt wyjściowy"), req: true, span: "span2", control: selIn("production.outProductId", [pick(t("wybierz produkt"))].concat(S.products.filter(active).map(p => ({ v: p.id, l: `${p.name} (${Units.label(p.unit)})` }))), P_.outProductId, { struct: true }) })}
+          ${field({ key: "production.outProductId", label: t("Produkt wyjściowy"), req: true, span: "span2", control: comboIn("production.outProductId", [pick(t("wybierz produkt"))].concat(S.products.filter(active).map(p => ({ v: p.id, l: `${p.name} (${Units.label(p.unit)})` }))), P_.outProductId, { struct: true }) })}
           ${field({ key: "production.outQty", label: ou ? t("Ilość produkcji ({u})", { u: ou }) : t("Ilość produkcji"), req: true, control: numIn("production.outQty", P_.outQty, { suffix: ou, placeholder: eg("500") }) })}
           ${field({ key: "production.consume", label: ru ? t("Zużycie surowca ({u}) — auto", { u: ru }) : t("Zużycie surowca — auto"), control: outBox("production.consume", "—"), help: false })}
           ${field({ key: "production.after", label: t("Stan surowca po produkcji"), control: outBox("production.after", "—"), help: false })}
@@ -497,8 +517,8 @@
           <div class="field" data-field="production.factor"><span class="lbl">${esc(t("Przelicznik"))}</span><output class="ctrl num-in out" data-out="production.factorTxt">—</output><div class="msg hidden" data-msg="production.factor" role="alert"></div></div>`;
       } else if (mode === "direct") {
         head = `
-          ${field({ key: "production.rawProductId", label: t("Surowiec z lasu (nie ze stanu)"), req: true, span: "span2", control: selIn("production.rawProductId", [pick(t("wybierz surowiec"))].concat(woods.map(p => ({ v: p.id, l: `${p.name} (${Units.label(p.unit)})` }))), P_.rawProductId, { struct: true }) })}
-          ${field({ key: "production.outProductId", label: t("Produkt wyjściowy"), req: true, span: "span2", control: selIn("production.outProductId", [pick(t("wybierz produkt"))].concat(outs.map(p => ({ v: p.id, l: p.name }))), P_.outProductId, { struct: true }) })}
+          ${field({ key: "production.rawProductId", label: t("Surowiec z lasu (nie ze stanu)"), req: true, span: "span2", control: comboIn("production.rawProductId", [pick(t("wybierz surowiec"))].concat(woods.map(p => ({ v: p.id, l: `${p.name} (${Units.label(p.unit)})` }))), P_.rawProductId, { struct: true }) })}
+          ${field({ key: "production.outProductId", label: t("Produkt wyjściowy"), req: true, span: "span2", control: comboIn("production.outProductId", [pick(t("wybierz produkt"))].concat(outs.map(p => ({ v: p.id, l: p.name }))), P_.outProductId, { struct: true }) })}
           ${field({ key: "production.outQty", label: t("Wyprodukowano (MP)"), req: true, control: numIn("production.outQty", P_.outQty, { suffix: "MP", placeholder: eg("600") }) })}
           ${field({ key: "production.rawQty", label: t("Surowiec zużyty (m³) — auto"), control: outBox("production.rawQty", "—"), help: false })}
           ${field({ key: "production.rawCost", label: t("Koszt surowca (zł)"), span: "span2", control: numIn("production.rawCost", P_.rawCost, { suffix: "zł", placeholder: t("opcjonalnie") }) })}
@@ -540,6 +560,10 @@
       const S = Store.state, d = this.draft, X = this.extras(), on = !!X.enabled, corr = this.mode === "correct";
       const types = (S.extraTypes || []).filter(x => x.active !== false || X.items.some(i => i.typeId === x.id));
       const vehicles = S.fleet.vehicles.filter(v => (!v.whId || v.whId === this.whId() || X.items.some(i => i.vehicleId === v.id)));
+      // 3.14: sprzedaż / operacja z transportem „Pociąg” — opłata za tony załadowane do wagonów
+      const tr = d.transport && d.transport.mode === "train" ? d.transport.train || {} : null;
+      const trainT = tr ? (() => { const n = parseInt(tr.wagonCount, 10) || 0, num1 = x => { const r = NumParse.parse(x); return r.ok ? r.value : 0; };
+        return Math.round((tr.tonMode === "each" ? (tr.wagonT || []).slice(0, n).reduce((a, x) => a + num1(x), 0) : n * num1(tr.sameT)) * 1000) / 1000; })() : null;
       const rows = on ? X.items.map((it, i) => {
         const k = f => `extras.items.${i}.${f}`, ty = R.byId(S.extraTypes, it.typeId);
         const uLbl = ty && ty.unit ? t(R.EXTRA_UNITS[ty.unit] || ty.unit) : t("ilość");
@@ -547,11 +571,12 @@
           <div class="run-h"><b>${esc(t("Operacja dodatkowa {n}", { n: i + 1 }))}</b><span class="spacer"></span><span class="run-cost" data-out="extra.${i}.cost">—</span>
             ${X.items.length > 1 ? `<button class="btn ghost sm" type="button" data-extra-del="${i}" aria-label="${esc(t("Usuń pozycję {n}", { n: i + 1 }))}">${ic("x", 14)}</button>` : ""}</div>
           <div class="fgrid four">
-            ${field({ key: k("typeId"), label: t("Rodzaj operacji (Kartoteki → Dodatkowe operacje)"), req: true, span: "span2", help: false, control: selIn(k("typeId"), [pick(t("wybierz rodzaj"))].concat(types.map(x => ({ v: x.id, l: x.name + (x.active === false ? " — " + t("nieaktywny") : "") + (x.rate !== null && x.rate !== undefined ? ` · ${fmt(x.rate)} zł/${x.unit ? t(R.EXTRA_UNITS[x.unit] || x.unit) : t("ryczałt")}` : "") }))), it.typeId, { struct: true }) })}
-            ${field({ key: k("vehicleId"), label: t("Pojazd z Floty (opcjonalnie)"), span: "span2", help: false, control: selIn(k("vehicleId"), [pick(t("bez pojazdu"))].concat(vehicles.map(v => ({ v: v.id, l: `${v.reg} · ${v.name}${v.status !== "aktywny" ? " — " + t(R.ASSET_STATUS[v.status]) : ""}`, disabled: v.status === "wycofany" && v.id !== it.vehicleId }))), it.vehicleId) })}
-            ${field({ key: k("qty"), label: t("Ilość ({u})", { u: uLbl }), help: false, control: numIn(k("qty"), it.qty, { placeholder: t("opcjonalnie") }) })}
+            ${field({ key: k("typeId"), label: t("Rodzaj operacji (wybierz albo wpisz nowy)"), req: true, span: "span2", help: false, control: comboIn(k("typeId"), [pick(t("wybierz rodzaj"))].concat(types.map(x => ({ v: x.id, l: x.name, hint: (x.active === false ? t("nieaktywny") + " · " : "") + (x.rate !== null && x.rate !== undefined ? `${fmt(x.rate)} zł/${x.unit ? t(R.EXTRA_UNITS[x.unit] || x.unit) : t("ryczałt")}` : (x.unit ? t(R.EXTRA_UNITS[x.unit] || x.unit) : t("ryczałt"))) }))), it.typeId, { typed: it.typeName || "", placeholder: t("np. Załadunek wagonów (za tonę)") }) })}
+            ${field({ key: k("vehicleId"), label: t("Pojazd (z Floty albo wpisz)"), span: "span2", help: false, control: comboIn(k("vehicleId"), [pick(t("bez pojazdu"))].concat(vehicles.map(v => ({ v: v.id, l: `${v.reg} · ${v.name}`, hint: v.status !== "aktywny" ? t(R.ASSET_STATUS[v.status]) : "", disabled: v.status === "wycofany" && v.id !== it.vehicleId }))), it.vehicleId, { typed: it.vehicleName || "", placeholder: t("opcjonalnie — numer rejestracyjny lub nazwa") }) })}
+            ${trainT !== null ? `<div class="field span-all" data-field="${esc(k("qtySource"))}"><label class="inline-opt"><input type="checkbox" data-train-qty="${i}" ${it.qtySource === "train" ? "checked" : ""}> ${esc(t("Ilość = tony załadowane do pociągu ({q} t) — opłata za załadowane tony", { q: fmtQ(trainT) }))}</label></div>` : ""}
+            ${field({ key: k("qty"), label: t("Ilość ({u})", { u: it.qtySource === "train" ? "t" : uLbl }), help: false, control: it.qtySource === "train" ? outBox(k("qty"), esc(fmtQ(trainT || 0) + " t")) : numIn(k("qty"), it.qty, { placeholder: t("opcjonalnie") }) })}
             ${field({ key: k("rate"), label: t("Stawka (zł)"), help: false, control: numIn(k("rate"), it.rate, { suffix: "zł", placeholder: ty && ty.rate !== null && ty.rate !== undefined ? fmt(ty.rate) : t("opcjonalnie") }) })}
-            ${field({ key: k("cost"), label: t("Koszt (zł)"), req: true, help: false, control: numIn(k("cost"), it.cost, { suffix: "zł", placeholder: t("kwota albo ilość × stawka") }) })}
+            ${field({ key: k("cost"), label: t("Koszt (zł)"), req: it.qtySource !== "train", help: false, control: it.qtySource === "train" ? outBox(k("cost"), esc(t("tony × stawka"))) : numIn(k("cost"), it.cost, { suffix: "zł", placeholder: t("kwota albo ilość × stawka") }) })}
             ${field({ key: k("desc"), label: t("Opis"), help: false, control: textIn(k("desc"), it.desc, { placeholder: eg(t("Holowanie rębaka z drogi leśnej")) }) })}
           </div></div>`;
       }).join("") : "";
@@ -565,6 +590,29 @@
           <div class="msg hidden" data-msg="extras.items" role="alert"></div>
           ${!types.length ? `<div class="info-line warn mt3">${ic("alert", 15)}<span>${esc(t("Kartoteka „Dodatkowe operacje” jest pusta — dodaj rodzaje w Kartoteki → Dodatkowe operacje."))}</span></div>` : ""}` : ""}
         ${corr ? "" : ""}`);
+    },
+    /**
+     * 3.14: skany dokumentów i zdjęcia do nowej operacji — pliki czekają w formularzu i są wysyłane zaraz po zapisaniu
+     * (operacja dostaje numer dokumentu, plik trafia do folderu „SKANY <MIESIĄC> <ROK>”). Później — w szczegółach operacji.
+     */
+    scansHtml(n) {
+      const P = this.pendingScans || (this.pendingScans = []), kinds = R.SCAN_KINDS;
+      const def = this.draft.type === "ZAKUP" ? "PZ" : this.draft.type === "MM" ? "MM" : this.draft.type === "SPRZEDAZ" ? "WZ" : "KWIT";
+      return section(n, "scans", t("Skany dokumentów i zdjęcia"), t("PZ, WZ, MM, kwity wywozowe, zdjęcia tonażu z wagi i zdjęcia zrębki — wysyłane po zapisaniu operacji."), `
+        <div class="scan-add" id="form-scans">
+          <div class="field"><label for="fs-kind">${esc(t("Rodzaj"))}</label><select class="ctrl" id="fs-kind">${Object.entries(kinds).map(([k, l]) => `<option value="${k}" ${k === def ? "selected" : ""}>${esc(t(l))}</option>`).join("")}</select></div>
+          <label class="btn" for="fs-file">${ic("up", 15)} ${esc(t("Dodaj pliki"))}</label><input type="file" id="fs-file" class="sr-only" multiple accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/tiff,.heic,.tif,.tiff">
+          <label class="btn" for="fs-cam">${ic("eye", 15)} ${esc(t("Zrób zdjęcie"))}</label><input type="file" id="fs-cam" class="sr-only" accept="image/*" capture="environment"></div>
+        ${P.length ? `<ul class="scan-pending" id="fs-list">${P.map((x, i) => `<li><span class="badge">${esc(x.kind)}</span> <b>${esc(x.file.name)}</b> <small class="dim">${esc(Math.max(1, Math.round(x.file.size / 1024)) + " kB")}</small> <button type="button" class="btn ghost sm" data-fs-del="${i}" aria-label="${esc(t("Usuń z listy {n}", { n: x.file.name }))}">${ic("x", 13)}</button></li>`).join("")}</ul>` : `<p class="help">${esc(t("Brak plików — skany można dodać także później w szczegółach operacji."))}</p>`}`);
+    },
+    /** Wysłanie skanów czekających w formularzu do zapisanej operacji. */
+    async flushScans(opId) {
+      const P = (this.pendingScans || []).splice(0);
+      if (!P.length || !root.RIWUI.Scans) return;
+      let ok = 0; const errs = [];
+      for (const x of P) { const r = await root.RIWUI.Scans.upload(opId, x.kind, x.file); if (r && r.ok) ok++; else errs.push(`${x.file.name}: ${(r && r.error) || t("błąd")}`); }
+      if (ok) Toast.ok(t("Dodano skany: {n}", { n: ok }));
+      if (errs.length) Toast.err(t("Nie dodano części plików — dodaj je w szczegółach operacji"), errs.slice(0, 3).join(" · "));
     },
     extras() {
       const d = this.draft;
@@ -599,7 +647,7 @@
     saleOfOutputFields() {
       const d = this.draft;
       return `<div class="fgrid four">
-        ${field({ key: "sale.buyerId", label: t("Odbiorca"), req: true, span: "span2", control: selIn("sale.buyerId", [pick(t("wybierz odbiorcę"))].concat(this.buyers(d.sale.buyerId).map(p => ({ v: p.id, l: p.name }))), d.sale.buyerId, { struct: true }) })}
+        ${field({ key: "sale.buyerId", label: t("Odbiorca"), req: true, span: "span2", control: comboIn("sale.buyerId", [pick(t("wybierz odbiorcę"))].concat(this.buyers(d.sale.buyerId).map(p => ({ v: p.id, l: p.name }))), d.sale.buyerId, { typed: d.sale.buyerName || "", placeholder: t("wpisz nazwę albo wybierz odbiorcę") }) })}
         ${field({ key: "sale.qtyMP", label: t("Ilość sprzedaży (MP)"), control: numIn("sale.qtyMP", d.sale.qtyMP, { suffix: "MP", placeholder: t("cała produkcja") }) })}
         ${field({ key: "sale.weight", label: t("Masa · energia"), control: outBox("sale.weight", "—"), help: false })}
         ${this.saleWeightFields()}
@@ -660,7 +708,7 @@
             ${field({ key: "purchase.supplierName", label: sKind === "nadlesnictwo" ? t("Nadleśnictwo") : t("Dostawca (firma)"), req: true, span: "span2", control: textIn("purchase.supplierName", this.supplierText(), { placeholder: sKind === "nadlesnictwo" ? t("wpisz lub wybierz, np. Nadleśnictwo Rybnik") : t("wpisz lub wybierz, np. Lander Agro"), list: "dl-suppliers" }) + `<datalist id="dl-suppliers">${suppliers.map(p => `<option value="${esc(p.name)}">`).join("")}</datalist>` })}
             ${sKind === "nadlesnictwo" ? field({ key: "purchase.lesnictwo", label: t("Leśnictwo"), req: true, control: textIn("purchase.lesnictwo", d.purchase.lesnictwo, { placeholder: t("wybierz lub wpisz nowe"), list: "dl-lesn" }) + `<datalist id="dl-lesn">${this.lesnictwa(d.purchase.supplierId).map(x => `<option value="${esc(x)}">`).join("")}</datalist>` }) : ""}
             ${field({ key: "purchase.basis", label: t("Podstawa"), req: true, span: sKind === "nadlesnictwo" ? "" : "span2", control: selIn("purchase.basis", [{ v: "DEKL", l: t("Deklaracja") }, { v: "KZR", l: "KZR" }], d.purchase.basis) })}
-            ${field({ key: "purchase.productId", label: t("Produkt / surowiec"), req: true, span: "span2", control: selIn("purchase.productId", [pick(t("wybierz produkt"))].concat(S.products.filter(p => (active(p) || p.id === d.purchase.productId) && (!d.production.enabled || p.cat === "drewno" || p.id === d.purchase.productId)).map(p => ({ v: p.id, l: `${p.name} (${Units.label(p.unit)})` }))), d.purchase.productId, { struct: true, disabled: corr }) })}
+            ${field({ key: "purchase.productId", label: t("Produkt / surowiec"), req: true, span: "span2", control: comboIn("purchase.productId", [pick(t("wybierz produkt"))].concat(S.products.filter(p => (active(p) || p.id === d.purchase.productId) && (!d.production.enabled || p.cat === "drewno" || p.id === d.purchase.productId)).map(p => ({ v: p.id, l: `${p.name} (${Units.label(p.unit)})` }))), d.purchase.productId, { struct: true, disabled: corr }) })}
             ${field({ key: "purchase.qty", label: t("Ilość"), req: true, control: numIn("purchase.qty", d.purchase.qty, { suffix: u, placeholder: eg("20") }) })}
             ${field({ key: "purchase.unit", label: t("Jednostka ilości"), req: true, control: selIn("purchase.unit", units.map(x => ({ v: x, l: Units.label(x) })), d.purchase.unit, { struct: true }) })}
             ${field({ key: "purchase.priceUnit", label: t("Jednostka zakupu (cena za)"), req: true, control: selIn("purchase.priceUnit", units.map(x => ({ v: x, l: Units.label(x) })), d.purchase.priceUnit || d.purchase.unit, { struct: true }) })}
@@ -687,14 +735,14 @@
           const u = Units.label(d.sale.unit);
           html += section(n++, "sale", t("Sprzedaż z magazynu (WZ)"), t("Towar, który już jest na stanie → odbiorca. WZ odejmuje sprzedaną ilość ze stanu."), toggle + `
             <div class="fgrid four">
-              ${field({ key: "sale.productId", label: t("Towar z magazynu"), req: true, span: "span2", control: selIn("sale.productId", [pick(t("wybierz towar"))].concat(prods.map(p => ({ v: p.id, l: `${p.name} — ${fmtQ(stock.get(p.id) || 0)} ${Units.label(p.unit)}` }))), d.sale.productId, { struct: true, disabled: corr }) })}
+              ${field({ key: "sale.productId", label: t("Towar z magazynu"), req: true, span: "span2", control: comboIn("sale.productId", [pick(t("wybierz towar"))].concat(prods.map(p => ({ v: p.id, l: `${p.name} — ${fmtQ(stock.get(p.id) || 0)} ${Units.label(p.unit)}` }))), d.sale.productId, { struct: true, disabled: corr }) })}
               ${field({ key: "sale.onStock", label: t("Stan dostępny"), control: outBox("sale.onStock", "—"), help: false })}
               ${field({ key: "sale.after", label: t("Stan po WZ"), control: outBox("sale.after", "—"), help: false })}
               ${field({ key: "sale.qty", label: t("Ilość"), req: true, control: numIn("sale.qty", d.sale.qty, { suffix: u, placeholder: eg("500") }) })}
               ${field({ key: "sale.unit", label: t("Jednostka"), req: true, control: prod ? selIn("sale.unit", units.map(x => ({ v: x, l: Units.label(x) })), d.sale.unit, { struct: true }) : outBox("sale.unit", esc(t("wybierz towar"))) })}
               ${field({ key: "sale.price", label: t("Cena sprzedaży (zł/{u})", { u }), req: true, control: numIn("sale.price", d.sale.price, { suffix: `zł/${u}`, placeholder: eg("90") }) })}
               ${field({ key: "sale.revenue", label: t("Wartość sprzedaży"), control: outBox("sale.revenue", "—"), help: false })}
-              ${field({ key: "sale.buyerId", label: t("Kupujący / odbiorca"), req: true, span: "span2", control: selIn("sale.buyerId", [pick(t("wybierz odbiorcę"))].concat(this.buyers(d.sale.buyerId).map(p => ({ v: p.id, l: p.name }))), d.sale.buyerId, { struct: true }) })}
+              ${field({ key: "sale.buyerId", label: t("Kupujący / odbiorca"), req: true, span: "span2", control: comboIn("sale.buyerId", [pick(t("wybierz odbiorcę"))].concat(this.buyers(d.sale.buyerId).map(p => ({ v: p.id, l: p.name }))), d.sale.buyerId, { typed: d.sale.buyerName || "", placeholder: t("wpisz nazwę albo wybierz odbiorcę") }) })}
               ${field({ key: "sale.weight", label: t("Masa · energia (orientacyjnie)"), span: "span2", control: outBox("sale.weight", "—"), help: false })}
               ${this.saleWeightFields()}
               ${this.docNoFields(["WZ"])}
@@ -723,9 +771,9 @@
             ? t("Tryb <b>dwuetapowy</b>: po zatwierdzeniu towar schodzi ze stanu źródła, a dokument ma status <b>W DRODZE</b>. Stan magazynu docelowego wzrośnie dopiero po przyjęciu MM (z ilością faktycznie przyjętą).")
             : t("Tryb <b>jednoetapowy</b>: zatwierdzenie jednocześnie zmniejsza stan źródła i zwiększa stan magazynu docelowego.")}</span></div>
           <div class="fgrid four">
-            ${field({ key: "mm.fromWhId", label: t("Magazyn źródłowy"), req: true, control: selIn("mm.fromWhId", srcList.map(w => ({ v: w.id, l: w.name })), src, { struct: true, disabled: corr || srcList.length < 2 && srcList.some(w => w.id === src) }) })}
-            ${field({ key: "mm.toWhId", label: t("Magazyn docelowy"), req: true, control: selIn("mm.toWhId", [pick(t("wybierz magazyn"))].concat(dstList.map(w => ({ v: w.id, l: w.id === src ? `${w.name} — ${t("magazyn źródłowy")}` : w.name }))), M.toWhId, { struct: true, disabled: corr }) })}
-            ${field({ key: "mm.productId", label: t("Towar"), req: true, span: "span2", control: selIn("mm.productId", [pick(t("wybierz towar"))].concat(prods.map(p => ({ v: p.id, l: `${p.name} — ${fmtQ(stock.get(p.id) || 0)} ${Units.label(p.unit)}` }))), M.productId, { struct: true, disabled: corr }) })}
+            ${field({ key: "mm.fromWhId", label: t("Magazyn źródłowy"), req: true, control: comboIn("mm.fromWhId", srcList.map(w => ({ v: w.id, l: w.name })), src, { struct: true, disabled: corr || srcList.length < 2 && srcList.some(w => w.id === src) }) })}
+            ${field({ key: "mm.toWhId", label: t("Magazyn docelowy"), req: true, control: comboIn("mm.toWhId", [pick(t("wybierz magazyn"))].concat(dstList.map(w => ({ v: w.id, l: w.id === src ? `${w.name} — ${t("magazyn źródłowy")}` : w.name }))), M.toWhId, { struct: true, disabled: corr }) })}
+            ${field({ key: "mm.productId", label: t("Towar"), req: true, span: "span2", control: comboIn("mm.productId", [pick(t("wybierz towar"))].concat(prods.map(p => ({ v: p.id, l: `${p.name} — ${fmtQ(stock.get(p.id) || 0)} ${Units.label(p.unit)}` }))), M.productId, { struct: true, disabled: corr }) })}
             ${field({ key: "mm.qty", label: t("Ilość"), req: true, control: numIn("mm.qty", M.qty, { suffix: u, placeholder: eg("300") }) })}
             ${field({ key: "mm.unit", label: t("Jednostka"), req: true, control: prod ? selIn("mm.unit", Units.allowed(prod).map(x => ({ v: x, l: Units.label(x) })), M.unit, { struct: true }) : outBox("mm.unit", esc(t("wybierz towar"))) })}
             ${field({ key: "mm.weightMode", label: t("Tonaż"), req: true, control: selIn("mm.weightMode", [{ v: "auto", l: t("Automatyczny (przelicznik)") }, { v: "manual", l: t("Ręczny — z kwitu wagowego") }], wMode, { struct: true }) })}
@@ -739,6 +787,7 @@
       }
 
       html += this.extrasHtml(n++); // operacje dodatkowe — w każdym rodzaju operacji
+      if (this.mode !== "correct" && root.RIWUI.Scans && App.can("scans.add")) html += this.scansHtml(n++); // 3.14: skany i zdjęcia
       if (type !== "PRODUKCJA") html += this.transportHtml(n++);
       html += section(n++, "notes", t("Uwagi i dokument zewnętrzny"), "", `<div class="fgrid four">
         ${field({ key: "extDoc", label: t("Nr dokumentu zewnętrznego"), span: "span2", control: textIn("extDoc", d.extDoc, { placeholder: t("np. FV 123/09/2026, kwit wagowy") }) })}
@@ -943,6 +992,7 @@
         const r = await Modal.confirm({ title: t("Wyczyścić formularz?"), text: t("Wszystkie wpisane dane tej operacji zostaną usunięte. Zapisana wersja robocza pozostaje na liście operacji."), ok: t("Wyczyść"), danger: true });
         if (r.ok) { this.reset(); this.rerender(); App.render(); }
       };
+      form.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-fs-del]"); if (b && this.pendingScans) { this.pendingScans.splice(+b.dataset.fsDel, 1); this.rerender(); } });
       form.addEventListener("input", e => this.onEdit(e, false));
       form.addEventListener("change", e => this.onEdit(e, true));
       form.addEventListener("focusout", e => {
@@ -1005,6 +1055,37 @@
 
     onEdit(e, isChange) {
       const el = e.target, d = this.draft;
+      // 3.14: listy z wpisywaniem — po wyborze podpowiedzi albo opuszczeniu pola (nie przy każdym znaku)
+      if (el.dataset && el.dataset.combo) {
+        // wybór podpowiedzi z listy (datalist) przychodzi jako „input” z wstawieniem całego tekstu — zatwierdzamy od razu
+        if (!isChange && !(e.inputType === "insertReplacementText" || e.inputType === undefined)) return;
+        const key = el.dataset.combo, text = String(el.value || "").trim().replace(/\s+/g, " "), lc = text.toLowerCase();
+        // porównanie bez względu na wielkość liter i rodzaj spacji (liczby w etykietach mają spacje nierozdzielające)
+        const norm = x => String(x || "").replace(/\s+/g, " ").trim().toLowerCase();
+        const names = o => [o.l, o.n, String(o.l || "").split(" — ")[0], String(o.l || "").replace(/\s*\([^)]*\)$/, ""), String(o.l || "").split(" · ")[0]].filter(Boolean).map(norm);
+        const hit = text ? (COMBO_OPTS.get(key) || []).find(o => o.v && !o.disabled && names(o).includes(lc)) : null;
+        const prev = key.split(".").reduce((o, k2) => (o == null ? undefined : o[k2]), d);
+        const v = hit ? hit.v : "", tk = comboTypedKey(key);
+        setPath(d, key, v);
+        if (tk) setPath(d, tk, hit ? "" : text); else COMBO_TYPED.set(key, hit ? "" : text);
+        this.touched.add(key);
+        if (v !== prev) this.sideEffects(key, v, prev);
+        // rodzaj „za tonę” wybrany przy pociągu → ilość z tonażu składu
+        const xm = key.match(/^extras\.items\.(\d+)\.typeId$/);
+        if (xm && hit && d.transport && d.transport.mode === "train") { const ty = R.byId(Store.state.extraTypes, v); if (ty && ty.unit === "t") d.extras.items[+xm[1]].qtySource = "train"; }
+        this.persist(); this.rerender(); return;
+      }
+      // 3.14: skany do nowej operacji (wysyłane po zapisaniu)
+      if (isChange && (el.id === "fs-file" || el.id === "fs-cam")) {
+        const files = Array.from(el.files || []), kind = ($("#fs-kind") || {}).value || "INNE"; el.value = "";
+        if (files.length) { (this.pendingScans = this.pendingScans || []).push(...files.map(file => ({ kind, file }))); this.rerender(); }
+        return;
+      }
+      if (isChange && el.dataset && el.dataset.trainQty !== undefined) {
+        const it = d.extras && d.extras.items && d.extras.items[+el.dataset.trainQty];
+        if (it) { it.qtySource = el.checked ? "train" : ""; if (el.checked) { it.qty = ""; it.cost = ""; } }
+        this.persist(); this.rerender(); return;
+      }
       if (isChange && el.dataset) {
         if (el.dataset.type !== undefined) {
           if (!el.checked) { el.checked = true; return; }
@@ -1305,6 +1386,7 @@
         }
       }
       if (n.extras && n.extras.length) {
+        n.extras.forEach((x, i) => { if (x.qtySource === "train") out(`extras.items.${i}.cost`, `<b>${money(x.cost)}</b>`); });
         n.extras.forEach((x, i) => out(`extra.${i}.cost`, x.costBasis === "qtyRate" && x.qty !== null && x.rate !== null ? `${fmtQ(x.qty)} × ${fmt(x.rate)} zł = <b>${money(x.cost)}</b>` : `<b>${money(x.cost)}</b>`));
         out("extras.total", t("Razem operacje dodatkowe: <b>{m}</b>", { m: money(plan.totals.extraCost) }));
       }
@@ -1492,6 +1574,7 @@
       if (res.duplicate) Toast.info(t("Operacja była już zapisana"), t("Ochrona przed podwójnym zapisem — nie powstały nowe dokumenty."));
       else Toast.ok(t("Dokument zatwierdzony"), res.op.documents.map(x => x.no).join(" · "));
       const op = res.op;
+      if (!res.duplicate) await this.flushScans(op.id);
       if (action === "approve") { location.hash = "#/operacje"; App.render(); root.OpDetail.open(op.id, { justSaved: true }); return; }
       const keep = { type: this.draft.type, direct: this.draft.sale.direct, from: this.draft.mm && this.draft.mm.fromWhId };
       this.reset();

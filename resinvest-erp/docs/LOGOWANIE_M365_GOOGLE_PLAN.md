@@ -9,7 +9,7 @@ Stan na 03.11.2026 · dotyczy ResInvest ERP 3.12 (serwer Node.js + SQLite) i kie
 | Logowanie | własne konta serwera: e-mail + hasło (scrypt), sesja w ciasteczku `riw_sid` (HttpOnly, SameSite=Strict), blokada po 5 błędach, limity IP — [AUTHENTICATION.md](AUTHENTICATION.md) |
 | Domeny kont | `COMPANY_DOMAINS` w `server.env` (wariant instalacji: `resinvest.group` / Gmail / `*` = dowolna) |
 | Poczta | `EMAIL_TRANSPORT=smtp` (Microsoft 365, Gmail, dowolny SMTP), Resend, AgentMail, plik |
-| Better Auth | **nie jest używany** w 3.x. Serwer nie ma zależności npm (przenośny `node.exe` w instalatorze). W tej sesji dodano serwer MCP Better Auth do Claude Code (`npx auth@latest mcp --claude-code`) jako pomoc przy pracy nad 4.0 |
+| Better Auth | **nie jest używany** w 3.x. Serwer nie ma zależności npm (przenośny `node.exe` w instalatorze). Biblioteka może zostać rozważona przy pracy nad 4.0 |
 
 ## 2. Cel
 

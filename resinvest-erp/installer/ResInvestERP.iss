@@ -1,5 +1,5 @@
 ﻿; =========================================================================
-;  ResInvest ERP 3.12 · instalator Windows (Inno Setup 7; zgodny z Inno Setup 6.3+)
+;  ResInvest ERP 3.14 · instalator Windows (Inno Setup 7; zgodny z Inno Setup 6.3+)
 ;  Kodowanie pliku: UTF-8 z BOM (wymagane dla polskich i czeskich znaków — Inno Setup 7
 ;  przerywa kompilację przy bajtach niezgodnych ze stroną kodową pliku).
 ;
@@ -8,7 +8,11 @@
 ;  Skrypt: buduje ResInvest_ERP.html, generuje dane przykładowe, pobiera
 ;  środowisko Node.js (node.exe, weryfikacja SHA-256) do installer\runtime
 ;  i kompiluje ten plik dla każdego wariantu (/DEditionId=firma|gmail|otwarta).
-;  Wynik: installer\Output\ResInvestERP_Serwer_Setup_3.13.0_<Wariant>.exe
+;  Wynik (installer\Output):
+;    ResInvestERP_SerwerFirma.exe     — wariant firma,
+;    ResInvestERP_GoogleSerwer.exe    — wariant gmail,
+;    ResInvestERP_SerwerNoLimit.exe   — wariant otwarta (bez ograniczeń).
+;  Kreator otwiera się na pełnym ekranie (okno zmaksymalizowane, elementy skalowane).
 ;
 ;  Warianty (installer\editions\*.json → tools\make-edition.mjs → installer\build\<wariant>\):
 ;   * firma   — konta tylko @resinvest.group, poczta Microsoft 365 (SMTP),
@@ -34,7 +38,7 @@
 #include AddBackslash(SourcePath) + "build\" + EditionId + "\edition.iss"
 
 #define AppName "ResInvest ERP"
-#define AppVersion "3.13.0"
+#define AppVersion "3.14.0"
 #define AppPublisher "ResInvest Commodities"
 #define AppURL "http://localhost:8080/"
 #define ServerPort "8080"
@@ -55,10 +59,12 @@ DefaultGroupName=ResInvest ERP
 DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
 OutputDir=Output
-OutputBaseFilename=ResInvestERP_Serwer_Setup_{#AppVersion}_{#EditionSuffix}
+OutputBaseFilename={#EditionOutput}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+; 3.14: kreator na pełnym ekranie — okno skalowalne, maksymalizowane przy starcie (InitializeWizard)
+WizardResizable=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
@@ -86,6 +92,40 @@ english.FinishedLabel=Setup is complete. After you click Finish the server start
 #endif
 
 [CustomMessages]
+; 3.13: strona „Poczta” kreatora (zaproszenia, potwierdzenia rejestracji, reset hasła)
+polish.MailTitle=Poczta
+czech.MailTitle=Pošta
+english.MailTitle=E-mail
+polish.MailSub=Skrzynka, z której program wysyła zaproszenia, potwierdzenia rejestracji i reset hasła.
+czech.MailSub=Schránka, ze které program posílá pozvánky, potvrzení registrace a obnovu hesla.
+english.MailSub=Mailbox the program sends invitations, registration confirmations and password resets from.
+polish.MailDesc=Wpisz login i hasło skrzynki, aby od razu wysłać wiadomość testową. Gmail: hasło aplikacji (16 liter) z myaccount.google.com → Bezpieczeństwo → Hasła aplikacji. Microsoft 365: hasło skrzynki z włączonym „Uwierzytelnionym SMTP”. Puste hasło = ustawisz później w programie (Poczta → Konfiguracja poczty). Hasło zapisuje się tylko na tym komputerze.
+czech.MailDesc=Zadejte přihlášení a heslo schránky a hned se odešle testovací zpráva. Gmail: heslo aplikace (16 písmen). Microsoft 365: heslo schránky se zapnutým „Ověřeným SMTP“. Prázdné heslo = nastavíte později v programu (Pošta → Nastavení pošty). Heslo se ukládá jen na tomto počítači.
+english.MailDesc=Enter the mailbox login and password to send a test message right away. Gmail: app password (16 letters). Microsoft 365: mailbox password with “Authenticated SMTP” enabled. Empty password = set it later in the program (Mail → E-mail settings). The password is stored on this computer only.
+polish.MailHost=Serwer SMTP:
+czech.MailHost=Server SMTP:
+english.MailHost=SMTP server:
+polish.MailPort=Port (465 = SSL, 587 = STARTTLS):
+czech.MailPort=Port (465 = SSL, 587 = STARTTLS):
+english.MailPort=Port (465 = SSL, 587 = STARTTLS):
+polish.MailUser=Login — adres e-mail skrzynki:
+czech.MailUser=Přihlášení — e-mailová adresa schránky:
+english.MailUser=Login — mailbox e-mail address:
+polish.MailPass=Hasło (Gmail: hasło aplikacji):
+czech.MailPass=Heslo (Gmail: heslo aplikace):
+english.MailPass=Password (Gmail: app password):
+polish.MailApp=Adres programu w linkach e-mail (dla innych komputerów):
+czech.MailApp=Adresa programu v odkazech e-mailů (pro ostatní počítače):
+english.MailApp=Program address in e-mail links (for other computers):
+polish.MailNeedUser=Podaj serwer SMTP i login (adres e-mail skrzynki) albo zostaw hasło puste.
+czech.MailNeedUser=Zadejte server SMTP a přihlášení (adresu schránky), nebo nechte heslo prázdné.
+english.MailNeedUser=Enter the SMTP server and login (mailbox address), or leave the password empty.
+polish.MailBusy=Zapisywanie konfiguracji poczty i wysyłanie wiadomości testowej…
+czech.MailBusy=Ukládání nastavení pošty a odesílání testovací zprávy…
+english.MailBusy=Saving e-mail settings and sending a test message…
+polish.MailLater=Poczta: zmienisz ją w programie (Poczta → Konfiguracja poczty).
+czech.MailLater=Pošta: změníte ji v programu (Pošta → Nastavení pošty).
+english.MailLater=E-mail: change it in the program (Mail → E-mail settings).
 polish.CompLocal=Program — tryb lokalny (jedno stanowisko)
 czech.CompLocal=Program — místní režim (jedno pracoviště)
 english.CompLocal=Program — local mode (single workstation)
@@ -322,4 +362,140 @@ begin
   Data := ExpandConstant('{commonappdata}\ResInvestERP');
   if FileExists(Node) and FileExists(Srv) and FileExists(Data + '\resinvest.sqlite') then
     Exec(Node, '--disable-warning=ExperimentalWarning "' + Srv + '" --data "' + Data + '" --backup-now', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code);
+end;
+
+{ ===================== 3.13: strona „Poczta” kreatora ===================== }
+var
+  MailPage: TInputQueryWizardPage;
+
+function EnvFile(): String;
+begin
+  Result := ExpandConstant('{commonappdata}\ResInvestERP\server.env');
+end;
+
+{ Wartość KEY= z istniejącego server.env (bez cudzysłowów); pusty napis, gdy brak pliku albo klucza }
+function EnvValue(Key: String): String;
+var Lines: TArrayOfString; I: Integer; L: String;
+begin
+  Result := '';
+  if not LoadStringsFromFile(EnvFile(), Lines) then Exit;
+  for I := 0 to GetArrayLength(Lines) - 1 do begin
+    L := Trim(Lines[I]);
+    if Pos(Key + '=', L) = 1 then begin
+      Result := Trim(Copy(L, Length(Key) + 2, 10000));
+      if (Length(Result) >= 2) and ((Result[1] = '"') or (Result[1] = #39)) then Result := Copy(Result, 2, Length(Result) - 2);
+      Exit;
+    end;
+  end;
+end;
+
+function JsonEsc(S: String): String;
+begin
+  Result := S;
+  StringChangeEx(Result, '\', '\\', True);
+  StringChangeEx(Result, '"', '\"', True);
+end;
+
+{ ===================== 3.14: kreator na pełnym ekranie ===================== }
+function GetSystemMetrics(nIndex: Integer): Integer;
+  external 'GetSystemMetrics@user32.dll stdcall';
+function SetTimer(hWnd, nIDEvent, uElapse, lpTimerFunc: LongWord): LongWord;
+  external 'SetTimer@user32.dll stdcall';
+function KillTimer(hWnd, uIDEvent: LongWord): BOOL;
+  external 'KillTimer@user32.dll stdcall';
+
+var
+  FullScreenTimer: LongWord;
+
+{ Wywoływane przez timer, aż okno kreatora będzie widoczne (Inno Setup ustala rozmiar okna dopiero przy pokazaniu):
+  najpierw okno na cały obszar roboczy ekranu (bez paska zadań), potem maksymalizacja. Kreator jest skalowalny
+  (WizardResizable) — strony, listy i pola rozciągają się na cały ekran. }
+procedure FullScreenTick(Wnd: LongWord; Msg: LongWord; IdEvent: LongWord; Time: LongWord);
+var W, H: Integer;
+begin
+  if not WizardForm.Visible then Exit;
+  KillTimer(0, FullScreenTimer); FullScreenTimer := 0;
+  { Inno Setup ogranicza skalowalne okno do 150% rozmiaru bazowego — bez limitu okno wypełnia cały ekran }
+  WizardForm.Constraints.MaxWidth := 0; WizardForm.Constraints.MaxHeight := 0;
+  W := GetSystemMetrics(16);                              { SM_CXFULLSCREEN: szerokość obszaru roboczego }
+  H := GetSystemMetrics(17) + GetSystemMetrics(4);        { SM_CYFULLSCREEN + SM_CYCAPTION: wysokość obszaru roboczego }
+  if (W > WizardForm.Width) and (H > WizardForm.Height) then begin
+    WizardForm.Left := 0; WizardForm.Top := 0;
+    WizardForm.Width := W; WizardForm.Height := H;
+  end;
+  SendMessage(WizardForm.Handle, $0112, $F030, 0);        { WM_SYSCOMMAND, SC_MAXIMIZE }
+end;
+
+procedure FullScreenWizard();
+begin
+  FullScreenTimer := SetTimer(0, 0, 40, CreateCallback(@FullScreenTick));
+end;
+
+procedure InitializeWizard();
+var V: String;
+begin
+  FullScreenWizard();
+  MailPage := CreateInputQueryPage(wpSelectTasks, CustomMessage('MailTitle'), CustomMessage('MailSub'), CustomMessage('MailDesc'));
+  MailPage.Add(CustomMessage('MailHost'), False);
+  MailPage.Add(CustomMessage('MailPort'), False);
+  MailPage.Add(CustomMessage('MailUser'), False);
+  MailPage.Add(CustomMessage('MailPass'), True);
+  MailPage.Add(CustomMessage('MailApp'), False);
+  { opis nad polami rozciąga się razem z oknem (kreator na pełnym ekranie) }
+  MailPage.SubCaptionLabel.Anchors := [akLeft, akTop, akRight];
+  { wartości z wariantu instalacji; przy aktualizacji — z istniejącego server.env }
+  V := EnvValue('SMTP_HOST'); if V = '' then V := '{#EditionSmtpHost}'; MailPage.Values[0] := V;
+  V := EnvValue('SMTP_PORT'); if V = '' then V := '{#EditionSmtpPort}'; MailPage.Values[1] := V;
+  V := EnvValue('SMTP_USER'); if V = '' then V := '{#EditionSmtpUser}'; MailPage.Values[2] := V;
+  V := EnvValue('APP_URL'); if V = '' then V := 'http://' + Lowercase(GetComputerNameString()) + ':{#ServerPort}'; MailPage.Values[4] := V;
+end;
+
+{ Strona tylko dla serwera i tylko wtedy, gdy poczta nie jest jeszcze ustawiona (aktualizacja jej nie zmienia) }
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if (MailPage <> nil) and (PageID = MailPage.ID) then
+    Result := (not WizardIsComponentSelected('server')) or (EnvValue('SMTP_PASS') <> '');
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (MailPage <> nil) and (CurPageID = MailPage.ID) and (MailPage.Values[3] <> '') then
+    if (Trim(MailPage.Values[0]) = '') or (Pos('@', MailPage.Values[2]) = 0) then begin
+      MsgBox(CustomMessage('MailNeedUser'), mbError, MB_OK);
+      Result := False;
+    end;
+end;
+
+{ Po skopiowaniu plików: zapis do server.env przez serwer (--mail-setup) i wiadomość testowa na adres skrzynki.
+  Hasło trafia do pliku w folderze tymczasowym instalatora (usuwany od razu), nie do wiersza poleceń. }
+procedure SaveMailSettings();
+var J, R: TArrayOfString; F, Res, Node, Srv, Data, Msg: String; Code, I: Integer;
+begin
+  if (MailPage = nil) or WizardSilent() or (not WizardIsComponentSelected('server')) then Exit;
+  if (MailPage.Values[3] = '') then Exit;
+  Node := ExpandConstant('{app}\runtime\node.exe');
+  Srv := ExpandConstant('{app}\server\riw-server.mjs');
+  Data := ExpandConstant('{commonappdata}\ResInvestERP');
+  F := ExpandConstant('{tmp}\mail-setup.json');
+  Res := ExpandConstant('{tmp}\mail-setup.txt');
+  SetArrayLength(J, 1);
+  J[0] := '{"host":"' + JsonEsc(Trim(MailPage.Values[0])) + '","port":"' + JsonEsc(Trim(MailPage.Values[1])) + '","user":"' + JsonEsc(Trim(MailPage.Values[2])) +
+    '","pass":"' + JsonEsc(MailPage.Values[3]) + '","appUrl":"' + JsonEsc(Trim(MailPage.Values[4])) + '","test":true,"resultFile":"' + JsonEsc(Res) + '"}';
+  SaveStringsToUTF8File(F, J, False);
+  WizardForm.StatusLabel.Caption := CustomMessage('MailBusy');
+  Exec(Node, '--disable-warning=ExperimentalWarning "' + Srv + '" --data "' + Data + '" --mail-setup "' + F + '"', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Code);
+  DeleteFile(F);
+  Msg := '';
+  if LoadStringsFromFile(Res, R) then
+    for I := 0 to GetArrayLength(R) - 1 do Msg := Msg + R[I] + #13#10;
+  DeleteFile(Res);
+  Msg := Msg + #13#10 + CustomMessage('MailLater');
+  if Code = 0 then MsgBox(Msg, mbInformation, MB_OK) else MsgBox(Msg, mbError, MB_OK);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then SaveMailSettings();
 end;

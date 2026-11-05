@@ -1,6 +1,7 @@
 {
   "_opis": "Wariant BEZ OGRANICZEŃ (tryb firmowy): logowanie z sesją serwerową jak w wariancie FIRMA, ale konto może mieć adres w dowolnej domenie (firma, Gmail, Outlook.com, domeny kontrahentów). Poczta: SMTP — dane serwera uzupełnia administrator w server.env.",
   "id": "otwarta",
+  "output": "ResInvestERP_SerwerNoLimit",
   "suffix": "BezOgraniczen",
   "name": "Bez ograniczeń — dowolna domena e-mail",
   "companyDomains": "*",

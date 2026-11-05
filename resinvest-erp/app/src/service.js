@@ -89,8 +89,11 @@
     /* ---- użytkownicy (profil; hasło — Auth hosta) ---- */
     "user.save": { perm: "users.manage", run: (s, a, c) => R.Users.save(s, a.rec, c) },
     "user.remove": { perm: "users.manage", run: (s, a, c) => R.Users.remove(s, a.id, c) },
-    "me.prefs": { run: (s, a, c) => R.Users.setPrefs(s, { lang: a.lang, theme: a.theme, themeColors: a.themeColors }, c) },
+    "me.prefs": { run: (s, a, c) => R.Users.setPrefs(s, { lang: a.lang, theme: a.theme, themeColors: a.themeColors, themeGradient: a.themeGradient, uiRes: a.uiRes }, c) },
     "me.warehouse": { run: (s, a, c) => R.Users.setMyWarehouse(s, a.whId, c) },
+    /* ---- 3.14: skany dokumentów i zdjęcia operacji (plik zapisuje serwer / magazyn przeglądarki) ---- */
+    "scan.attach": { perm: "scans.add", run: (s, a, c) => R.Scans.attach(s, a, c) },
+    "scan.remove": { perm: "scans.delete", run: (s, a, c) => R.Scans.remove(s, a, c) },
     /* ---- role, uprawnienia, konfiguracja (administrator) ---- */
     "roles.save": { perm: "roles.assign", run: (s, a, c) => R.Roles.save(s, str(a.role), a.perms, c) },
     "roles.reset": { perm: "roles.assign", run: (s, a, c) => R.Roles.reset(s, str(a.role), c) },
