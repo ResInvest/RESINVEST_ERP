@@ -1,0 +1,23 @@
+{
+  "_opis": "Wzorzec: ręczny odczyt prawdziwej WZ (zielony druk, wypełnienie odręczne). Pola: numer (ręcznie — nie oceniany), data, dostawca, odbiorca; transport: nr rej., ilość.",
+  "image": "wz-zielona-ric-zabrze-2026-08-27.jpg",
+  "docType": "WZ",
+  "fields": {
+    "docDate": "27.08.26r.",
+    "supplier": {
+      "value": null,
+      "alternatives": [
+        "ResInvest Commodities PL S.A."
+      ],
+      "note": "pole dostawcy niewypełnione; nadruk wystawcy dopuszczalny"
+    },
+    "recipient": {
+      "value": "RiC Magazyn Zabrze",
+      "alternatives": [
+        "RIC Magazyn Zabrze"
+      ]
+    },
+    "vehicleReg": "PY 30536",
+    "quantity": "62,60 mp"
+  }
+}

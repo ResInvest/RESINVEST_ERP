@@ -1,0 +1,243 @@
+[
+ {
+  "no": 1,
+  "file": "01_wstep",
+  "title": "Wstęp i logowanie",
+  "screen": "Ekran logowania, wpisanie e-maila i hasła, przejście na pulpit; jasny motyw Perła.",
+  "text": [
+   "Witaj w pełnym samouczku programu Res-Inwest e-er-pe.",
+   "W kolejnych rozdziałach przejdziemy razem przez cały program: od logowania, przez kartoteki i flotę, po zakup, produkcję, sprzedaż, transport, korekty i raporty.",
+   "Wszystko pokażę na danych przykładowych, krok po kroku, tak jak wygląda to w codziennej pracy na magazynie.",
+   "Samouczek jest podzielony na krótkie rozdziały, więc do każdego tematu możesz wrócić osobno.",
+   "Zaczynamy od logowania. Wpisujesz firmowy adres e-mail i hasło, a potem klikasz przycisk „Zaloguj”.",
+   "Program pamięta twój magazyn, język i motyw. W tym samouczku pracujemy w jasnym motywie „Perła”.",
+   "Program działa w dwóch trybach. Tryb offline to jedno stanowisko i dane w przeglądarce — idealny do nauki. Tryb firmowy to serwer w sieci firmy, wielu użytkowników jednocześnie, codzienna kopia zapasowa i praca także z tabletu albo telefonu.",
+   "Jeśli pięć razy z rzędu wpiszesz złe hasło, konto zostanie na chwilę zablokowane. Hasło możesz zmienić w swoim profilu, a zapomniane — odzyskać linkiem wysłanym na e-mail."
+  ]
+ },
+ {
+  "no": 2,
+  "file": "02_pulpit",
+  "title": "Pulpit i nawigacja",
+  "screen": "Pulpit: kafle stanów, obroty, wykres; menu po lewej: Praca, Ewidencja, Kartoteki, System; górny pasek: magazyn, język, motyw, powiadomienia.",
+  "text": [
+   "Po zalogowaniu widzisz pulpit swojego magazynu.",
+   "U góry są kafle stanów: drewno w metrach sześciennych, zrębka w metrach przestrzennych, a przy każdej ilości orientacyjne tony i energia w gigadżulach.",
+   "Niżej widzisz obroty według rodzaju operacji i wykres sprzedaży oraz zakupów z ostatnich miesięcy. Każdą liczbę możesz kliknąć, żeby zobaczyć dokumenty, z których powstała.",
+   "Menu po lewej ma cztery grupy. Praca to codzienne operacje. Ewidencja to stany, dokumenty, historia, raporty i inwentaryzacja. Kartoteki to flota, produkty, kontrahenci i magazyny. System to użytkownicy i administracja.",
+   "Na górnym pasku zmieniasz magazyn, język, motyw i sprawdzasz powiadomienia.",
+   "Każdy kafel pokazuje też linię z ostatnich trzydziestu dni, więc od razu widać, czy stan rośnie, czy spada.",
+   "Kafle z obrotami pokazują wartość zakupów, sprzedaży i produkcji w wybranym okresie. Okres zmienisz jednym kliknięciem: dzień, miesiąc albo zakres własny.",
+   "Przycisk „Nowa operacja” jest zawsze pod ręką, na pulpicie i w górnym pasku.",
+   "Dzwonek pokazuje powiadomienia: dokumenty do zatwierdzenia, nowe zgłoszenia użytkowników i przypomnienia. Ten sam program działa też na telefonie — menu chowa się wtedy pod przyciskiem w lewym górnym rogu."
+  ]
+ },
+ {
+  "no": 3,
+  "file": "03_kartoteki",
+  "title": "Kartoteki: produkty, kontrahenci, magazyny",
+  "screen": "Produkty z przelicznikami, Kontrahenci (dostawcy, odbiorcy, nadleśnictwa), Magazyny.",
+  "text": [
+   "Zanim zaczniesz wprowadzać operacje, warto zajrzeć do kartotek.",
+   "W kartotece produktów każdy towar ma swoją jednostkę magazynową i przeliczniki. Jeden metr sześcienny drewna to cztery metry przestrzenne zrębki, a metr przestrzenny zrębki waży orientacyjnie trzydzieści trzy setne tony.",
+   "Kontrahenci to dostawcy, odbiorcy i nadleśnictwa. Nowego dostawcę możesz też wpisać bezpośrednio w formularzu zakupu — program sam doda go do kartoteki.",
+   "W kartotece magazynów są wszystkie place firmy. Każdy użytkownik pracuje w magazynach, do których dostał dostęp.",
+   "Przeliczniki ustawiasz raz. Potem program używa ich wszędzie tak samo: w formularzu, w stanach, w raportach i na dokumentach.",
+   "Waga wpisana z kwitu wagowego zawsze ma pierwszeństwo przed wagą wyliczoną z przelicznika.",
+   "Przy nadleśnictwie zapisują się też leśnictwa, z których kupujesz drewno, więc przy kolejnym zakupie wystarczy wybrać je z listy.",
+   "Osobna kartoteka zawiera cennik operacji dodatkowych, na przykład holowania rębaka, pracy ładowarki czy czyszczenia placu."
+  ]
+ },
+ {
+  "no": 4,
+  "file": "04_flota",
+  "title": "Flota: pojazdy, zabudowa i pojemność",
+  "screen": "Flota: zakresy własna / zewnętrzna, dodanie pojazdu: hakowiec, dwa kontenery z wymiarami, pojemność liczona na żywo; kierowcy, rębaki, operatorzy.",
+  "text": [
+   "W zakładce Flota prowadzisz samochody, kierowców, rębaki i operatorów — osobno flotę własną i flotę firm zewnętrznych.",
+   "Dodajmy nowy pojazd. Wpisujemy nazwę, numer rejestracyjny i kierowcę domyślnego.",
+   "Teraz zabudowa. Do wyboru jest naczepa z ruchomą podłogą, solówka z kontenerem albo hakowiec z zestawem kontenerów.",
+   "Dla każdej przestrzeni ładunkowej wpisujesz długość, szerokość i wysokość w metrach. Program od razu liczy pojemność maksymalną: długość razy szerokość razy wysokość. Przy zestawie sumuje oba kontenery.",
+   "Z tej pojemności system policzy później, w ilu procentach był zapełniony każdy kurs. Zapisujemy pojazd — pojemność widać od razu w tabeli.",
+   "Pojazd firmy zewnętrznej dodajesz tak samo, tylko zamiast kierowcy z listy wpisujesz nazwę firmy i kierowcę opisowo.",
+   "Przykład: hakowiec z kontenerem sześć i pół metra na dwa czterdzieści na dwa i pół metra oraz kontenerem na przyczepie siedem metrów. Razem osiemdziesiąt jeden metrów przestrzennych.",
+   "W rębakach zapisujesz, czy maszyna jest własna, czy wynajęta, oraz operatora domyślnego. Rębak, który już pracował, nie zostanie usunięty — ustawiasz mu status „wycofany”, a historia produkcji zostaje."
+  ]
+ },
+ {
+  "no": 5,
+  "file": "05_zakup",
+  "title": "Zakup z produkcją w lesie",
+  "screen": "Nowa operacja → Zakup + Produkcja z automatycznym zużyciem; nadleśnictwo, leśnictwo, ilość, cena, data przyjęcia, rębak; transport własny, kursy z kwitami; panel Kontrola; podsumowanie i zatwierdzenie.",
+  "text": [
+   "Najważniejsze miejsce w programie to „Nowa operacja”. Wybieramy rodzaj: Zakup.",
+   "Zaznaczamy „Produkcja z automatycznym zużyciem” — kupione drewno od razu rozdrobnimy na zrębkę.",
+   "Jako dostawcę wybieramy nadleśnictwo. Podstawa zakupu ustawia się sama na deklarację, a my dopisujemy leśnictwo.",
+   "Wpisujemy datę przyjęcia, ilość drewna w metrach sześciennych i cenę. Pod każdym polem jest krótki samouczek, a panel „Kontrola” po prawej świeci na czerwono, dopóki czegoś brakuje.",
+   "W sekcji produkcji wybieramy rębak i operatora. Program sam wylicza, ile metrów przestrzennych zrębki powstanie i ile kosztuje rąbanie.",
+   "Transport robimy flotą własną. Ustawiamy liczbę kursów, a przy każdym kursie wpisujemy numer kwitu wywozowego i metry sześcienne z kwitu. Program mnoży je przez cztery i pokazuje metry przestrzenne na aucie oraz zapełnienie naczepy w procentach.",
+   "Gdy panel kontroli jest zielony, klikamy „Zatwierdź”. Przed zapisem widzisz podsumowanie: jak zmienią się stany i ile kosztuje cała transakcja. Zatwierdzamy — operacja dostaje numer z serii wu-zet.",
+   "Program podpowiada nadleśnictwa i leśnictwa zapisane wcześniej, więc nie trzeba ich za każdym razem wpisywać.",
+   "Jeśli wynik produkcji różni się od wyliczenia, możesz wpisać ilość rzeczywistą i podać przyczynę różnicy, na przykład wilgotność albo straty przy rąbaniu.",
+   "Suma kursów nie może przekroczyć ilości z produkcji. Pasek pod tabelą kursów pokazuje, ile jeszcze zostało do rozwiezienia.",
+   "Jeśli jeszcze nie masz kompletu danych, zapisz operację jako wersję roboczą i wróć do niej później. Wersja robocza nie zmienia stanów."
+  ]
+ },
+ {
+  "no": 6,
+  "file": "06_sprzedaz",
+  "title": "Sprzedaż i transport kilku firm",
+  "screen": "Nowa operacja → Sprzedaż z magazynu; towar ze stanem; tonaż z wagi; transport zewnętrzny, liczba firm 2, firma w każdym kursie; podsumowanie kursów z przewoźnikiem i zapełnieniem.",
+  "text": [
+   "Teraz sprzedaż z magazynu. Lista towarów pokazuje tylko to, co jest na stanie, razem z ilością — sprzedaży większej niż stan program nie przyjmie.",
+   "Wybieramy odbiorcę, ilość i cenę. Tonaż możesz zostawić automatyczny albo wpisać wagę z kwitu wagowego.",
+   "Przewóz zleciliśmy dwóm firmom. Zaznaczamy transport zewnętrzny, a w polu „Liczba firm przewidzianych do transportu” wybieramy dwa.",
+   "Pod każdym kursem wybierasz firmę z listy albo wpisujesz nową nazwę. Numer rejestracyjny z floty zewnętrznej podpowiada kierowcę i pojemność auta.",
+   "W podsumowaniu kursów widzisz przewoźnika, ilość, kilometry, koszt i zapełnienie każdego auta. Koszt każdej firmy trafi osobno do raportu transportu.",
+   "Jeśli przewóz wykonuje jedna firma, zostawiasz liczbę firm równą jeden i wpisujesz ją raz dla wszystkich kursów.",
+   "Nowa firma wpisana w kursie po zatwierdzeniu sama trafia na listę przewoźników.",
+   "Gdy ładunek przekracza pojemność auta, program wyświetli ostrzeżenie jeszcze przed zatwierdzeniem.",
+   "Sprzedaż może też być bezpośrednia, prosto z lasu: zrębka z produkcji jedzie od razu do odbiorcy i nie zwiększa stanu magazynu."
+  ]
+ },
+ {
+  "no": 7,
+  "file": "07_produkcja",
+  "title": "Produkcja na magazynie i operacje dodatkowe",
+  "screen": "Nowa operacja → Produkcja na magazynie: surowiec ze stanu, wynik, rębak, operator; operacje dodatkowe (holowanie, ładowarka).",
+  "text": [
+   "Produkcja na magazynie to rozdrabnianie drewna, które już leży na placu.",
+   "Wybierasz surowiec ze stanu i produkt wyjściowy. Program pilnuje, żeby nie zużyć więcej drewna, niż jest na magazynie, i liczy zużycie automatycznie.",
+   "Do każdej operacji możesz dopisać operacje dodatkowe, na przykład holowanie rębaka czy pracę ładowarki. Ich koszt trafia do wyniku operacji i do raportów.",
+   "Rębak i operator zapisują się przy produkcji, więc później zobaczysz w raportach, kto i czym zrąbał każdy metr.",
+   "Koszt rąbania liczy się ze stawki za metr przestrzenny. Możesz go zmienić dla konkretnej operacji, na przykład przy usłudze firmy zewnętrznej.",
+   "Wynik produkcji od razu zwiększa stan zrębki, a zużyte drewno schodzi ze stanu — jedną operacją, w całości albo wcale."
+  ]
+ },
+ {
+  "no": 8,
+  "file": "08_mm",
+  "title": "Przesunięcie między magazynami",
+  "screen": "Nowa operacja → Przesunięcie MM: magazyn źródłowy, docelowy, ilość; rejestr MM ze statusem W DRODZE; przyjęcie z ilością faktyczną.",
+  "text": [
+   "Przesunięcie em-em przenosi towar między magazynami firmy. Stan całej firmy się nie zmienia.",
+   "Wybierasz magazyn źródłowy, docelowy, towar i ilość. Po wysłaniu towar ma status „W drodze” — zszedł już ze stanu źródła, ale nie jest jeszcze w magazynie docelowym.",
+   "Magazyn docelowy klika „Przyjmij em-em”, wpisuje ilość faktyczną i, jeśli trzeba, przyczynę różnicy. Wszystko zostaje w historii.",
+   "Tonaż przesunięcia możesz wpisać z wagi albo zostawić automatyczny.",
+   "Do przesunięcia dodajesz też transport, tak jak przy sprzedaży: flotę własną, firmę zewnętrzną albo kolej.",
+   "Administrator może przełączyć przesunięcia w tryb jednoetapowy, w którym towar od razu pojawia się w magazynie docelowym."
+  ]
+ },
+ {
+  "no": 9,
+  "file": "09_korekty",
+  "title": "Korekta, anulowanie i historia",
+  "screen": "Szczegóły operacji → Koryguj; zmiana ilości, powód; tabela BYŁO / JEST; anulowanie z ostrzeżeniem o zależnościach; Historia: stan przed / zmiana / po.",
+  "text": [
+   "Pomyłki zdarzają się każdemu, ale w programie niczego się nie wymazuje.",
+   "Otwierasz dokument i klikasz „Koryguj”. Zmieniasz dane, wybierasz powód korekty i zatwierdzasz.",
+   "Program pokazuje, co było, a co jest, i księguje wyłącznie różnicę — w dniu korekty. Numer dokumentu się nie zmienia, a zamknięty miesiąc zostaje nienaruszony.",
+   "Anulowanie odwraca wszystkie ruchy nowym wpisem. Jeśli towar z dokumentu został już użyty w późniejszych operacjach, program cię ostrzeże.",
+   "W zakładce Historia każdy ruch ma stan przed, zmianę i stan po, a filtry pozwalają szybko znaleźć użytkownika, kontrahenta czy rodzaj ruchu.",
+   "Każda korekta ma swój numer, autora i datę, a ostatnią korektę można odwrócić kolejną korektą.",
+   "Usunięcie dokumentu także jest tylko oznaczeniem: dokument znika z rejestru, ale zostaje w historii z przyczyną i nazwiskiem osoby, która go usunęła."
+  ]
+ },
+ {
+  "no": 10,
+  "file": "10_dokumenty",
+  "title": "Dokumenty i seria WZ",
+  "screen": "Rejestr dokumentów, jedna seria WZ, podgląd dokumentu, PDF, wysyłka e-mailem, CSV ewidencji.",
+  "text": [
+   "Każda transakcja dostaje jeden numer z jednej serii wu-zet: zakup, sprzedaż, produkcja, przesunięcie, korekta i inwentaryzacja.",
+   "W rejestrze dokumentów filtrujesz po miesiącu, statusie i kontrahencie. Rodzaj ruchu jest opisany pod numerem.",
+   "Każdy dokument otworzysz w podglądzie, pobierzesz jako pe-de-ef albo wyślesz e-mailem prosto z programu.",
+   "Numer możesz też wpisać ręcznie — program pilnuje, żeby nie powtórzył się w tym samym magazynie i roku.",
+   "Zaznacz „Pokaż dokumenty pomocnicze”, a zobaczysz także zużycie, produkcję i karty transportu tej samej transakcji.",
+   "Rejestr pobierzesz jako ce-es-fau albo Excel. Plik ce-es-fau to pełna ewidencja obrotu z kolumnami ustalonymi dla firmy."
+  ]
+ },
+ {
+  "no": 11,
+  "file": "11_stany",
+  "title": "Stany i inwentaryzacja",
+  "screen": "Stany magazynowe na wybrany dzień, Inwentaryzacja: spis, różnice, zamknięcie miesiąca.",
+  "text": [
+   "W zakładce Stany widzisz ilość każdego produktu w magazynie — także na dowolny dzień wstecz.",
+   "Inwentaryzacja porównuje stan z systemu ze spisem z natury. Różnice księgujesz z przyczyną, a potem zamykasz miesiąc.",
+   "Zamknięty miesiąc jest chroniony: późniejsze korekty trafiają do bieżącego okresu i nie zmieniają już raportu, który poszedł do księgowości.",
+   "Przy stanach widzisz też orientacyjną masę w tonach i energię w gigadżulach.",
+   "Inwentaryzację możesz zrobić w dowolnym dniu, ale zamknięcie miesiąca blokuje zmiany wstecz dla wszystkich użytkowników.",
+   "Bilans otwarcia wprowadzasz raz, na starcie pracy z programem — potem stany wynikają już wyłącznie z dokumentów."
+  ]
+ },
+ {
+  "no": 12,
+  "file": "12_raporty",
+  "title": "Raporty i ewidencja CSV",
+  "screen": "Raporty: miesiąc / rok, bilans z kolumną Kontrola, PDF, XLSX, CSV ewidencji otwarty w Excelu.",
+  "text": [
+   "Raporty liczą miesiąc albo cały rok, dla magazynu, produktu lub kontrahenta.",
+   "Bilans pokazuje stan początkowy, zakupy, produkcję, zużycie, sprzedaż i stan końcowy. Kolumna „Kontrola” potwierdza, że wszystko zgadza się z księgą ruchów.",
+   "Raport pobierzesz jako pe-de-ef, Excel albo Word. Przycisk „CSV ewidencji” daje pełną ewidencję obrotu: dostawcę, numer wu-zet, ilości, ceny, transport, rąbanie i dane z planera — gotową do dalszej pracy w arkuszu.",
+   "Raport roczny pokazuje każdy miesiąc w osobnej kolumnie, więc łatwo porównać sezon zimowy z letnim.",
+   "Osobna sekcja to transport: koszt według przewoźnika i flota własna według auta. Sprzedaż bezpośrednia z lasu jest liczona osobno od sprzedaży z magazynu.",
+   "Każdy raport wyślesz też e-mailem z programu — jako załącznik pe-de-ef."
+  ]
+ },
+ {
+  "no": 13,
+  "file": "13_planer",
+  "title": "Planer zakupów",
+  "screen": "Planer: tydzień, wpisanie planu dnia, wykonanie liczone z dokumentów, widok roku z realizacją.",
+  "text": [
+   "Planer zakupów porównuje plan z wykonaniem.",
+   "Ręcznie wpisujesz tylko plan dnia w metrach przestrzennych. Wykonanie, tony, ceny, kilometry i kursy program liczy sam z zatwierdzonych dokumentów.",
+   "Widok tygodnia pokazuje każdy dzień, a widok roku — realizację planu miesiąc po miesiącu.",
+   "Plan wpisujesz osobno dla każdego magazynu. Uwaga przy planie dnia pomaga zapamiętać, z którego lasu ma przyjść towar.",
+   "Realizacja liczy się wobec planu do dzisiaj, więc przyszłe dni nie zaniżają wyniku.",
+   "Widok kierowców pokazuje, kto jeździł w danym tygodniu i ile kursów zrobił każdego dnia. Planer pobierzesz jako ce-es-fau, Excel albo pe-de-ef."
+  ]
+ },
+ {
+  "no": 14,
+  "file": "14_raporty_floty",
+  "title": "Raporty floty i rębaków",
+  "screen": "Flota → Raporty floty i rębaków: okres dzień/tydzień/miesiąc, pojazdy, kursy i zapełnienie, kierowcy, rębaki, operatorzy, eksport.",
+  "text": [
+   "W zakładce Flota znajdziesz raporty floty i rębaków. Wybierasz okres: dzień, tydzień albo miesiąc.",
+   "Raport pojazdów pokazuje, które auto ile przewiozło: kursy, metry przestrzenne, tony, kilometry, koszt oraz średnie i maksymalne zapełnienie.",
+   "Lista kursów podaje zapełnienie każdego kursu w procentach. Raport kierowców pokazuje, kto ile zrobił kursów i ile przewiózł.",
+   "Raporty rębaków i operatorów mówią, ile który rębak i który operator zrąbał w danym dniu, tygodniu czy miesiącu. Każdy raport pobierzesz jako ce-es-fau, Excel albo pe-de-ef.",
+   "Zapełnienie liczy się jako metry przestrzenne w kursie podzielone przez pojemność pojazdu. Kurs zapełniony powyżej osiemdziesięciu pięciu procent jest oznaczony na zielono, a przeładowanie na czerwono.",
+   "Dzięki temu od razu widać, które auta jeżdżą niedociążone i gdzie warto lepiej planować kursy.",
+   "Raport zawsze dotyczy wybranego magazynu albo wszystkich magazynów, do których masz dostęp."
+  ]
+ },
+ {
+  "no": 15,
+  "file": "15_administracja",
+  "title": "Użytkownicy i administracja",
+  "screen": "Użytkownicy, role i uprawnienia, Administracja: numeracja, kopie zapasowe, dziennik audytu.",
+  "text": [
+   "Administrator zakłada konta i nadaje role: kierownik magazynu, magazynier albo audytor. Każdy widzi tylko swoje magazyny.",
+   "W rolach i uprawnieniach ustalasz, kto może wprowadzać, zatwierdzać i korygować dokumenty.",
+   "W Administracji są ustawienia numeracji, kopie zapasowe i dziennik audytu, w którym każda zmiana ma autora, datę i stan przed oraz po.",
+   "Nikt nie nada sobie roli sam, a ostatniego aktywnego administratora nie da się zablokować ani usunąć.",
+   "Konta zakłada się zaproszeniem e-mail albo przez rejestrację z ekranu logowania — wtedy administrator zatwierdza zgłoszenie i nadaje rolę oraz magazyn.",
+   "Można włączyć obieg zatwierdzania: operacje magazyniera czekają wtedy na akceptację kierownika magazynu."
+  ]
+ },
+ {
+  "no": 16,
+  "file": "16_zakonczenie",
+  "title": "Dobre praktyki i zakończenie",
+  "screen": "Plansze z zasadami; pulpit; logo.",
+  "text": [
+   "Na koniec kilka zasad. Wpisuj operację w dniu, w którym się wydarzyła. Zawsze wpisuj wagę z kwitu. Błędy poprawiaj korektą, a nie drugim dokumentem. Zamykaj miesiąc po inwentaryzacji i raz w tygodniu zrób kopię zapasową poza serwerem.",
+   "Każdy pracuje na własnym koncie — tylko wtedy historia i audyt mówią prawdę.",
+   "Jeśli masz pytanie, zajrzyj do dokumentacji w programie albo napisz do administratora systemu.",
+   "Res-Inwest e-er-pe. Biomasa pod kontrolą. Dziękuję za uwagę i powodzenia na magazynie."
+  ]
+ }
+]

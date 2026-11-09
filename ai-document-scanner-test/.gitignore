@@ -1,0 +1,16 @@
+# zależności
+node_modules/
+# wynik budowy
+dist/
+# IZOLOWANE dane testowe (wyniki skanów, zdjęcia) — nigdy w repozytorium
+data-test/
+# sekrety (klucz Anthropic itd.) — wzór: .env.example
+.env
+server.env
+config/server.env
+
+# prawdziwe zdjęcia dokumentów (podpisy, dane osobowe) i raporty pomiaru — poza repozytorium
+eval/real/*.jpg
+eval/real/*.jpeg
+eval/real/*.png
+eval/**/reports/

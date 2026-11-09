@@ -1,0 +1,27 @@
+{
+  "_opis": "Wzorzec: ręczny odczyt prawdziwego kwitu wywozowego (wydruk termiczny LP, zdjęcie telefonem, nieostre). Pola: nr kwitu (góra), data, nadleśnictwo, leśnictwo; transport: nr rej., ilość m3.",
+  "image": "kwit-wywozowy-zawadzkie-2026-03-27.jpg",
+  "docType": "KWIT_WYWOZOWY",
+  "fields": {
+    "docNumber": {
+      "value": "7/202636843/1019",
+      "note": "wiersz „nr …” pod tytułem; cyfry rozmyte, zgodne z pozycją planu 202636843"
+    },
+    "docDate": "27/03/2026",
+    "forestDistrict": {
+      "value": "PGL LP Nadleśnictwo Zawadzkie",
+      "alternatives": [
+        "Nadleśnictwo Zawadzkie",
+        "Zawadzkie"
+      ]
+    },
+    "forestRange": {
+      "value": "Kolonowskie (R2)",
+      "alternatives": [
+        "Kolonowskie"
+      ]
+    },
+    "vehicleReg": "WND 3546F",
+    "quantity": "17,50 m3"
+  }
+}

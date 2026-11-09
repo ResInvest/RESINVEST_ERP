@@ -1,0 +1,33 @@
+{
+  "_opis": "Konfiguracja programu ResInvest ERP Serwer. Ścieżki względne liczone od katalogu instalacji. dataDir — baza SQLite, kopie i logi (w instalacji Windows: C:\\ProgramData\\ResInvestERP). host 0.0.0.0 = dostęp z sieci lokalnej; 127.0.0.1 = tylko ten komputer. tls.cert/tls.key — pliki PEM dla HTTPS (zalecane poza siecią lokalną). todayOverride — tylko do testów (RRRR-MM-DD). mail.documentDomains — opcjonalna lista domen, na które wolno wysyłać dokumenty i raporty e-mailem (pusta = dowolny poprawny adres). initialAdmin — konto administratora tworzone automatycznie przy pierwszym uruchomieniu z pustą bazą (hasło startowe; zmiana wymagana przy pierwszym logowaniu). Pusta wartość email = ekran pierwszej konfiguracji w przeglądarce.",
+  "port": 8080,
+  "host": "0.0.0.0",
+  "dataDir": "data-server",
+  "session": {
+    "idleMinutes": 30,
+    "absoluteHours": 12
+  },
+  "security": {
+    "maxFailed": 5,
+    "lockMinutes": 15,
+    "ipAttemptsPer15Min": 40
+  },
+  "backup": {
+    "hour": 2,
+    "keepDays": 30,
+    "dir": ""
+  },
+  "tls": {
+    "cert": "",
+    "key": ""
+  },
+  "mail": {
+    "documentDomains": []
+  },
+  "todayOverride": "",
+  "initialAdmin": {
+    "email": "magazyn@resinvest.group",
+    "name": "Administrator",
+    "password": "Admin1234"
+  }
+}

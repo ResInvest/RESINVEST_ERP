@@ -1,0 +1,12 @@
+{
+  "file": "AI_Skaner_Dokumentow.html",
+  "version": "0.2.0",
+  "builtAt": "2026-10-04T05:17:22.003Z",
+  "sha256_12": "dfe2cb596e9f",
+  "bytes": 6723977,
+  "ocr": {
+    "tesseract.js": "7.0.0",
+    "tesseract.js-core": "7.0.0",
+    "@tesseract.js-data/pol": "1.0.0"
+  }
+}

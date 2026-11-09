@@ -1,0 +1,28 @@
+{
+  "_opis": "Konfiguracja programu ResInvest ERP 3.0 (przeliczniki i wartości domyślne). Wartości są wbudowywane do ResInvest_ERP.html przez tools/build.mjs (npm run build) i ładowane przez serwer. woodTPerM3 — orientacyjna masa 1 m³ drewna (817 m³ ≈ 778 t); mp_t — masa 1 MP zrębki; m3_mp — 1 m³ drewna = 4 MP zrębki; chipRateDefault — domyślna cena za rąbanie zł/MP; kmRateDefault — stawka zł/km; t_gj — orientacyjna energia 1 t biomasy (GJ). Zmiana dotyczy nowych danych. companyDomains — domeny adresów e-mail dozwolonych przy logowaniu, rejestracji i zakładaniu kont (pusta lista = dowolna domena). mmMode — przesunięcia MM: \"two\" (dwuetapowe: wysłanie → W drodze → przyjęcie przez magazyn docelowy) albo \"one\" (jednoetapowe); zmienia się też w Administracji. startup — pierwsze uruchomienie bez danych: konto administratora (adminEmail, adminPassword — hasło startowe, zmiana wymagana przy pierwszym logowaniu), allowSelfRegistration — rejestracja z ekranu logowania (konto zatwierdza administrator). sampleData — true: pierwsze uruchomienie z danymi przykładowymi (szkolenie, testy). startup.testAdmin — konto testowe administratora (tryb OFFLINE, okres testów): logowanie działa zawsze, niezależnie od danych zapisanych w przeglądarce; przed wdrożeniem usuń ten wpis i zbuduj program ponownie.",
+  "m3_mp": 4,
+  "mp_t": 0.33,
+  "currency": "zł",
+  "kmRateDefault": 5,
+  "wagonMPDefault": 120,
+  "maxWagons": 60,
+  "woodTPerM3": 0.952,
+  "t_gj": 8.5,
+  "chipRateDefault": 10,
+  "companyDomains": [
+    "resinvest.group"
+  ],
+  "mmMode": "two",
+  "startup": {
+    "adminEmail": "magazyn@resinvest.group",
+    "adminName": "Administrator",
+    "adminPassword": "Admin1234",
+    "allowSelfRegistration": true,
+    "testAdmin": {
+      "email": "test@resinvest.group",
+      "name": "Administrator testowy",
+      "password": "Test1234"
+    }
+  },
+  "sampleData": false
+}

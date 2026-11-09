@@ -1,0 +1,17 @@
+{
+  "_opis": "Wariant GMAIL: konta w domenach Google (@gmail.com, @googlemail.com). Poczta: Gmail SMTP (SSL 465) z hasłem aplikacji Google. Bez konta startowego — administratora tworzy się w przeglądarce przy pierwszym otwarciu (adres Gmail). Adres Gmail i hasło aplikacji wpisuje się na stronie „Poczta” kreatora instalacji albo w programie (Poczta → Konfiguracja poczty).",
+  "id": "gmail",
+  "output": "ResInvestERP_GoogleSerwer",
+  "suffix": "Gmail",
+  "name": "Gmail — konta @gmail.com",
+  "companyDomains": "gmail.com,googlemail.com",
+  "initialAdminEmail": "",
+  "mail": {
+    "EMAIL_TRANSPORT": "smtp",
+    "EMAIL_FROM": "",
+    "SMTP_HOST": "smtp.gmail.com",
+    "SMTP_PORT": "465",
+    "SMTP_SECURE": "ssl",
+    "SMTP_USER": ""
+  }
+}
