@@ -142,9 +142,10 @@
         }
         const o = op(); if (!o) return;
         const byId = id => R.Scans.live(o).find(s => s.id === id);
-        $$("[data-scan-open]", box).forEach(b => b.onclick = async () => { const s = byId(b.dataset.scanOpen), u = s && await this.url(o, s); if (u) root.open(u, "_blank", "noopener"); });
+        $$("[data-scan-open]", box).forEach(b => b.onclick = async () => { const s = byId(b.dataset.scanOpen), u = s && await this.url(o, s); if (!u) return; if (UI.Native && UI.Native.on) return UI.Native.saveUrl(u, s.name || s.file.split("/").pop(), true); root.open(u, "_blank", "noopener"); });
         $$("[data-scan-dl]", box).forEach(b => b.onclick = async () => {
           const s = byId(b.dataset.scanDl), u = s && await this.url(o, s); if (!u) return Toast.err(t("Nie znaleziono pliku skanu"));
+          if (UI.Native && UI.Native.on) return UI.Native.saveUrl(Store.mode === "server" ? u + "&download=1" : u, s.name || s.file.split("/").pop(), false);
           const a = document.createElement("a"); a.href = Store.mode === "server" ? u + "&download=1" : u; a.download = s.name || s.file.split("/").pop(); document.body.appendChild(a); a.click(); a.remove();
         });
         $$("[data-scan-del]", box).forEach(b => b.onclick = async () => {

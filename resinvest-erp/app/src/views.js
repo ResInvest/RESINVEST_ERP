@@ -7,7 +7,7 @@
 (function (root) {
   "use strict";
   const UI = root.RIWUI;
-  const { R, t, tp, N_, esc, $, $$, ic, download, csvNum, toCSV, Toast, Modal, Store, ServerBackend, App, Views, statusBadge, transportText, CANCEL_REASONS } = UI;
+  const { R, t, tp, N_, esc, $, $$, ic, download, Native, csvNum, toCSV, Toast, Modal, Store, ServerBackend, App, Views, statusBadge, transportText, CANCEL_REASONS } = UI;
   const { fmt, fmtQ, money, Units, Dates, Stock } = R;
   const PDF = root.RIW_PDF;
   const OFFICE = root.RIW_OFFICE;
@@ -101,6 +101,11 @@
       return Object.assign({}, model, { number: model.number || no, generatedAt: nowText(), generatedBy: `${u.name} (${App.roleLabel(u.role)})`, system: `ResInvest ERP ${R.VERSION}`, labels: PDF.labels() });
     },
     async print(model, kind) {
+      if (Native.on && typeof root.RIWNative.printHtml === "function") {           // aplikacja na telefon: systemowe drukowanie Androida
+        const no = await this.register(model, kind, "print");
+        try { root.RIWNative.printHtml(PDF.toHTML(this.finish(model, no)), String(model.title || "ResInvest ERP")); } catch (e) {}
+        return;
+      }
       const w = root.open("", "_blank");
       if (!w) { Toast.warn(t("Okno wydruku zablokowane"), t("Zezwól na wyskakujące okna dla tego pliku.")); return; }
       const no = await this.register(model, kind, "print");

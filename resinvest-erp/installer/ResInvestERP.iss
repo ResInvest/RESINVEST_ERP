@@ -263,6 +263,7 @@ Name: "{commonappdata}\ResInvestERP"; Components: server; Permissions: users-mod
 [Files]
 ; --- program (tryb lokalny; ten sam plik serwuje serwer) ---
 Source: "..\ResInvest_ERP.html"; DestDir: "{app}"; Components: app; Flags: ignoreversion
+Source: "Output\ResInvestERP_Android.apk"; DestDir: "{app}\aplikacja"; Components: server; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\README.md"; DestDir: "{app}"; Components: app; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Components: app; Flags: ignoreversion
 Source: "..\app\assets\icons\ric.ico"; DestDir: "{app}"; Flags: ignoreversion

@@ -767,6 +767,14 @@ async function handler(req, res) {
       return res.end(data);
     }
     if (url.pathname === "/favicon.ico") { res.writeHead(204); return res.end(); }
+    // 3.15: aplikacja na telefon (Android) do pobrania z serwera firmy — plik z instalatora ({app}\aplikacja) albo z budowy
+    if (req.method === "GET" && url.pathname === "/aplikacja/ResInvestERP_Android.apk") {
+      const apk = [join(ROOT, "aplikacja", "ResInvestERP_Android.apk"), join(ROOT, "installer", "Output", "ResInvestERP_Android.apk")].find(f => existsSync(f));
+      if (!apk) return send(req, res, 404, t("Aplikacja na telefon nie jest dołączona do tej instalacji."), "text/plain; charset=utf-8");
+      const st = statSync(apk);
+      res.writeHead(200, Object.assign({}, SEC_HEADERS, { "Content-Type": "application/vnd.android.package-archive", "Content-Length": st.size, "Content-Disposition": 'attachment; filename="ResInvestERP_Android.apk"', "Cache-Control": "no-cache" }));
+      return createReadStream(apk).pipe(res);
+    }
     send(req, res, 404, "Not found", "text/plain; charset=utf-8");
   } catch (e) {
     log("ERROR", `${req.method} ${url.pathname}: ${e.stack || e.message}`);

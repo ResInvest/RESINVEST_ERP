@@ -1,0 +1,39 @@
+/* ResInvest ERP — aplikacja Android. Wersja z package.json programu (przekazywana przez tools/build-android.mjs).
+   Podpis: plik i hasła z zmiennych RIW_KEYSTORE / RIW_KEYSTORE_PASS / RIW_KEY_ALIAS / RIW_KEY_PASS (bez haseł w repozytorium). */
+plugins { id "com.android.application" }
+
+def ver = project.findProperty("riwVersion") ?: "3.15.0"
+def parts = ver.tokenize(".").collect { it.toInteger() }
+def code = parts[0] * 10000 + parts[1] * 100 + parts[2]
+
+android {
+    namespace "group.resinvest.erp"
+    compileSdk 35
+    defaultConfig {
+        applicationId "group.resinvest.erp"
+        minSdk 26
+        targetSdk 35
+        versionCode code
+        versionName ver
+    }
+    signingConfigs {
+        release {
+            if (System.getenv("RIW_KEYSTORE")) {
+                storeFile file(System.getenv("RIW_KEYSTORE"))
+                storePassword System.getenv("RIW_KEYSTORE_PASS")
+                keyAlias System.getenv("RIW_KEY_ALIAS") ?: "resinvest"
+                keyPassword System.getenv("RIW_KEY_PASS") ?: System.getenv("RIW_KEYSTORE_PASS")
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (System.getenv("RIW_KEYSTORE")) signingConfig signingConfigs.release
+        }
+    }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    packaging { resources { excludes += ["META-INF/**"] } }
+    aaptOptions { noCompress "html" }
+}

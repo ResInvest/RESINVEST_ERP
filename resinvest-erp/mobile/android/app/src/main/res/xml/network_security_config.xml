@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Serwer ResInvest ERP w sieci firmy działa zwykle przez HTTP (adres lokalny, np. http://192.168.1.10:8080).
+     Poza siecią firmy zalecany jest HTTPS (tls.cert / tls.key w konfiguracji serwera). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors><certificates src="system" /></trust-anchors>
+    </base-config>
+</network-security-config>

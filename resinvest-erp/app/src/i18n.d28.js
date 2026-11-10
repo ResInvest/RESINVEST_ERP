@@ -63,5 +63,8 @@
   "Środa": ["Středa", "Wednesday"],
   "Czwartek": ["Čtvrtek", "Thursday"],
   "Piątek": ["Pátek", "Friday"],
-  "Sobota": ["Sobota", "Saturday"]
+  "Sobota": ["Sobota", "Saturday"],
+  "Aplikacja — adres serwera": ["Aplikace — adresa serveru", "App — server address"],
+  "Aplikacja na telefon (Android)": ["Aplikace pro telefon (Android)", "Phone app (Android)"],
+  "Aplikacja na telefon nie jest dołączona do tej instalacji.": ["Aplikace pro telefon není součástí této instalace.", "The phone app is not included in this installation."]
 }); })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -5253,7 +5253,10 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
   "Środa": ["Středa", "Wednesday"],
   "Czwartek": ["Čtvrtek", "Thursday"],
   "Piątek": ["Pátek", "Friday"],
-  "Sobota": ["Sobota", "Saturday"]
+  "Sobota": ["Sobota", "Saturday"],
+  "Aplikacja — adres serwera": ["Aplikace — adresa serveru", "App — server address"],
+  "Aplikacja na telefon (Android)": ["Aplikace pro telefon (Android)", "Phone app (Android)"],
+  "Aplikacja na telefon nie jest dołączona do tej instalacji.": ["Aplikace pro telefon není součástí této instalace.", "The phone app is not included in this installation."]
 }); })(typeof globalThis !== "undefined" ? globalThis : this);
 
 </script>
@@ -11048,8 +11051,25 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
   };
   const ic = (n, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${IC[n] || ""}"/></svg>`;
 
+  /** 3.15: aplikacja na telefon (Android) — most do systemu: zapis plików w „Pobrane”, drukowanie, adres serwera.
+      W przeglądarce `root.RIWNative` nie istnieje i wszystkie funkcje działają jak dotąd. */
+  const Native = {
+    get on() { return !!(root.RIWNative && typeof root.RIWNative.saveFile === "function"); },
+    /** Zapis pliku (Blob) w folderze „Pobrane” telefonu; open = od razu otwórz w aplikacji systemowej. */
+    saveBlob(name, blob, open) {
+      const fr = new FileReader();
+      fr.onload = () => { const s = String(fr.result || ""); try { root.RIWNative.saveFile(String(name), blob.type || "application/octet-stream", s.slice(s.indexOf(",") + 1), !!open); } catch (e) {} };
+      fr.readAsDataURL(blob);
+    },
+    /** Plik spod adresu (blob: albo adres serwera — z ciasteczkiem sesji) → „Pobrane”. */
+    async saveUrl(url, name, open) {
+      if (/^blob:/.test(url)) { const b = await (await fetch(url)).blob(); return this.saveBlob(name, b, open); }
+      try { root.RIWNative.download(new URL(url, location.href).href, String(name || ""), !!open); } catch (e) {}
+    }
+  };
   function download(name, data, mime) {
     const blob = data instanceof Blob ? data : new Blob([data], { type: mime || "text/plain;charset=utf-8" });
+    if (Native.on) return Native.saveBlob(name, blob, false);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click();
@@ -11884,12 +11904,14 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
         <button class="dd-item" type="button" data-pw><span class="ic">${ic("key", 16)}</span>${esc(t("Zmiana hasła"))}</button>
         ${this.myWarehouses().length > 1 ? `<button class="dd-item" type="button" data-whsw><span class="ic">${ic("building", 16)}</span>${esc(t("Magazyn"))}: ${esc(this.whName(u.whId))}</button>` : ""}
         ${this.can("users.read") ? `<a class="dd-item" href="#/uzytkownicy" data-go><span class="ic">${ic("users", 16)}</span>${esc(t("Użytkownicy"))}</a>` : ""}
+        ${Native.on ? `<button class="dd-item" type="button" data-appsrv><span class="ic">${ic("settings", 16)}</span>${esc(t("Aplikacja — adres serwera"))}</button>` : ""}
         <div class="dd-sep"></div>
         <button class="dd-item danger" type="button" data-logout id="logout-btn"><span class="ic">${ic("logout", 16)}</span>${esc(t("Wyloguj"))}</button>`, el => {
         $$("[data-go]", el).forEach(a => a.onclick = () => Dropdown.close());
         $("[data-pw]", el).onclick = () => { Dropdown.close(); Auth.changePasswordDialog(); };
         const sw = $("[data-whsw]", el); if (sw) sw.onclick = () => { Dropdown.close(); this.whMenu($("#wh-chip")); };
         $("[data-logout]", el).onclick = () => this.logout();
+        const as = $("[data-appsrv]", el); if (as) as.onclick = () => { Dropdown.close(); try { root.RIWNative.settings(); } catch (e) {} };
       });
     },
     /** Przełączenie magazynu roboczego — tylko magazyny przydzielone (role globalne: wszystkie). */
@@ -12162,6 +12184,8 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
       const prem = this.premium();
       const tabsP = !this.selfRegistration() ? "" : `<div class="prem-tabs" role="tablist"><button type="button" role="tab" data-auth-tab="login" aria-pressed="${!reg}">${esc(t("Zaloguj się"))}</button><button type="button" role="tab" data-auth-tab="register" aria-pressed="${reg}">${esc(t("Rejestracja"))}</button></div>`;
       const remembered = lsGet("riw.lastLogin", "");
+      // 3.15: telefon z Androidem w przeglądarce (tryb serwera) — aplikacja do pobrania z serwera firmy
+      const appLink = !local && !Native.on && /Android/i.test((root.navigator && navigator.userAgent) || "") ? `<a class="btn ghost block mt2" href="/aplikacja/ResInvestERP_Android.apk" id="lg-android" download>${ic("dl", 15)} ${esc(t("Aplikacja na telefon (Android)"))}</a>` : "";
       const loginFormP = `<form id="login-form" novalidate autocomplete="on">
               <div class="field"><label for="lg-login">${esc(t("E-mail"))}</label><input class="ctrl" id="lg-login" type="email" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="${esc(t("uzytkownik@resinvest.group"))}" value="${esc(opts.login || remembered)}"></div>
               ${pwField("lg-pass", t("Hasło"), "current-password")}
@@ -12172,6 +12196,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
               <div class="auth-err hidden" id="lg-err" role="alert"></div>
               <button class="btn primary lg block" type="submit" id="lg-submit">${esc(t("Zaloguj się do systemu"))}</button>
               ${this.selfRegistration() ? `<button type="button" class="prem-reg" id="lg-register">${esc(t("Zarejestruj nowe konto"))}</button>` : ""}
+              ${appLink}
             </form>`;
       const loginForm = prem ? loginFormP : `<form id="login-form" novalidate autocomplete="on">
               <div class="field"><label for="lg-login">${esc(t("E-mail służbowy"))}</label><input class="ctrl" id="lg-login" type="email" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="${esc(t("imie.nazwisko@resinvest.group"))}" value="${esc(opts.login || lsGet("riw.lastLogin", ""))}"></div>
@@ -12181,6 +12206,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
               <button class="btn primary lg block" type="submit" id="lg-submit">${ic("lock", 16)} ${esc(t("Zaloguj się"))}</button>
               ${local ? `<p class="help mt2">${esc(t("Nie pamiętasz hasła? W trybie OFFLINE nowe hasło tymczasowe nadaje administrator ({e}).", { e: R.Seed ? R.Seed.ADMIN_EMAIL : "" }))}</p>`
                 : `<a class="btn ghost block mt2" href="#/forgot-password" id="lg-forgot">${esc(t("Nie pamiętam hasła"))}</a>`}
+              ${appLink}
             </form>`;
       const regForm = `<form id="reg-form" novalidate autocomplete="on">
               <p class="help">${esc(t("Rejestracja wyłącznie adresem firmowym ({d}). Konto aktywuje administrator — nadaje rolę i magazyn.", { d: domains }))}</p>
@@ -12362,7 +12388,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
   const Views = {};
   const statusBadge = st => `<span class="badge st-${esc(st)}" data-status="${esc(st)}">${esc(t(R.STATUS[st] || st))}</span>`;
 
-  root.RIWUI = { R, I18N, t, tp, N_, esc, $, $$, ic, fid, str, lsGet, lsSet, ssGet, ssSet, initials, download, csvNum, toCSV, Toast, Modal, Dropdown, Store, LocalBackend, ServerBackend, App, Auth, Prefs, THEME_LIST, Clr, customThemeVars, gradientThemeVars, uiZoomFor, uiZoom, Views, statusBadge, KEY, DRAFT_KEY, NAV, pwField, bindEyes, pwMeter, bindMeter };
+  root.RIWUI = { R, I18N, t, tp, N_, esc, $, $$, ic, fid, str, lsGet, lsSet, ssGet, ssSet, initials, download, Native, csvNum, toCSV, Toast, Modal, Dropdown, Store, LocalBackend, ServerBackend, App, Auth, Prefs, THEME_LIST, Clr, customThemeVars, gradientThemeVars, uiZoomFor, uiZoom, Views, statusBadge, KEY, DRAFT_KEY, NAV, pwField, bindEyes, pwMeter, bindMeter };
   root.App = App;
   root.Dropdown = Dropdown;
 })(typeof globalThis !== "undefined" ? globalThis : this);
@@ -14422,7 +14448,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
 (function (root) {
   "use strict";
   const UI = root.RIWUI;
-  const { R, t, tp, N_, esc, $, $$, ic, download, csvNum, toCSV, Toast, Modal, Store, ServerBackend, App, Views, statusBadge, transportText, CANCEL_REASONS } = UI;
+  const { R, t, tp, N_, esc, $, $$, ic, download, Native, csvNum, toCSV, Toast, Modal, Store, ServerBackend, App, Views, statusBadge, transportText, CANCEL_REASONS } = UI;
   const { fmt, fmtQ, money, Units, Dates, Stock } = R;
   const PDF = root.RIW_PDF;
   const OFFICE = root.RIW_OFFICE;
@@ -14516,6 +14542,11 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
       return Object.assign({}, model, { number: model.number || no, generatedAt: nowText(), generatedBy: `${u.name} (${App.roleLabel(u.role)})`, system: `ResInvest ERP ${R.VERSION}`, labels: PDF.labels() });
     },
     async print(model, kind) {
+      if (Native.on && typeof root.RIWNative.printHtml === "function") {           // aplikacja na telefon: systemowe drukowanie Androida
+        const no = await this.register(model, kind, "print");
+        try { root.RIWNative.printHtml(PDF.toHTML(this.finish(model, no)), String(model.title || "ResInvest ERP")); } catch (e) {}
+        return;
+      }
       const w = root.open("", "_blank");
       if (!w) { Toast.warn(t("Okno wydruku zablokowane"), t("Zezwól na wyskakujące okna dla tego pliku.")); return; }
       const no = await this.register(model, kind, "print");
@@ -17209,9 +17240,10 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
         }
         const o = op(); if (!o) return;
         const byId = id => R.Scans.live(o).find(s => s.id === id);
-        $$("[data-scan-open]", box).forEach(b => b.onclick = async () => { const s = byId(b.dataset.scanOpen), u = s && await this.url(o, s); if (u) root.open(u, "_blank", "noopener"); });
+        $$("[data-scan-open]", box).forEach(b => b.onclick = async () => { const s = byId(b.dataset.scanOpen), u = s && await this.url(o, s); if (!u) return; if (UI.Native && UI.Native.on) return UI.Native.saveUrl(u, s.name || s.file.split("/").pop(), true); root.open(u, "_blank", "noopener"); });
         $$("[data-scan-dl]", box).forEach(b => b.onclick = async () => {
           const s = byId(b.dataset.scanDl), u = s && await this.url(o, s); if (!u) return Toast.err(t("Nie znaleziono pliku skanu"));
+          if (UI.Native && UI.Native.on) return UI.Native.saveUrl(Store.mode === "server" ? u + "&download=1" : u, s.name || s.file.split("/").pop(), false);
           const a = document.createElement("a"); a.href = Store.mode === "server" ? u + "&download=1" : u; a.download = s.name || s.file.split("/").pop(); document.body.appendChild(a); a.click(); a.remove();
         });
         $$("[data-scan-del]", box).forEach(b => b.onclick = async () => {

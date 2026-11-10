@@ -85,6 +85,23 @@ serwerowi do wysyłki e-maili (Resend); bez poczty zaproszenia zapisują się ja
   (WZ i PDF, skany, motywy, MM, korekty, raporty, stany początkowe). Dane zapisuje w osobnej przestrzeni przeglądarki —
   nie miesza się z danymi trybu lokalnego. Wariant Gmail (`ResInvestERP_GoogleSerwer.exe`) pozostaje bez zmian.
 
+**Operacje wg okresu** — rejestr operacji jak „Kwit produkcji dnia”: **Dzień / Tydzień / Miesiąc / Rok / Cały okres**,
+przewijanie ← → i „Dziś”; w tygodniu i miesiącu nagłówki dni, w roku i całym okresie nagłówki miesięcy (liczba operacji
+i wartość). Domyślnie bieżący miesiąc — ekran otwiera się szybko także przy kilkuletniej historii.
+
+**Aplikacja na telefon (Android)** — `ResInvestERP_Android.apk` (`npm run build:android`, kod: `mobile/android/`)
+- ten sam program co na komputerze; tryby: **Serwer firmy** (adres sprawdzany przed zapisem), **Bez serwera** (dane w telefonie),
+  **Wersja demonstracyjna**; zmiana: menu użytkownika → „Aplikacja — adres serwera”,
+- skany z aparatu i z plików, kody QR aparatem, PDF / CSV / XLSX / kopie zapisywane w „Pobrane/ResInvest ERP”,
+  drukowanie systemowe Androida (drukarka albo „Zapisz jako PDF”),
+- instalacja: plik APK z serwera firmy — `http://<serwer>:8080/aplikacja/ResInvestERP_Android.apk` (na ekranie logowania
+  w przeglądarce telefonu z Androidem: „Aplikacja na telefon (Android)”) — w telefonie zezwól na instalację z tego źródła,
+- Android 8.0 lub nowszy; iPhone: Safari → Udostępnij → „Do ekranu początkowego” (ikona RiC, pełny ekran),
+- aktualizacje APK muszą być podpisane tym samym kluczem (`mobile/android/keystore/` — przechowywać w kopii firmy).
+
+**Zmiany graficzne** — przewodnik [docs/GRAFIKA.md](docs/GRAFIKA.md): gdzie są kolory, motywy, ekrany i ikony;
+`npm run dev` buduje program po każdym zapisie pliku (podgląd w przeglądarce — F5).
+
 **Wydajność** (wyniki identyczne jak dotąd — sprawdzone porównaniem bajt w bajt na bazach 3 i 15 tys. operacji)
 - zapis operacji przy dużej bazie ok. 4 razy szybszy (15 tys. operacji: 34 → 8 ms), raporty z filtrem produktu
   i raporty roczne do kilkudziesięciu razy szybsze, jedno odświeżenie ekranu przy serii zmian innych użytkowników.

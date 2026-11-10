@@ -18,6 +18,8 @@ if ($LASTEXITCODE -ne 0) { throw "Budowanie nieudane" }
 node tools/export-sample-data.mjs
 node tools/i18n-extract.mjs
 if ($LASTEXITCODE -ne 0) { throw "Niekompletne tłumaczenia (tools/i18n-extract.mjs)" }
+# 3.15: aplikacja na telefon (Android) — gdy jest Android SDK (ANDROID_HOME); inaczej instalator bez APK
+if ($env:ANDROID_HOME) { node tools/build-android.mjs --skip-html; if ($LASTEXITCODE -ne 0) { throw "Budowa aplikacji Android nie powiodła się" } } else { Write-Host "(brak Android SDK — instalator bez aplikacji na telefon)" }
 
 if (-not $SkipTests) {
   Write-Host "== 2/4 Testy jednostkowe i integracyjne"

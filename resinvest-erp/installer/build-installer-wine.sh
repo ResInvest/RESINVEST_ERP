@@ -24,6 +24,8 @@ npm ci --omit=dev --silent
 node tools/build.mjs
 node tools/export-sample-data.mjs
 node tools/i18n-extract.mjs
+# 3.15: aplikacja na telefon (Android) — dołączana do instalatora, gdy jest Android SDK (inaczej instalator bez APK)
+if [ -n "${ANDROID_HOME:-}" ] || [ -d /opt/android-sdk/platforms ]; then node tools/build-android.mjs --skip-html; else echo "(brak Android SDK — instalator bez aplikacji na telefon)"; fi
 
 if [ "${1:-}" != "--skip-tests" ]; then
   echo "== 2/4 Testy jednostkowe i integracyjne"
