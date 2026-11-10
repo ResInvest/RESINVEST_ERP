@@ -221,7 +221,7 @@ export class Store {
   }
   load() {
     const row = this.db.prepare("SELECT rev, json, sha256 FROM state WHERE id = 1").get();
-    this.idx = {}; this.ord = {}; this.deltas = []; this.deltaBase = 0; this.stateSha = "";
+    this.idx = {}; this.ord = {}; this.deltas = []; this.deltaBase = 0; this.stateSha = ""; this.ordStrict = {};
     for (const k of ROWS) { this.idx[k] = new Map(); this.ord[k] = new Map(); }
     if (!row) { this.state = null; this.coreJson = null; return; }
     if (sha256(row.json) !== row.sha256) { this.integrity.ok = false; this.integrity.notes.push("state checksum mismatch"); this.log("ERROR", "Suma kontrolna stanu nie zgadza się — sprawdź bazę / przywróć kopię."); }
@@ -251,6 +251,9 @@ export class Store {
     this.state = m.state;
     for (const k of ROWS) { this.state[k] = this.state[k] || []; for (const el of this.state[k]) { this.idx[k].set(el.id, el); deepFreeze(el); } }
     this.coreJson = coreJsonOf(this.state); this.deltaBase = this.state.rev;
+    // kolejność `ord` ściśle rosnąca wzdłuż tablicy (warunek szybkiej ścieżki zapisu); saveState utrzymuje ją dalej
+    this.ordStrict = {};
+    for (const k of ROWS) { let last = -Infinity, ok = true; for (const el of this.state[k]) { const o = this.ord[k].get(el.id); if (!(o > last)) { ok = false; break; } last = o; } this.ordStrict[k] = ok; }
   }
   /** Łańcuch skrótów dziennika — każdy wpis zawiera skrót poprzedniego. */
   verifyJournal() {
@@ -277,6 +280,38 @@ export class Store {
       const arr = Array.isArray(next[k]) ? next[k] : (next[k] = []);
       if (!full && prev[k] === arr) continue;
       const old = this.idx[k], ordOld = this.ord[k];
+      // szybka ścieżka: poprzednia tablica bez zmian pozycji (te same rekordy albo podmienione rekordy o tym samym id)
+      // + rekordy dopisane na końcu — wynik identyczny jak pętla pełna, koszt O(liczba zmian) zamiast O(historia) Map/Set
+      const pa = full ? null : prev[k];
+      if (!full && this.ordStrict && this.ordStrict[k] && Array.isArray(pa) && arr.length >= pa.length && old.size === pa.length) {
+        const up = []; let ok = true;
+        for (let i = 0; i < pa.length; i++) { const el = arr[i]; if (el === pa[i]) continue; if (!el || el.id == null || el.id !== pa[i].id) { ok = false; break; } up.push(i); }
+        if (ok) {
+          const ords = new Array(arr.length); let last = -Infinity;
+          for (const i of up) ords[i] = ordOld.get(arr[i].id);
+          if (pa.length) last = ordOld.get(pa[pa.length - 1].id);
+          const fresh = new Set();
+          for (let i = pa.length; i < arr.length; i++) {
+            const el = arr[i];
+            if (!el || el.id == null) throw new Error(`Rekord bez identyfikatora w kolekcji ${k}`);
+            if (old.has(el.id) || fresh.has(el.id)) throw new Error(`Powtórzony identyfikator ${el.id} w kolekcji ${k}`);
+            fresh.add(el.id); up.push(i);
+          }
+          let renumber = false;
+          for (let i = pa.length; i < arr.length; i++) {
+            const v = last === -Infinity ? 0 : Math.floor(last) + 1;
+            if (!(v > last)) { renumber = true; break; }
+            ords[i] = v; last = v;
+          }
+          if (!renumber) {
+            const upRows = up.map(i => { const json = JSON.stringify(arr[i]); return { i, id: String(arr[i].id), json, sha: sha256(json) }; });
+            for (const r of upRows) digest.push(r.sha);
+            plan.push({ k, arr, upRows, del: [], ords, renumber: false, from: pa.length });
+            delta.up[k] = upRows.map(r => r.id); delta.del[k] = [];
+            continue;
+          }
+        }
+      }
       const seen = new Set(), up = [];
       for (let i = 0; i < arr.length; i++) {
         const el = arr[i];
@@ -361,8 +396,9 @@ export class Store {
       if (full || p.renumber) ord.clear();
       for (const id of p.del) { idx.delete(id); ord.delete(id); }
       for (const r of p.upRows) { const el = p.arr[r.i]; idx.set(el.id, el); deepFreeze(el); }
-      for (let i = 0; i < p.arr.length; i++) ord.set(String(p.arr[i].id), p.ords[i]);
+      for (let i = p.from || 0; i < p.arr.length; i++) ord.set(String(p.arr[i].id), p.ords[i]);
       this.idx[p.k] = idx;
+      if (this.ordStrict) this.ordStrict[p.k] = true;
     }
     this.journalHead = this.pendingHead; this.journalCount = (this.journalCount || 0) + 1;
     this.state = next; this.coreJson = coreJson; this.stateSha = sh;

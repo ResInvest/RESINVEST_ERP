@@ -814,9 +814,17 @@
         } catch (x) {}
       }
     },
+    /** Zmiana danych z zewnątrz (inny użytkownik / karta). 3.15: kilka zmian w jednej klatce = jedno odświeżenie ekranu
+        (wcześniej każda rewizja SSE przebudowywała cały widok osobno). */
     onExternalChange() {
-      if (!Store.userId) return;
-      if ((this.route === "nowa" || this.route === "korekta") && $("#opf") && root.RIWForm) root.RIWForm.refresh(); else this.render({ keepForm: true });
+      if (this._extPending) return;
+      this._extPending = true;
+      const run = () => {
+        this._extPending = false;
+        if (!Store.userId) return;
+        if ((this.route === "nowa" || this.route === "korekta") && $("#opf") && root.RIWForm) root.RIWForm.refresh(); else this.render({ keepForm: true });
+      };
+      if (root.requestAnimationFrame && !document.hidden) root.requestAnimationFrame(run); else setTimeout(run, 0);
     },
 
     /* ---------- powłoka ---------- */

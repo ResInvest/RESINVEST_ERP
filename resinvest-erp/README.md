@@ -85,6 +85,11 @@ serwerowi do wysyłki e-maili (Resend); bez poczty zaproszenia zapisują się ja
   (WZ i PDF, skany, motywy, MM, korekty, raporty, stany początkowe). Dane zapisuje w osobnej przestrzeni przeglądarki —
   nie miesza się z danymi trybu lokalnego. Wariant Gmail (`ResInvestERP_GoogleSerwer.exe`) pozostaje bez zmian.
 
+**Wydajność** (wyniki identyczne jak dotąd — sprawdzone porównaniem bajt w bajt na bazach 3 i 15 tys. operacji)
+- zapis operacji przy dużej bazie ok. 4 razy szybszy (15 tys. operacji: 34 → 8 ms), raporty z filtrem produktu
+  i raporty roczne do kilkudziesięciu razy szybsze, jedno odświeżenie ekranu przy serii zmian innych użytkowników.
+  Szczegóły i dalsze propozycje: [docs/WYDAJNOSC.md](docs/WYDAJNOSC.md).
+
 **Architektura** — opis warstw i struktury folderów: [docs/ARCHITEKTURA.md](docs/ARCHITEKTURA.md).
 
 ## Nowe w 3.14.0
