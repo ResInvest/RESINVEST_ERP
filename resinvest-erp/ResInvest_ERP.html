@@ -1498,6 +1498,14 @@ button.wh-chip.switchable:hover{border-color:var(--brand);box-shadow:0 0 0 3px v
 .scan-pending li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 @media (max-width:640px){.scan-list{grid-template-columns:minmax(0,1fr)}.scan-add .field{min-width:0;width:100%}}
 
+/* 3.15: wersja demonstracyjna — pasek informacyjny nad treścią strony */
+.demo-ribbon{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin:var(--s3) var(--s5) 0;padding:var(--s2) var(--s4);
+  border:1px solid var(--brand-line);background:var(--brand-soft);color:var(--text);border-radius:var(--r-md);font-size:var(--t-sm)}
+.demo-ribbon b{color:var(--brand);text-transform:uppercase;letter-spacing:.04em}
+.demo-ribbon span{flex:1 1 240px;min-width:0}
+.demo-list{margin:var(--s3) 0 0;padding-left:var(--s6);display:grid;gap:var(--s2)}
+@media (max-width:640px){.demo-ribbon{margin:var(--s2) var(--s3) 0}}
+
 </style>
 </head>
 <body>
@@ -5164,6 +5172,66 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
   "Skany dodaje się przez wysłanie pliku": ["Skeny se přidávají odesláním souboru", "Scans are added by uploading a file"],
   /* ---- Serwer: baza PostgreSQL ---- */
   "Połączenie z bazą danych zostało przerwane w chwili zapisu. Odśwież program i sprawdź, czy operacja została zapisana, zanim wprowadzisz ją ponownie.": ["Připojení k databázi bylo přerušeno v okamžiku ukládání. Obnovte program a zkontrolujte, zda byla operace uložena, než ji zadáte znovu.", "The database connection was lost at the moment of saving. Refresh the program and check whether the operation was saved before entering it again."]
+}); })(typeof globalThis !== "undefined" ? globalThis : this);
+
+</script>
+<script>
+/* i18n.d28.js */
+/* Słownik CS/EN — część 28 (3.15: stany początkowe magazynów — edytor administratora; wersja demonstracyjna) */
+(function (root) { "use strict"; (root.RIW_I18N || require("./i18n.js")).addPairs({
+  "Stany początkowe": ["Počáteční stavy", "Opening stock"],
+  "Stany początkowe magazynów": ["Počáteční stavy skladů", "Opening stock of warehouses"],
+  "Po przeniesieniu danych wpisz stany magazynów RiC Zabrze, RiC Brąszewice i RiC Rokitki w edytorze stanów początkowych.": ["Po převodu dat zadejte stavy skladů RiC Zabrze, RiC Brąszewice a RiC Rokitki v editoru počátečních stavů.", "After moving the data, enter the stock of RiC Zabrze, RiC Brąszewice and RiC Rokitki in the opening stock editor."],
+  "Nowy stan początkowy: {p}": ["Nový počáteční stav: {p}", "New opening stock: {p}"],
+  "Stan każdego produktu w magazynie na dzień rozpoczęcia pracy w programie — wpisywany przy przenoszeniu danych. Zapis tworzy dokument „Bilans otwarcia” z różnicami; wcześniejsze dokumenty zostają w historii.": ["Stav každého produktu ve skladu ke dni zahájení práce v programu — zadává se při převodu dat. Uložení vytvoří doklad „Počáteční stav“ s rozdíly; dřívější doklady zůstávají v historii.", "Stock of each product in the warehouse on the day work starts in the program — entered when moving the data. Saving creates an “Opening balance” document with the differences; earlier documents stay in the history."],
+  "Data stanu początkowego": ["Datum počátečního stavu", "Opening stock date"],
+  "Ten magazyn nie ma jeszcze stanu ani operacji — wpisz stany z ostatniej inwentaryzacji albo z dotychczasowego systemu.": ["Tento sklad zatím nemá stav ani operace — zadejte stavy z poslední inventury nebo z dosavadního systému.", "This warehouse has no stock or operations yet — enter the stock from the last stocktaking or from the previous system."],
+  "Okres zamknięty do {ym} — data stanu początkowego musi być późniejsza.": ["Období uzavřeno do {ym} — datum počátečního stavu musí být pozdější.", "Period closed up to {ym} — the opening stock date must be later."],
+  "Podgląd — stany początkowe wpisuje administrator.": ["Náhled — počáteční stavy zadává administrátor.", "Preview — opening stock is entered by the administrator."],
+  "Brak magazynu": ["Žádný sklad", "No warehouse"],
+  "ilości w jednostce magazynowej produktu": ["množství ve skladové jednotce produktu", "quantities in the product's stock unit"],
+  "Stan początkowy (BO)": ["Počáteční stav (PS)", "Opening stock (OB)"],
+  "Nowy stan początkowy": ["Nový počáteční stav", "New opening stock"],
+  "Brak produktów — dodaj je w kartotece Produkty.": ["Žádné produkty — přidejte je v kartotéce Produkty.", "No products — add them in the Products register."],
+  "Zapisz stany początkowe": ["Uložit počáteční stavy", "Save opening stock"],
+  "Wyczyść wpisane wartości": ["Vymazat zadané hodnoty", "Clear entered values"],
+  "Puste pole = bez zmiany. Wartość 0 usuwa stan początkowy produktu (dokumentem z różnicą).": ["Prázdné pole = beze změny. Hodnota 0 odstraní počáteční stav produktu (dokladem s rozdílem).", "Empty field = no change. Value 0 removes the product's opening stock (with a difference document)."],
+  "Dokumenty bilansu otwarcia": ["Doklady počátečního stavu", "Opening balance documents"],
+  "Pozycje": ["Položky", "Lines"],
+  "Brak dokumentów bilansu otwarcia w tym magazynie.": ["V tomto skladu nejsou doklady počátečního stavu.", "No opening balance documents in this warehouse."],
+  "Brak zmian do zapisania": ["Žádné změny k uložení", "No changes to save"],
+  "Wpisz nowy stan początkowy przy wybranych produktach.": ["Zadejte nový počáteční stav u vybraných produktů.", "Enter the new opening stock for the selected products."],
+  "Zapisać stany początkowe?": ["Uložit počáteční stavy?", "Save opening stock?"],
+  "Magazyn {w}, data {d}: zmiana stanu początkowego {n} produktów. Powstanie dokument „Bilans otwarcia” z różnicami.": ["Sklad {w}, datum {d}: změna počátečního stavu {n} produktů. Vznikne doklad „Počáteční stav“ s rozdíly.", "Warehouse {w}, date {d}: opening stock change of {n} products. An “Opening balance” document with the differences will be created."],
+  "Zapisano stany początkowe": ["Počáteční stavy uloženy", "Opening stock saved"],
+  "{w}: dokument {no}, zmienione pozycje: {n}": ["{w}: doklad {no}, změněné položky: {n}", "{w}: document {no}, changed lines: {n}"],
+  "Edytor stanów początkowych": ["Editor počátečních stavů", "Opening stock editor"],
+  "Stany początkowe wpisuje administrator (uprawnienie „Magazyny — dodawanie i edycja”)": ["Počáteční stavy zadává administrátor (oprávnění „Sklady — přidávání a úpravy“)", "Opening stock is entered by the administrator (permission “Warehouses — add and edit”)"],
+  "Podaj datę stanu początkowego": ["Zadejte datum počátečního stavu", "Enter the opening stock date"],
+  "Data stanu początkowego nie może być w przyszłości": ["Datum počátečního stavu nemůže být v budoucnosti", "The opening stock date cannot be in the future"],
+  "Okres {ym} jest zamknięty — stan początkowy wpisz z datą po zamknięciu albo popraw inwentaryzacją": ["Období {ym} je uzavřeno — počáteční stav zadejte s datem po uzávěrce nebo opravte inventurou", "Period {ym} is closed — enter the opening stock with a date after the closing or correct it with stocktaking"],
+  "Za dużo pozycji": ["Příliš mnoho položek", "Too many lines"],
+  "Produkt powtórzony na liście": ["Produkt se v seznamu opakuje", "Product repeated in the list"],
+  "Stan początkowy nie może być ujemny": ["Počáteční stav nemůže být záporný", "Opening stock cannot be negative"],
+  "Za duża ilość": ["Příliš velké množství", "Quantity too large"],
+  "Stan bieżący byłby ujemny — część stanu początkowego została już wydana. Popraw inwentaryzacją.": ["Aktuální stav by byl záporný — část počátečního stavu už byla vydána. Opravte inventurou.", "Current stock would be negative — part of the opening stock has already been issued. Correct it with stocktaking."],
+  "Produkt jest nieaktywny": ["Produkt je neaktivní", "Product is inactive"],
+  "Popraw zaznaczone pozycje": ["Opravte označené položky", "Correct the marked lines"],
+  "Wersja demonstracyjna": ["Demonstrační verze", "Demo version"],
+  "Dane przykładowe — zapisywane tylko w tej przeglądarce. Konta: hasło demo1234.": ["Ukázková data — ukládají se jen v tomto prohlížeči. Účty: heslo demo1234.", "Sample data — stored only in this browser. Accounts: password demo1234."],
+  "Co sprawdzić": ["Co vyzkoušet", "What to try"],
+  "Sprzedaż z magazynu — dokument WZ, wydruk i PDF (Dokumenty)": ["Prodej ze skladu — doklad WZ, tisk a PDF (Doklady)", "Sale from the warehouse — WZ document, print and PDF (Documents)"],
+  "Zakup z produkcją i transportem — PZ, RW, PW, kursy (Nowa operacja)": ["Nákup s výrobou a dopravou — PZ, RW, PW, jízdy (Nová operace)", "Purchase with production and transport — PZ, RW, PW, runs (New operation)"],
+  "Korekta, anulowanie i skany dokumentów w szczegółach operacji (Operacje)": ["Oprava, storno a skeny dokladů v detailu operace (Operace)", "Correction, cancellation and document scans in operation details (Operations)"],
+  "Przesunięcie MM: wysłanie, „W drodze”, przyjęcie na magazynie docelowym": ["Převod MM: odeslání, „Na cestě“, příjem v cílovém skladu", "MM transfer: dispatch, “In transit”, receipt at the target warehouse"],
+  "Stany początkowe magazynów — edytor przy przenoszeniu danych": ["Počáteční stavy skladů — editor při převodu dat", "Opening stock of warehouses — editor for moving the data"],
+  "Stany magazynowe i kartoteka produktu": ["Skladové stavy a karta produktu", "Stock levels and product card"],
+  "Raporty: dzień, tydzień, miesiąc, rok; eksport CSV / XLSX / PDF": ["Reporty: den, týden, měsíc, rok; export CSV / XLSX / PDF", "Reports: day, week, month, year; CSV / XLSX / PDF export"],
+  "Historia operacji z filtrami": ["Historie operací s filtry", "Operation history with filters"],
+  "Motywy, kolory, język (PL / CS / EN) i rozdzielczość": ["Motivy, barvy, jazyk (PL / CS / EN) a rozlišení", "Themes, colours, language (PL / CS / EN) and resolution"],
+  "Przywrócenie danych przykładowych i zmiana daty systemowej (Administracja)": ["Obnovení ukázkových dat a změna systémového data (Administrace)", "Restoring the sample data and changing the system date (Administration)"],
+  "Wersja demonstracyjna — co sprawdzić": ["Demonstrační verze — co vyzkoušet", "Demo version — what to try"],
+  "Wszystkie funkcje działają na tym samym silniku co program firmowy. Dane przykładowe: magazyny RiC Zabrze, RiC Brąszewice i RiC Rokitki, operacje od sierpnia 2026. Zaloguj się innym kontem demonstracyjnym (hasło demo1234), aby sprawdzić role: kierownik, magazynier, obserwator, audytor.": ["Všechny funkce běží na stejném jádru jako firemní program. Ukázková data: sklady RiC Zabrze, RiC Brąszewice a RiC Rokitki, operace od srpna 2026. Přihlaste se jiným demonstračním účtem (heslo demo1234) a vyzkoušejte role: vedoucí, skladník, pozorovatel, auditor.", "All functions run on the same engine as the company program. Sample data: warehouses RiC Zabrze, RiC Brąszewice and RiC Rokitki, operations from August 2026. Sign in with another demo account (password demo1234) to check the roles: manager, warehouse keeper, observer, auditor."]
 }); })(typeof globalThis !== "undefined" ? globalThis : this);
 
 </script>
@@ -9347,6 +9415,118 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
 
 </script>
 <script>
+/* opening.js */
+/* =========================================================================
+   ResInvest ERP 3.15 — warstwa S: stany początkowe magazynów (silnik)
+
+   Edytor stanów początkowych: administrator wpisuje stan każdego produktu w magazynie
+   (RiC Zabrze, RiC Brąszewice, RiC Rokitki i każdy inny aktywny magazyn) przy przenoszeniu
+   danych do programu. Zapis korzysta z istniejącego dokumentu „Bilans otwarcia” (BO):
+   ta sama numeracja, te same wpisy księgi i ten sam audyt co dotychczas (R.openingBalance).
+
+   Zasady:
+     * wartość w edytorze = SUMA wpisów BO danego produktu w magazynie („stan początkowy”),
+     * zapis jest przyrostowy: nowy dokument BO zawiera tylko różnice (nowa wartość − dotychczasowa suma BO);
+       wcześniejsze dokumenty nie są zmieniane ani usuwane — historia zostaje kompletna,
+     * stan magazynu po zmianie nie może być ujemny, data nie może być w zamkniętym okresie ani w przyszłości,
+     * ilości w jednostce magazynowej produktu (MP, m³, t), zaokrąglenie jak w całym programie (R.rq).
+   Moduł działa w przeglądarce i w Node (serwer, testy).
+   ========================================================================= */
+(function (root) {
+  "use strict";
+  const R = root.RIW || (typeof require === "function" ? require("./engine.js") : null);
+  const { rq, EPS, Dates, NumParse, byId, can, canAccessWh, Stock, isLocked, lockedMonth } = R;
+  const t = (s, p) => R.I18N.t(s, p);
+  const N_ = s => s;
+  const str = v => String(v == null ? "" : v).trim();
+  /** Największa ilość jednej pozycji (ochrona przed pomyłką o kilka rzędów wielkości). */
+  const MAX_QTY = 1e8;
+  const SOURCE = N_("Edytor stanów początkowych");
+
+  const Opening = {
+    MAX_QTY,
+    /** Suma wpisów BO w magazynie: Map productId → ilość (jedno przejście księgi). */
+    totals(state, whId) {
+      const m = new Map();
+      for (const l of state.ledger || []) if (l.whId === whId && l.kind === "BO") m.set(l.productId, rq((m.get(l.productId) || 0) + l.qty));
+      return m;
+    },
+    /** Dokumenty BO magazynu (numer, data, liczba pozycji) — od najnowszego. */
+    documents(state, whId) {
+      const by = new Map();
+      for (const l of state.ledger || []) {
+        if (l.whId !== whId || l.kind !== "BO") continue;
+        const d = by.get(l.docNo) || { no: l.docNo, date: l.date, lines: 0 };
+        d.lines++; by.set(l.docNo, d);
+      }
+      return [...by.values()].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : (a.no < b.no ? 1 : -1));
+    },
+    /** Arkusz edytora dla magazynu: aktywne produkty (oraz nieaktywne z niezerowym BO) z BO i stanem bieżącym. */
+    sheet(state, whId) {
+      const bo = this.totals(state, whId), now = Stock.byProduct(state, whId);
+      return (state.products || []).filter(p => p.active !== false || Math.abs(bo.get(p.id) || 0) > EPS).map(p => ({
+        productId: p.id, name: p.name, code: p.code, unit: p.unit, active: p.active !== false,
+        opening: bo.get(p.id) || 0, current: now.get(p.id) || 0
+      }));
+    },
+    /**
+     * Zapis stanów początkowych magazynu. args: { whId, date, lines: [{ productId, qty }] } — qty: liczba albo tekst
+     * („1 234,5”). Puste pole = bez zmiany. Wynik: { ok, no, changes: [{ productId, before, after, delta }] }
+     * albo { ok:false, error, errors, code }.
+     */
+    save(state, args, ctx) {
+      const a = args || {}, user = ctx && ctx.user;
+      if (!can(user, "warehouses.edit")) return { ok: false, code: "FORBIDDEN", error: t("Stany początkowe wpisuje administrator (uprawnienie „Magazyny — dodawanie i edycja”)") };
+      const whId = str(a.whId), wh = byId(state.warehouses, whId);
+      if (!wh) return { ok: false, error: t("Wybierz magazyn"), errors: { whId: t("Wybierz magazyn") } };
+      if (wh.active === false) return { ok: false, error: t("Magazyn jest nieaktywny"), errors: { whId: t("Magazyn jest nieaktywny") } };
+      if (!canAccessWh(user, whId)) return { ok: false, code: "FORBIDDEN", error: t("Brak dostępu do magazynu {w}", { w: wh.name }) };
+      const date = str(a.date), today = (ctx && ctx.today) || Dates.localToday();
+      if (!Dates.isISO(date)) return { ok: false, error: t("Podaj datę stanu początkowego"), errors: { date: t("Podaj datę stanu początkowego") } };
+      if (date > today) return { ok: false, error: t("Data stanu początkowego nie może być w przyszłości"), errors: { date: t("Data stanu początkowego nie może być w przyszłości") } };
+      if (isLocked(state, whId, date)) {
+        const e = t("Okres {ym} jest zamknięty — stan początkowy wpisz z datą po zamknięciu albo popraw inwentaryzacją", { ym: lockedMonth(state, whId) });
+        return { ok: false, code: "LOCKED", error: e, errors: { date: e } };
+      }
+      const lines = Array.isArray(a.lines) ? a.lines : [];
+      if (lines.length > 2000) return { ok: false, error: t("Za dużo pozycji") };
+      const bo = this.totals(state, whId), errors = {}, changes = [], seen = new Set();
+      for (const ln of lines) {
+        const pid = str(ln && ln.productId), p = byId(state.products, pid);
+        if (!p) { errors["p:" + pid] = t("Nieznany produkt"); continue; }
+        if (seen.has(pid)) { errors["p:" + pid] = t("Produkt powtórzony na liście"); continue; }
+        seen.add(pid);
+        const raw = ln.qty;
+        if (raw === "" || raw == null) continue;                       // puste pole = bez zmiany
+        const n = NumParse.parse(raw);
+        if (!n.ok) { errors["p:" + pid] = n.error; continue; }
+        const after = rq(n.value);
+        if (after < 0) { errors["p:" + pid] = t("Stan początkowy nie może być ujemny"); continue; }
+        if (after > MAX_QTY) { errors["p:" + pid] = t("Za duża ilość"); continue; }
+        const before = bo.get(pid) || 0, delta = rq(after - before);
+        if (Math.abs(delta) <= EPS) continue;
+        if (delta < 0 && rq(Stock.balance(state, whId, pid) + delta) < -EPS)
+          { errors["p:" + pid] = t("Stan bieżący byłby ujemny — część stanu początkowego została już wydana. Popraw inwentaryzacją."); continue; }
+        if (p.active === false && after > EPS) { errors["p:" + pid] = t("Produkt jest nieaktywny"); continue; }
+        changes.push({ productId: pid, before, after, delta });
+      }
+      if (Object.keys(errors).length) return { ok: false, errors, error: t("Popraw zaznaczone pozycje") };
+      if (!changes.length) return { ok: false, code: "NOCHANGE", error: t("Brak zmian do zapisania") };
+      const c = Object.assign({}, ctx, { source: SOURCE });
+      const no = R.openingBalance(state, whId, date, changes.map(x => ({ productId: x.productId, qty: x.delta })), c);
+      // szczegóły zmian w tym samym wpisie audytu, który utworzył dokument BO (przed → po dla każdego produktu)
+      const rec = state.audit[state.audit.length - 1];
+      if (rec && rec.opNo === no) rec.after = Object.assign({}, rec.after, { data: date, zmiany: changes.map(x => ({ produkt: (byId(state.products, x.productId) || {}).name || x.productId, przed: x.before, po: x.after })) });
+      return { ok: true, no, whId, date, changes };
+    }
+  };
+
+  R.Opening = Opening;
+  if (typeof module !== "undefined" && module.exports) module.exports = Opening;
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+</script>
+<script>
 /* service.js */
 /* =========================================================================
    ResInvest ERP 3.2 — warstwa S: usługa aplikacyjna (komendy)
@@ -9366,6 +9546,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
   const R = root.RIW || (typeof require === "function" ? require("./engine.js") : null);
   if (!R.Planner && typeof require === "function") require("./planner.js");
   if (!R.Notify && typeof require === "function") require("./notify.js");
+  if (!R.Opening && typeof require === "function") require("./opening.js");
   const t = (s, p) => R.I18N.t(s, p);
   const N_ = s => s;
   const str = v => String(v == null ? "" : v).trim();
@@ -9442,6 +9623,8 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
     "me.prefs": { run: (s, a, c) => R.Users.setPrefs(s, { lang: a.lang, theme: a.theme, themeColors: a.themeColors, themeGradient: a.themeGradient, uiRes: a.uiRes }, c) },
     "me.warehouse": { run: (s, a, c) => R.Users.setMyWarehouse(s, a.whId, c) },
     /* ---- 3.14: skany dokumentów i zdjęcia operacji (plik zapisuje serwer / magazyn przeglądarki) ---- */
+    /* ---- 3.15: stany początkowe magazynów (edytor; dokument BO z różnicami) ---- */
+    "stock.opening": { perm: "warehouses.edit", run: (s, a, c) => R.Opening.save(s, a, c) },
     "scan.attach": { perm: "scans.add", run: (s, a, c) => R.Scans.attach(s, a, c) },
     "scan.remove": { perm: "scans.delete", run: (s, a, c) => R.Scans.remove(s, a, c) },
     /* ---- role, uprawnienia, konfiguracja (administrator) ---- */
@@ -10563,7 +10746,9 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
   }
 
   /* ---------------- tryb lokalny: konta w przeglądarce ---------------- */
-  const AUTH_KEY = "riw.v3.auth", SESSION_KEY = "riw.v3.session";
+  /** 3.15: wersja demonstracyjna (build --edition demo) trzyma dane w osobnej przestrzeni przeglądarki — nie miesza się z danymi trybu lokalnego. */
+  const nsKey = k => root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? k.replace(/^riw\./, root.RIW_CONFIG.storageNs + ".") : k;
+  const AUTH_KEY = nsKey("riw.v3.auth"), SESSION_KEY = nsKey("riw.v3.session");
   /** Konta danych przykładowych (tryb lokalny / demonstracyjny) — hasło startowe „demo1234”. */
   const DEMO_PASSWORD = "demo1234";
   const DEMO_LOGINS = ["magazyn@resinvest.group", "anna.gorska@resinvest.group", "adrian.wojciechowski@resinvest.group", "tomasz.zajac@resinvest.group",
@@ -11074,9 +11259,11 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
   /* ------------------------------------------------------------------ */
   /* Dane: tryb lokalny i serwerowy                                      */
   /* ------------------------------------------------------------------ */
-  const KEY = "riw.v3.state";
+  /** 3.15: wersja demonstracyjna (build --edition demo) trzyma dane w osobnej przestrzeni przeglądarki — nie miesza się z danymi trybu lokalnego. */
+  const nsKey = k => root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? k.replace(/^riw\./, root.RIW_CONFIG.storageNs + ".") : k;
+  const KEY = nsKey("riw.v3.state");
   const OLD_KEYS = ["riw.demo.state.v3", "riw.demo.state.v2", "riw.demo.state.v1"];
-  const DRAFT_KEY = "riw.v3.form";
+  const DRAFT_KEY = nsKey("riw.v3.form");
 
   /** Tryb lokalny: dane i konta w przeglądarce (jedno stanowisko / pokaz). */
   const LocalBackend = {
@@ -11135,6 +11322,8 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
     startup() { const c = (root.RIW_CONFIG && root.RIW_CONFIG.startup) || {}; return { adminEmail: String(c.adminEmail || R.Seed.ADMIN_EMAIL).trim().toLowerCase(), adminName: c.adminName || "Administrator", adminPassword: c.adminPassword || "", allowSelfRegistration: c.allowSelfRegistration }; },
     /** Dane przykładowe na start: konfiguracja sampleData albo przełącznik szkoleniowy riw.sample = 1. */
     sampleWanted() { return (root.RIW_CONFIG && root.RIW_CONFIG.sampleData === true) || lsGet("riw.sample", "") === "1"; },
+    /** 3.15: wersja demonstracyjna (dane przykładowe, osobna przestrzeń przeglądarki). */
+    demo() { return !!(root.RIW_CONFIG && root.RIW_CONFIG.edition === "demo"); },
     /**
      * Dane demonstracyjne zapisane przez wcześniejsze wersje (albo przez otwartą jeszcze starą kartę programu) →
      * kopia pod osobnym kluczem i start od zera. Nie dotyczy danych firmy ani danych przykładowych wczytanych
@@ -11395,6 +11584,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
     { id: "dodatkowe", label: N_("Dodatkowe operacje"), icon: "layers" },
     { id: "kontrahenci", label: N_("Kontrahenci"), icon: "users" },
     { id: "magazyny", label: N_("Magazyny"), icon: "building" },
+    { id: "stanypoczatkowe", label: N_("Stany początkowe"), icon: "layers", perm: "report.view" },
     { group: N_("Ustawienia") },
     { id: "wyglad", label: N_("Wygląd i język"), icon: "drop" },
     { id: "uzytkownicy", label: N_("Użytkownicy"), icon: "key", perm: "users.read" },
@@ -11560,6 +11750,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
               <button class="icon-btn bell-btn" id="bell-btn" type="button" aria-haspopup="menu" aria-label="${esc(t("Powiadomienia"))}"></button>
               <button class="user-btn" id="user-btn" type="button" aria-haspopup="menu"></button>
             </header>
+            ${LocalBackend.demo() ? `<div class="demo-ribbon" id="demo-ribbon" role="note"><b>${esc(t("Wersja demonstracyjna"))}</b><span>${esc(t("Dane przykładowe — zapisywane tylko w tej przeglądarce. Konta: hasło demo1234."))}</span><button class="btn sm" type="button" id="demo-guide">${ic("list", 13)} ${esc(t("Co sprawdzić"))}</button></div>` : ""}
             <main class="page" id="page" tabindex="-1"></main>
             <footer class="app-foot">${Auth.credit()}</footer>
           </div>
@@ -11573,6 +11764,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
       $("#intro-btn").onclick = () => root.Intro && root.Intro.play({ force: true });
       $("#user-btn").onclick = e => this.userMenu(e.currentTarget);
       $("#bell-btn").onclick = e => root.RIWUI.Bell && root.RIWUI.Bell.open(e.currentTarget);
+      const dg = $("#demo-guide"); if (dg) dg.onclick = () => Auth.demoGuide();
       $("#wh-chip").onclick = e => this.whMenu(e.currentTarget);
       document.addEventListener("keydown", this._keys || (this._keys = e => {
         if (!Store.userId) return;
@@ -11826,6 +12018,27 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
         <div class="auth-copy"><span class="auth-kicker">${esc(t("System ERP klasy przedsiębiorstwa"))}</span><h2>${esc(t("Biomasa pod pełną kontrolą"))}</h2><p>${esc(t("Zakupy, produkcja zrębki, sprzedaż, transport i inwentaryzacja w jednym systemie — z historią każdej zmiany, raportami miesięcznymi i rocznymi oraz kopiami zapasowymi."))}</p>
           <ul class="auth-feat">${feat.map(([i, x]) => `<li><span class="fi">${ic(i, 16)}</span>${esc(x)}</li>`).join("")}</ul></div>
         <div class="auth-facts"><div><b>3</b><span>${esc(t("języki: PL · CS · EN"))}</span></div><div><b>${THEME_LIST.length}</b><span>${esc(t("motywy kolorystyczne"))}</span></div><div><b>100%</b><span>${esc(t("operacji w dzienniku audytu"))}</span></div><div><b>24/7</b><span>${esc(t("kopie zapasowe bazy i skanów"))}</span></div></div></section>`;
+    },
+    /** 3.15: wersja demonstracyjna — lista rzeczy do sprawdzenia (silnik, dokumenty, skany, motywy, role). */
+    demoGuide() {
+      const items = [
+        ["#/nowa?preset=wz", N_("Sprzedaż z magazynu — dokument WZ, wydruk i PDF (Dokumenty)")],
+        ["#/nowa", N_("Zakup z produkcją i transportem — PZ, RW, PW, kursy (Nowa operacja)")],
+        ["#/operacje", N_("Korekta, anulowanie i skany dokumentów w szczegółach operacji (Operacje)")],
+        ["#/mm", N_("Przesunięcie MM: wysłanie, „W drodze”, przyjęcie na magazynie docelowym")],
+        ["#/stanypoczatkowe", N_("Stany początkowe magazynów — edytor przy przenoszeniu danych")],
+        ["#/stany", N_("Stany magazynowe i kartoteka produktu")],
+        ["#/raporty", N_("Raporty: dzień, tydzień, miesiąc, rok; eksport CSV / XLSX / PDF")],
+        ["#/historia", N_("Historia operacji z filtrami")],
+        ["#/inwentaryzacja", N_("Inwentaryzacja i zamknięcie miesiąca")],
+        ["#/wyglad", N_("Motywy, kolory, język (PL / CS / EN) i rozdzielczość")],
+        ["#/administracja", N_("Przywrócenie danych przykładowych i zmiana daty systemowej (Administracja)")]
+      ];
+      const m = Modal.open({ title: t("Wersja demonstracyjna — co sprawdzić"), id: "demo-guide-dialog", wide: true,
+        body: `<p class="muted">${esc(t("Wszystkie funkcje działają na tym samym silniku co program firmowy. Dane przykładowe: magazyny RiC Zabrze, RiC Brąszewice i RiC Rokitki, operacje od sierpnia 2026. Zaloguj się innym kontem demonstracyjnym (hasło demo1234), aby sprawdzić role: kierownik, magazynier, obserwator, audytor."))}</p>
+          <ol class="demo-list">${items.map(([href, label]) => `<li><a href="${esc(href)}" data-close>${esc(t(label))}</a></li>`).join("")}</ol>`,
+        footer: `<button class="btn" type="button" data-close>${esc(t("Zamknij"))}</button>` });
+      m.el.querySelectorAll("[data-close]").forEach(x => x.addEventListener("click", () => m.close()));
     },
     /** Edycja Premium (build --edition premium): ekran startowy ze zdjęciem i panelem logowania. */
     premium() { return !!(root.RIW_CONFIG && root.RIW_CONFIG.edition === "premium"); },
@@ -16105,7 +16318,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
     html() {
       const S = Store.state;
       return `<div class="page-head"><div class="titles"><h2>${th("Magazyny")}</h2><p>${th("Magazyny firmy z przypisanymi kierownikami, magazynierami i flotą, stanem i zamkniętymi okresami. Ludzi przydziela się w module Użytkownicy, pojazdy i rębaki — w module Flota.")}</p></div>
-          <div class="actions">${addBtn("warehouses", N_("Nowy magazyn"))}</div></div>
+          <div class="actions"><a class="btn" href="#/stanypoczatkowe">${ic("layers", 15)} ${th("Stany początkowe")}</a>${addBtn("warehouses", N_("Nowy magazyn"))}</div></div>
         <div class="grid g2">${S.warehouses.map(w => {
           const m = Stock.byProduct(S, w.id), per = {};
           for (const [pid, q] of m) { const p = App.product(pid); if (Math.abs(q) > R.EPS) per[p.unit] = R.rq((per[p.unit] || 0) + q); }
@@ -16628,7 +16841,9 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
           ${srv ? `<div class="card"><div class="card-h"><h3>${th("Kopie serwera (SQLite)")}</h3><span class="spacer"></span><button class="btn sm" type="button" id="srv-bk" ${App.can("data.backup") ? "" : "disabled"}>${ic("db", 13)} ${th("Utwórz kopię teraz")}</button></div><div id="srv-bk-list"><div class="empty">…</div></div></div>` : ""}
           ${App.can("users.manage") ? `<div class="card" id="clean-card"><div class="card-h"><h3>${th("Start pracy na czysto")}</h3></div><div class="card-b stack">
             <p class="muted">${th("Usuwa operacje, dokumenty, księgę, wersje robocze i okresy inwentaryzacji — zostają magazyny, produkty, kontrahenci, flota i konta użytkowników. Użyj przed rozpoczęciem pracy na prawdziwych danych (po szkoleniu na danych przykładowych). Przed wyczyszczeniem pobierz kopię.")}</p>
-            <div><button class="btn danger" type="button" id="dm-clean">${ic("trash", 15)} ${th("Wyczyść operacje i rozpocznij pracę")}</button></div></div></div>` : ""}
+            <div><button class="btn danger" type="button" id="dm-clean">${ic("trash", 15)} ${th("Wyczyść operacje i rozpocznij pracę")}</button></div>
+            <p class="help">${th("Po przeniesieniu danych wpisz stany magazynów RiC Zabrze, RiC Brąszewice i RiC Rokitki w edytorze stanów początkowych.")}</p>
+            <div><a class="btn" href="#/stanypoczatkowe" id="dm-opening">${ic("layers", 15)} ${th("Stany początkowe magazynów")}</a></div></div></div>` : ""}
           <div class="card"><div class="card-h"><h3>${th("Preferencje programu")}</h3></div><div class="card-b stack">
             <label class="inline-opt"><input type="checkbox" id="pf-intro" ${intro && intro.enabled() ? "checked" : ""}> ${th("Intro przy uruchomieniu")}</label>
             <label class="inline-opt"><input type="checkbox" id="pf-music" ${intro && intro.musicOn() ? "checked" : ""}> ${th("Muzyka w intro (domyślnie włączona)")}</label>
@@ -16744,7 +16959,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
       if (this._db) return Promise.resolve(this._db);
       return new Promise((resolve, reject) => {
         if (!root.indexedDB) return reject(new Error(t("Przeglądarka nie obsługuje zapisu plików (IndexedDB)")));
-        const rq = indexedDB.open("riw-scans", 1);
+        const rq = indexedDB.open(root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? "riw-demo-scans" : "riw-scans", 1);
         rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains("files")) db.createObjectStore("files", { keyPath: "id" }); };
         rq.onsuccess = () => { this._db = rq.result; resolve(this._db); };
         rq.onerror = () => reject(rq.error || new Error("IndexedDB"));
@@ -17428,6 +17643,117 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
   };
 
   Object.assign(UI, { Bell, openNotice, unreadNotices: unread });
+})(typeof globalThis !== "undefined" ? globalThis : this);
+
+</script>
+<script>
+/* opening-view.js */
+/* =========================================================================
+   ResInvest ERP 3.15 — Stany początkowe magazynów (ekran)
+
+   Edytor dla administratora przy przenoszeniu danych do programu: magazyn (RiC Zabrze, RiC Brąszewice,
+   RiC Rokitki i inne aktywne), data stanu, tabela produktów: stan początkowy (suma dokumentów BO),
+   stan bieżący, nowa wartość i różnica. Zapis → komenda „stock.opening” (silnik: R.Opening):
+   dokument „Bilans otwarcia” z samymi różnicami, wcześniejsze dokumenty BO zostają w historii.
+   Tylko odczyt dla osób bez uprawnienia „Magazyny — dodawanie i edycja”.
+   ========================================================================= */
+(function (root) {
+  "use strict";
+  const UI = root.RIWUI;
+  const { R, t, N_, esc, $, $$, ic, Toast, Modal, Store, App, Views } = UI;
+  const { fmtQ, Dates, Units, NumParse, EPS } = R;
+  const O = R.Opening;
+  const th = s => esc(t(s));
+  const SRC = N_("Stany początkowe magazynów");
+
+  /** Stan formularza między odświeżeniami: magazyn, data, wpisane (niezapisane) wartości. */
+  const form = () => App.tabs.opening || (App.tabs.opening = { whId: "", date: "", values: {} });
+  const parse = v => { const n = NumParse.parse(v); return n.ok ? R.rq(n.value) : null; };
+
+  Views.stanypoczatkowe = {
+    html() {
+      const S = Store.state, f = form(), edit = App.can("warehouses.edit");
+      const whs = S.warehouses.filter(w => w.active !== false && R.canAccessWh(App.user(), w.id));
+      if (!whs.some(w => w.id === f.whId)) { f.whId = (whs[0] || {}).id || ""; f.values = {}; }
+      if (!f.date) f.date = App.today();
+      const wh = R.byId(S.warehouses, f.whId);
+      const rows = wh ? O.sheet(S, wh.id) : [];
+      const docs = wh ? O.documents(S, wh.id) : [];
+      const empty = wh && !docs.length && !S.operations.some(o => o.whId === wh.id);
+      const body = rows.map(r => {
+        const typed = f.values[r.productId];
+        const next = typed === undefined || typed === "" ? null : parse(typed);
+        const delta = next === null ? null : R.rq(next - r.opening);
+        return `<tr data-orow="${esc(r.productId)}"><td><b>${esc(r.name)}</b>${r.active ? "" : ` <span class="badge">${th("nieaktywny")}</span>`}<br><small class="dim">${esc(r.code || "")}</small></td>
+          <td>${esc(Units.label(r.unit))}</td>
+          <td class="r" data-oopen="${esc(r.productId)}">${esc(fmtQ(r.opening))}</td>
+          <td class="r dim" data-ocur="${esc(r.productId)}">${esc(fmtQ(r.current))}</td>
+          <td class="r">${edit ? `<input class="ctrl num-in r" inputmode="decimal" autocomplete="off" data-oin="${esc(r.productId)}" aria-label="${esc(t("Nowy stan początkowy: {p}", { p: r.name }))}" value="${esc(typed === undefined ? "" : typed)}" placeholder="${esc(fmtQ(r.opening))}">
+            <div class="msg hidden" data-omsg="${esc(r.productId)}"></div>` : "—"}</td>
+          <td class="r" data-odelta="${esc(r.productId)}">${delta === null || Math.abs(delta) <= EPS ? "" : `<span class="${delta > 0 ? "pos" : "neg"}">${delta > 0 ? "+" : ""}${esc(fmtQ(delta))}</span>`}</td></tr>`;
+      }).join("");
+      return `<div class="page-head"><div class="titles"><h2>${th("Stany początkowe magazynów")}</h2>
+          <p>${th("Stan każdego produktu w magazynie na dzień rozpoczęcia pracy w programie — wpisywany przy przenoszeniu danych. Zapis tworzy dokument „Bilans otwarcia” z różnicami; wcześniejsze dokumenty zostają w historii.")}</p></div>
+          <div class="actions"><a class="btn" href="#/stany">${ic("layers", 15)} ${th("Stany magazynowe")}</a></div></div>
+        <div class="card"><div class="card-b">
+          <div class="row wrap">
+            <div class="field"><label for="op-wh">${th("Magazyn")}</label><select class="ctrl" id="op-wh">${whs.map(w => `<option value="${esc(w.id)}" ${w.id === f.whId ? "selected" : ""}>${esc(w.name)}</option>`).join("")}</select></div>
+            <div class="field"><label for="op-date">${th("Data stanu początkowego")}</label><input class="ctrl" type="date" id="op-date" value="${esc(f.date)}" max="${esc(App.today())}" ${edit ? "" : "disabled"}><div class="msg hidden" data-omsg="date"></div></div>
+          </div>
+          ${empty ? `<div class="info-line">${ic("layers", 15)}<span>${th("Ten magazyn nie ma jeszcze stanu ani operacji — wpisz stany z ostatniej inwentaryzacji albo z dotychczasowego systemu.")}</span></div>` : ""}
+          ${wh && R.lockedMonth(S, wh.id) ? `<div class="info-line warn">${ic("alert", 15)}<span>${esc(t("Okres zamknięty do {ym} — data stanu początkowego musi być późniejsza.", { ym: R.lockedMonth(S, wh.id) }))}</span></div>` : ""}
+          ${edit ? "" : `<div class="info-line">${ic("shield", 15)}<span>${th("Podgląd — stany początkowe wpisuje administrator.")}</span></div>`}
+        </div></div>
+        <div class="card mt4"><div class="card-h"><h3>${esc(wh ? wh.name : t("Brak magazynu"))}</h3><span class="sub">${th("ilości w jednostce magazynowej produktu")}</span></div>
+          ${rows.length ? `<div class="tbl-wrap"><table class="tbl" id="op-table"><thead><tr><th>${th("Produkt")}</th><th>${th("Jednostka")}</th><th class="r">${th("Stan początkowy (BO)")}</th><th class="r">${th("Stan bieżący")}</th><th class="r">${th("Nowy stan początkowy")}</th><th class="r">${th("Zmiana")}</th></tr></thead>
+            <tbody>${body}</tbody></table></div>` : `<div class="card-b"><p class="muted">${th("Brak produktów — dodaj je w kartotece Produkty.")}</p></div>`}
+          ${edit && rows.length ? `<div class="card-b row wrap"><button class="btn primary" type="button" id="op-save">${ic("check", 15)} ${th("Zapisz stany początkowe")}</button>
+            <button class="btn" type="button" id="op-reset">${th("Wyczyść wpisane wartości")}</button>
+            <span class="help">${th("Puste pole = bez zmiany. Wartość 0 usuwa stan początkowy produktu (dokumentem z różnicą).")}</span></div>` : ""}
+        </div>
+        <div class="card mt4"><div class="card-h"><h3>${th("Dokumenty bilansu otwarcia")}</h3></div>
+          ${docs.length ? `<div class="tbl-wrap"><table class="tbl" id="op-docs"><thead><tr><th>${th("Numer")}</th><th>${th("Data")}</th><th class="r">${th("Pozycje")}</th></tr></thead>
+            <tbody>${docs.map(d => `<tr><td class="mono">${esc(d.no)}</td><td>${esc(Dates.pl(d.date))}</td><td class="r">${d.lines}</td></tr>`).join("")}</tbody></table></div>`
+            : `<div class="card-b"><p class="muted">${th("Brak dokumentów bilansu otwarcia w tym magazynie.")}</p></div>`}</div>`;
+    },
+    bind(page) {
+      const f = form();
+      const wh = $("#op-wh", page); if (wh) wh.onchange = () => { f.whId = wh.value; f.values = {}; App.render(); };
+      const dt = $("#op-date", page); if (dt) dt.onchange = () => { f.date = dt.value; };
+      // różnica liczona na bieżąco w komórce — bez przerysowania całego ekranu przy każdym znaku
+      $$("[data-oin]", page).forEach(inp => inp.oninput = () => {
+        const pid = inp.dataset.oin; f.values[pid] = inp.value;
+        const cell = $(`[data-odelta="${pid}"]`, page), r = O.sheet(Store.state, f.whId).find(x => x.productId === pid);
+        const next = inp.value === "" ? null : parse(inp.value), d = next === null || !r ? null : R.rq(next - r.opening);
+        if (cell) cell.innerHTML = d === null || Math.abs(d) <= EPS ? "" : `<span class="${d > 0 ? "pos" : "neg"}">${d > 0 ? "+" : ""}${esc(fmtQ(d))}</span>`;
+        const msg = $(`[data-omsg="${pid}"]`, page); if (msg) msg.classList.toggle("hidden", !(inp.value !== "" && next === null));
+        if (msg && inp.value !== "" && next === null) msg.textContent = NumParse.parse(inp.value).error;
+      });
+      const reset = $("#op-reset", page); if (reset) reset.onclick = () => { f.values = {}; App.render(); };
+      const save = $("#op-save", page);
+      if (save) save.onclick = async () => {
+        const lines = Object.entries(f.values).filter(([, v]) => v !== "").map(([productId, qty]) => ({ productId, qty }));
+        if (!lines.length) { Toast.info(t("Brak zmian do zapisania"), t("Wpisz nowy stan początkowy przy wybranych produktach.")); return; }
+        const whName = App.whName(f.whId);
+        const ok = await Modal.confirm({ title: t("Zapisać stany początkowe?"), text: t("Magazyn {w}, data {d}: zmiana stanu początkowego {n} produktów. Powstanie dokument „Bilans otwarcia” z różnicami.", { w: whName, d: Dates.pl(f.date), n: lines.length }), ok: t("Zapisz") });
+        if (!ok.ok) return;
+        save.disabled = true;
+        const res = await Store.exec("stock.opening", { whId: f.whId, date: f.date, lines }, SRC);
+        save.disabled = false;
+        $$("[data-omsg]", page).forEach(x => x.classList.add("hidden"));
+        if (!res.ok) {
+          for (const [k, msg] of Object.entries(res.errors || {})) {
+            const x = $(`[data-omsg="${k.startsWith("p:") ? k.slice(2) : k}"]`, page);
+            if (x) { x.textContent = msg; x.classList.remove("hidden"); }
+          }
+          Toast.err(t("Nie zapisano"), res.error); return;
+        }
+        f.values = {};
+        Toast.ok(t("Zapisano stany początkowe"), t("{w}: dokument {no}, zmienione pozycje: {n}", { w: whName, no: res.no, n: res.changes.length }));
+        App.render();
+      };
+    }
+  };
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
 </script>

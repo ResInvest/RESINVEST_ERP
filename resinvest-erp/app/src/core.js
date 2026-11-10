@@ -356,9 +356,11 @@
   /* ------------------------------------------------------------------ */
   /* Dane: tryb lokalny i serwerowy                                      */
   /* ------------------------------------------------------------------ */
-  const KEY = "riw.v3.state";
+  /** 3.15: wersja demonstracyjna (build --edition demo) trzyma dane w osobnej przestrzeni przeglądarki — nie miesza się z danymi trybu lokalnego. */
+  const nsKey = k => root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? k.replace(/^riw\./, root.RIW_CONFIG.storageNs + ".") : k;
+  const KEY = nsKey("riw.v3.state");
   const OLD_KEYS = ["riw.demo.state.v3", "riw.demo.state.v2", "riw.demo.state.v1"];
-  const DRAFT_KEY = "riw.v3.form";
+  const DRAFT_KEY = nsKey("riw.v3.form");
 
   /** Tryb lokalny: dane i konta w przeglądarce (jedno stanowisko / pokaz). */
   const LocalBackend = {
@@ -417,6 +419,8 @@
     startup() { const c = (root.RIW_CONFIG && root.RIW_CONFIG.startup) || {}; return { adminEmail: String(c.adminEmail || R.Seed.ADMIN_EMAIL).trim().toLowerCase(), adminName: c.adminName || "Administrator", adminPassword: c.adminPassword || "", allowSelfRegistration: c.allowSelfRegistration }; },
     /** Dane przykładowe na start: konfiguracja sampleData albo przełącznik szkoleniowy riw.sample = 1. */
     sampleWanted() { return (root.RIW_CONFIG && root.RIW_CONFIG.sampleData === true) || lsGet("riw.sample", "") === "1"; },
+    /** 3.15: wersja demonstracyjna (dane przykładowe, osobna przestrzeń przeglądarki). */
+    demo() { return !!(root.RIW_CONFIG && root.RIW_CONFIG.edition === "demo"); },
     /**
      * Dane demonstracyjne zapisane przez wcześniejsze wersje (albo przez otwartą jeszcze starą kartę programu) →
      * kopia pod osobnym kluczem i start od zera. Nie dotyczy danych firmy ani danych przykładowych wczytanych
@@ -677,6 +681,7 @@
     { id: "dodatkowe", label: N_("Dodatkowe operacje"), icon: "layers" },
     { id: "kontrahenci", label: N_("Kontrahenci"), icon: "users" },
     { id: "magazyny", label: N_("Magazyny"), icon: "building" },
+    { id: "stanypoczatkowe", label: N_("Stany początkowe"), icon: "layers", perm: "report.view" },
     { group: N_("Ustawienia") },
     { id: "wyglad", label: N_("Wygląd i język"), icon: "drop" },
     { id: "uzytkownicy", label: N_("Użytkownicy"), icon: "key", perm: "users.read" },
@@ -842,6 +847,7 @@
               <button class="icon-btn bell-btn" id="bell-btn" type="button" aria-haspopup="menu" aria-label="${esc(t("Powiadomienia"))}"></button>
               <button class="user-btn" id="user-btn" type="button" aria-haspopup="menu"></button>
             </header>
+            ${LocalBackend.demo() ? `<div class="demo-ribbon" id="demo-ribbon" role="note"><b>${esc(t("Wersja demonstracyjna"))}</b><span>${esc(t("Dane przykładowe — zapisywane tylko w tej przeglądarce. Konta: hasło demo1234."))}</span><button class="btn sm" type="button" id="demo-guide">${ic("list", 13)} ${esc(t("Co sprawdzić"))}</button></div>` : ""}
             <main class="page" id="page" tabindex="-1"></main>
             <footer class="app-foot">${Auth.credit()}</footer>
           </div>
@@ -855,6 +861,7 @@
       $("#intro-btn").onclick = () => root.Intro && root.Intro.play({ force: true });
       $("#user-btn").onclick = e => this.userMenu(e.currentTarget);
       $("#bell-btn").onclick = e => root.RIWUI.Bell && root.RIWUI.Bell.open(e.currentTarget);
+      const dg = $("#demo-guide"); if (dg) dg.onclick = () => Auth.demoGuide();
       $("#wh-chip").onclick = e => this.whMenu(e.currentTarget);
       document.addEventListener("keydown", this._keys || (this._keys = e => {
         if (!Store.userId) return;
@@ -1108,6 +1115,27 @@
         <div class="auth-copy"><span class="auth-kicker">${esc(t("System ERP klasy przedsiębiorstwa"))}</span><h2>${esc(t("Biomasa pod pełną kontrolą"))}</h2><p>${esc(t("Zakupy, produkcja zrębki, sprzedaż, transport i inwentaryzacja w jednym systemie — z historią każdej zmiany, raportami miesięcznymi i rocznymi oraz kopiami zapasowymi."))}</p>
           <ul class="auth-feat">${feat.map(([i, x]) => `<li><span class="fi">${ic(i, 16)}</span>${esc(x)}</li>`).join("")}</ul></div>
         <div class="auth-facts"><div><b>3</b><span>${esc(t("języki: PL · CS · EN"))}</span></div><div><b>${THEME_LIST.length}</b><span>${esc(t("motywy kolorystyczne"))}</span></div><div><b>100%</b><span>${esc(t("operacji w dzienniku audytu"))}</span></div><div><b>24/7</b><span>${esc(t("kopie zapasowe bazy i skanów"))}</span></div></div></section>`;
+    },
+    /** 3.15: wersja demonstracyjna — lista rzeczy do sprawdzenia (silnik, dokumenty, skany, motywy, role). */
+    demoGuide() {
+      const items = [
+        ["#/nowa?preset=wz", N_("Sprzedaż z magazynu — dokument WZ, wydruk i PDF (Dokumenty)")],
+        ["#/nowa", N_("Zakup z produkcją i transportem — PZ, RW, PW, kursy (Nowa operacja)")],
+        ["#/operacje", N_("Korekta, anulowanie i skany dokumentów w szczegółach operacji (Operacje)")],
+        ["#/mm", N_("Przesunięcie MM: wysłanie, „W drodze”, przyjęcie na magazynie docelowym")],
+        ["#/stanypoczatkowe", N_("Stany początkowe magazynów — edytor przy przenoszeniu danych")],
+        ["#/stany", N_("Stany magazynowe i kartoteka produktu")],
+        ["#/raporty", N_("Raporty: dzień, tydzień, miesiąc, rok; eksport CSV / XLSX / PDF")],
+        ["#/historia", N_("Historia operacji z filtrami")],
+        ["#/inwentaryzacja", N_("Inwentaryzacja i zamknięcie miesiąca")],
+        ["#/wyglad", N_("Motywy, kolory, język (PL / CS / EN) i rozdzielczość")],
+        ["#/administracja", N_("Przywrócenie danych przykładowych i zmiana daty systemowej (Administracja)")]
+      ];
+      const m = Modal.open({ title: t("Wersja demonstracyjna — co sprawdzić"), id: "demo-guide-dialog", wide: true,
+        body: `<p class="muted">${esc(t("Wszystkie funkcje działają na tym samym silniku co program firmowy. Dane przykładowe: magazyny RiC Zabrze, RiC Brąszewice i RiC Rokitki, operacje od sierpnia 2026. Zaloguj się innym kontem demonstracyjnym (hasło demo1234), aby sprawdzić role: kierownik, magazynier, obserwator, audytor."))}</p>
+          <ol class="demo-list">${items.map(([href, label]) => `<li><a href="${esc(href)}" data-close>${esc(t(label))}</a></li>`).join("")}</ol>`,
+        footer: `<button class="btn" type="button" data-close>${esc(t("Zamknij"))}</button>` });
+      m.el.querySelectorAll("[data-close]").forEach(x => x.addEventListener("click", () => m.close()));
     },
     /** Edycja Premium (build --edition premium): ekran startowy ze zdjęciem i panelem logowania. */
     premium() { return !!(root.RIW_CONFIG && root.RIW_CONFIG.edition === "premium"); },

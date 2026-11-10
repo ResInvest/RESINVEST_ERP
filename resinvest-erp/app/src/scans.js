@@ -21,7 +21,7 @@
       if (this._db) return Promise.resolve(this._db);
       return new Promise((resolve, reject) => {
         if (!root.indexedDB) return reject(new Error(t("Przeglądarka nie obsługuje zapisu plików (IndexedDB)")));
-        const rq = indexedDB.open("riw-scans", 1);
+        const rq = indexedDB.open(root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? "riw-demo-scans" : "riw-scans", 1);
         rq.onupgradeneeded = () => { const db = rq.result; if (!db.objectStoreNames.contains("files")) db.createObjectStore("files", { keyPath: "id" }); };
         rq.onsuccess = () => { this._db = rq.result; resolve(this._db); };
         rq.onerror = () => reject(rq.error || new Error("IndexedDB"));

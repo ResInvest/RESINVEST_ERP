@@ -16,6 +16,7 @@
   const R = root.RIW || (typeof require === "function" ? require("./engine.js") : null);
   if (!R.Planner && typeof require === "function") require("./planner.js");
   if (!R.Notify && typeof require === "function") require("./notify.js");
+  if (!R.Opening && typeof require === "function") require("./opening.js");
   const t = (s, p) => R.I18N.t(s, p);
   const N_ = s => s;
   const str = v => String(v == null ? "" : v).trim();
@@ -92,6 +93,8 @@
     "me.prefs": { run: (s, a, c) => R.Users.setPrefs(s, { lang: a.lang, theme: a.theme, themeColors: a.themeColors, themeGradient: a.themeGradient, uiRes: a.uiRes }, c) },
     "me.warehouse": { run: (s, a, c) => R.Users.setMyWarehouse(s, a.whId, c) },
     /* ---- 3.14: skany dokumentów i zdjęcia operacji (plik zapisuje serwer / magazyn przeglądarki) ---- */
+    /* ---- 3.15: stany początkowe magazynów (edytor; dokument BO z różnicami) ---- */
+    "stock.opening": { perm: "warehouses.edit", run: (s, a, c) => R.Opening.save(s, a, c) },
     "scan.attach": { perm: "scans.add", run: (s, a, c) => R.Scans.attach(s, a, c) },
     "scan.remove": { perm: "scans.delete", run: (s, a, c) => R.Scans.remove(s, a, c) },
     /* ---- role, uprawnienia, konfiguracja (administrator) ---- */

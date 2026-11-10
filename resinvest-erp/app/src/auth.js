@@ -104,7 +104,9 @@
   }
 
   /* ---------------- tryb lokalny: konta w przeglądarce ---------------- */
-  const AUTH_KEY = "riw.v3.auth", SESSION_KEY = "riw.v3.session";
+  /** 3.15: wersja demonstracyjna (build --edition demo) trzyma dane w osobnej przestrzeni przeglądarki — nie miesza się z danymi trybu lokalnego. */
+  const nsKey = k => root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? k.replace(/^riw\./, root.RIW_CONFIG.storageNs + ".") : k;
+  const AUTH_KEY = nsKey("riw.v3.auth"), SESSION_KEY = nsKey("riw.v3.session");
   /** Konta danych przykładowych (tryb lokalny / demonstracyjny) — hasło startowe „demo1234”. */
   const DEMO_PASSWORD = "demo1234";
   const DEMO_LOGINS = ["magazyn@resinvest.group", "anna.gorska@resinvest.group", "adrian.wojciechowski@resinvest.group", "tomasz.zajac@resinvest.group",
