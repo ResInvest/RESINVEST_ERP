@@ -42,6 +42,25 @@ let mailCfg = mailConfig(env, cfg.dataDir);           // 3.13: przeładowywane p
 cfg.backup.copyTo = String(env.BACKUP_COPY_TO || "").split(";").map(x => x.trim()).filter(Boolean);
 const HOURS = { invite: Number(env.INVITE_HOURS) || 72, reset: Number(env.RESET_HOURS) || 1, confirm: Number(env.CONFIRM_HOURS) || 48 };
 
+/* ---------------- przygotowanie bazy PostgreSQL z instalatora (strona „Baza danych”) ---------------- */
+// --db-setup <plik.json>: konto i baza programu, połączenie, zapis do server.env, przeniesienie danych z SQLite.
+// Wykonywane przed otwarciem bazy (błędna konfiguracja w server.env nie blokuje jej poprawienia). Szczegóły: server/db-setup.mjs
+if (arg("--db-setup")) {
+  let b = {};
+  const out = (code, lines) => {
+    const text = lines.join("\r\n");
+    console.log(text);
+    if (b.resultFile) { try { writeFileSync(String(b.resultFile), "\uFEFF" + text + "\r\n"); } catch (e) { /* tylko konsola */ } }
+    process.exit(code);
+  };
+  try { b = JSON.parse(readFileSync(String(arg("--db-setup")), "utf8").replace(/^\uFEFF/, "")); }
+  catch (e) { console.log("Błąd: nie można odczytać ustawień bazy (" + e.message + ")"); process.exit(2); }
+  const { dbSetup } = await import("./db-setup.mjs");
+  let r;
+  try { r = dbSetup(cfg, b, log); } catch (e) { r = { code: 2, lines: ["Błąd przygotowania bazy: " + e.message] }; }
+  log(r.code === 0 ? "INFO" : "ERROR", "Baza danych z instalatora: " + r.lines.join(" | "));
+  out(r.code, r.lines);
+}
 // silnik bazy z server.env (DB_DRIVER) — błąd konfiguracji zatrzymuje start z czytelnym komunikatem (bez hasła)
 try { cfg.database = databaseConfig(env); }
 catch (e) { console.error("Konfiguracja bazy danych: " + e.message); process.exit(1); }

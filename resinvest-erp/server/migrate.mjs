@@ -147,7 +147,9 @@ export function migrateToPostgres(cfg, sqliteFile, pgCfg, { replace = false, log
 
     // 4. kontrola rdzeniem serwera na PostgreSQL (ten sam kod co przy starcie serwera)
     pg.close(); pg = null;
-    const st = new Store(storeCfg(cfg, join(work, "pg"), pgCfg), quiet);
+    // pierwsze otwarcie bazy PostgreSQL przez tę wersję serwera: kopia „przed-aktualizacja-<wersja>” trafia do
+    // właściwego folderu kopii (jak przy zwykłej aktualizacji), a nie do folderu roboczego migracji
+    const st = new Store(Object.assign(storeCfg(cfg, join(work, "pg"), pgCfg), { backupDir: cfg.backupDir }), quiet);
     let sumDst;
     try { sumDst = storeSummary(st); } finally { st.close(); }
     rep.target.summary = sumDst;

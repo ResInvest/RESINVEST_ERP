@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Buduje instalatory Windows ResInvest ERP Serwer 3.14 (warianty: firma, gmail, otwarta) na Linuksie (Wine + Inno Setup 6.4 z pakietu npm „innosetup”).
+# Buduje instalatory Windows ResInvest ERP Serwer 3.15 (warianty: firma, gmail, otwarta) na Linuksie (Wine + Inno Setup 6.4 z pakietu npm „innosetup”).
 # Wynik: installer/Output/ResInvestERP_SerwerFirma.exe, ResInvestERP_GoogleSerwer.exe, ResInvestERP_SerwerNoLimit.exe
 # Odpowiednik installer\build-installer.ps1 dla serwera budowania bez Windows.
 # Wymagania: Node.js >= 22.13, wine64 + wine32 (Ubuntu: dpkg --add-architecture i386; apt install wine64 wine32:i386),

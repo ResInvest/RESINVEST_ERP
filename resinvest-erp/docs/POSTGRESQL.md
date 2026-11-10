@@ -1,6 +1,7 @@
-# ResInvest ERP Serwer — baza PostgreSQL (tryb firmowy)
+# ResInvest ERP Serwer — baza PostgreSQL (tryb firmowy, od 3.15)
 
-Serwer pracuje na jednym z dwóch silników bazy:
+Od wersji 3.15 tryb firmowy pracuje na **PostgreSQL**. Przejście wykonuje instalator (rozdz. 2): przy aktualizacji
+przenosi dane z SQLite do PostgreSQL z kontrolą zgodności i przełącza serwer. Serwer obsługuje dwa silniki bazy:
 
 | Tryb | Ustawienie | Zastosowanie |
 |---|---|---|
@@ -23,7 +24,7 @@ przeglądarki ──HTTP──▶ riw-server.mjs ──▶ Store (core.mjs) ─�
                                            transakcja na komendę   └─ postgres.mjs  ─▶ pg-worker.mjs ─▶ PostgreSQL
 ```
 
-* `server/db/schema.mjs` — jedno źródło schematu dla obu silników (8 tabel: `meta`, `state`, `rows`, `journal`,
+* `server/db/schema.mjs` — jedno źródło schematu dla obu silników (9 tabel: `meta`, `state`, `rows`, `journal`,
   `accounts`, `sessions`, `login_log`, `tokens`, `outbox`) i opis kolumn używany przy przenoszeniu danych.
 * `server/db/sqlite.mjs` — dotychczasowy sterownik bez zmian zachowania (WAL, `synchronous=FULL`, `VACUUM INTO`).
 * `server/db/postgres.mjs` — ten sam interfejs (`exec` / `prepare` → `get` / `all` / `run` / `iterate`), tłumaczenie
@@ -57,51 +58,68 @@ przeglądarki ──HTTP──▶ riw-server.mjs ──▶ Store (core.mjs) ─�
 
 ---
 
-## 2. Przygotowanie PostgreSQL (Windows)
+## 2. Wdrożenie: instalacja / aktualizacja do 3.15 (migracja produkcyjna)
 
-1. Zainstaluj PostgreSQL **14 lub nowszy** (zalecany 16/17) na komputerze-serwerze firmy (instalator EDB).
-2. Utwórz konto i bazę wyłącznie dla programu (psql lub pgAdmin, jako `postgres`):
+To jest zalecana droga — migrację produkcyjną wykonuje instalator na serwerze firmy.
+
+1. **PostgreSQL 14+** zainstalowany na serwerze firmy albo na innym komputerze w sieci (instalator EDB dla Windows;
+   zalecany 16 lub 17). Zapamiętaj hasło konta `postgres` ustawione podczas jego instalacji.
+2. Uruchom `ResInvestERP_SerwerFirma.exe` (3.15). Instalator zatrzymuje serwer i robi kopię bazy (jak dotychczas).
+3. Strona **„Baza danych PostgreSQL”**:
+
+   | Pole | Wartość |
+   |---|---|
+   | Serwer PostgreSQL | `127.0.0.1` (ten komputer) albo adres / nazwa serwera bazy |
+   | Port | `5432` |
+   | Nazwa bazy programu | `resinvest` |
+   | Konto programu | `resinvest_app` — zwykłe konto, bez uprawnień administratora |
+   | Hasło konta programu | puste = instalator wygeneruje silne hasło i zapisze je tylko w `server.env` |
+   | Administrator PostgreSQL / hasło | `postgres` i jego hasło — używane jednorazowo do utworzenia konta i bazy, **nie jest zapisywane** |
+
+   Bez hasła administratora: konto i baza muszą już istnieć (rozdz. 3), wpisz wtedy hasło konta programu.
+   Pole „Bez PostgreSQL — pozostań na SQLite” zostawia serwer na pliku SQLite (jedno stanowisko / tryb awaryjny).
+4. Po skopiowaniu plików instalator wykonuje (`riw-server.mjs --db-setup`):
+   * utworzenie konta i bazy programu (gdy ich nie ma), próbę połączenia, zapis danych połączenia do `server.env`,
+   * **przeniesienie danych** z `resinvest.sqlite`: jedna transakcja, porównanie każdej tabeli (liczba wierszy, SHA-256)
+     przed zatwierdzeniem, kontrola rdzeniem serwera (rewizja, stan, łańcuch dziennika), raport w `…\migracja\`,
+   * kopię `resinvest-…-przed-aktualizacja-3_14_0.sqlite` w `backups` (pierwsze otwarcie bazy przez 3.15),
+   * przełączenie serwera: `DB_DRIVER=postgres` — **dopiero po udanej migracji**.
+   Wynik pokazuje okno z liczbą wierszy, rewizją, liczbą operacji i ścieżką raportu.
+5. Gdy cokolwiek się nie uda (złe hasło, brak połączenia, niezgodność danych), okno pokazuje przyczynę, a serwer
+   **zostaje na SQLite** — dane są bezpieczne, program działa. Ponowne uruchomienie instalatora pokaże stronę znowu.
+   Jeżeli wskazana baza PostgreSQL zawiera *inne* dane, nic nie jest nadpisywane (decyzja administratora, rozdz. 3).
+6. Plik `resinvest.sqlite` zostaje **bez zmian** jako punkt powrotu (rozdz. 5). Kolejne aktualizacje nie pokazują
+   strony „Baza danych” — serwer pracuje już na PostgreSQL, kopia przed aktualizacją powstaje z PostgreSQL.
+
+Instalacja cicha (`/VERYSILENT`) pomija stronę „Baza danych” i nie zmienia silnika bazy.
+Baza na innym komputerze: w `pg_hba.conf` dopuść tylko adres serwera ERP (`hostssl resinvest resinvest_app <adres>/32
+scram-sha-256`), włącz `ssl = on` i ustaw w `server.env` `DB_SSL=verify-full` (albo co najmniej `require`).
+
+---
+
+## 3. Migracja ręczna (narzędzie `ResInvestERP-Migracja.cmd`)
+
+Do sytuacji nietypowych: konto i baza zakładane przez administratora bazy, przeniesienie na inny serwer, powtórka.
+Konto i baza (psql lub pgAdmin, jako `postgres`):
 
 ```sql
 CREATE ROLE resinvest_app LOGIN PASSWORD '<silne hasło>' NOSUPERUSER NOCREATEDB NOCREATEROLE;
 CREATE DATABASE resinvest OWNER resinvest_app ENCODING 'UTF8' TEMPLATE template0;
 ```
 
-   Program nie potrzebuje i nie powinien dostać uprawnień administratora bazy.
-3. Jeżeli baza jest na innym komputerze niż serwer ERP: w `pg_hba.conf` dopuść tylko adres serwera ERP
-   (`hostssl resinvest resinvest_app <adres>/32 scram-sha-256`), włącz `ssl = on` i ustaw `DB_SSL=verify-full`
-   (albo co najmniej `require`). Na jednym komputerze: `DB_HOST=127.0.0.1`, port 5432 zamknięty na zaporze.
-4. Uzupełnij `C:\ProgramData\ResInvestERP\server.env` (plik poza katalogiem programu; nie trafia do przeglądarki):
-
-```
-DB_DRIVER=sqlite          ← zostaje do czasu przełączenia (krok 3.4)
-DB_HOST=127.0.0.1
-DB_PORT=5432
-DB_NAME=resinvest
-DB_USER=resinvest_app
-DB_PASSWORD=<silne hasło>
-```
-
----
-
-## 3. Migracja SQLite → PostgreSQL
-
-Narzędzie: `ResInvestERP-Migracja.cmd` (Windows) albo `node tools/db-migrate.mjs`. **Serwer ERP zatrzymany.**
-Plik `resinvest.sqlite` jest tylko czytany — narzędzie liczy jego SHA-256 przed i po, a pracuje na kopiach
-roboczych w `<dane>\migracja`.
+Dane połączenia w `C:\ProgramData\ResInvestERP\server.env` (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`,
+`DB_DRIVER=sqlite` do czasu przełączenia). **Serwer zatrzymany.**
 
 | Krok | Polecenie | Co robi |
 |---|---|---|
-| 3.1 | `ResInvestERP-Kopia.cmd` | zwykła kopia zapasowa przed zmianą (dodatkowe zabezpieczenie) |
+| 3.1 | `ResInvestERP-Kopia.cmd` | kopia zapasowa przed zmianą |
 | 3.2 | `ResInvestERP-Migracja.cmd plan` | **tylko odczyt**: kontrola źródła, liczby rekordów, stan bazy docelowej |
-| 3.3 | `ResInvestERP-Migracja.cmd migrate --confirm` | import w jednej transakcji; każda tabela porównana ze źródłem **przed zatwierdzeniem** (różnica = wycofanie); kontrola rdzeniem serwera (rewizja, stan, dziennik); raport `…\migracja\raport-migracji-*.json` |
-| 3.4 | w `server.env`: `DB_DRIVER=postgres` | **przełączenie serwera** — osobna decyzja po akceptacji raportu |
-| 3.5 | `ResInvestERP-Serwer.cmd`, potem `ResInvestERP-Kontrola.cmd` | start na PostgreSQL (w dzienniku: „Baza danych: PostgreSQL …”), kontrola spójności |
+| 3.3 | `ResInvestERP-Migracja.cmd migrate --confirm` | import w jednej transakcji z porównaniem każdej tabeli przed zatwierdzeniem; raport `…\migracja\raport-migracji-*.json` |
+| 3.4 | w `server.env`: `DB_DRIVER=postgres` | przełączenie serwera |
+| 3.5 | `ResInvestERP-Serwer.cmd`, potem `ResInvestERP-Kontrola.cmd` | start na PostgreSQL, kontrola spójności |
 
-Po kroku 3.3 serwer nadal pracuje na SQLite — migrację można powtórzyć lub porzucić bez skutków.
 `migrate` odmawia, gdy baza docelowa zawiera dane; `--replace` zastępuje je, zapisując wcześniej ich kopię
-(`…-pre-migracja.sqlite`). `verify` w dowolnej chwili porównuje plik SQLite z PostgreSQL tabela po tabeli.
-
+(`…-pre-migracja.sqlite`). `verify` porównuje plik SQLite z PostgreSQL tabela po tabeli.
 Kody wyjścia: 0 — powodzenie, 1 — błąd lub niezgodność (baza docelowa bez zmian), 2 — błędne wywołanie.
 
 ---
@@ -140,7 +158,29 @@ Baza PostgreSQL nie jest przy tym zmieniana ani usuwana.
 
 ---
 
-## 6. Bezpieczeństwo
+## 6. Duża baza (lata pracy, skany)
+
+Zmierzone na bazie z 15 000 operacji (w narzędziu obciążeniowym projektu ≈ 10 lat pracy):
+
+| Pomiar | SQLite | PostgreSQL |
+|---|---|---|
+| Rozmiar bazy | 91 MB | 53 MB |
+| Wczytanie stanu i kontrola spójności (start serwera) | 1,9 s | 2,1 s |
+| Migracja SQLite → PostgreSQL z kontrolą (45 207 wierszy) | — | 15 s |
+| Kopia zapasowa | — | 3,5 s |
+| 40 stanowisk otwiera program jednocześnie (pełny stan, gzip 2,9 MB / 73 MB JSON) | — | 3,1 s wszystkie, pamięć serwera ok. 580 MB |
+
+* **Skany dokumentów i zdjęcia** są plikami w `<dane>\skany` (jak dotychczas), nie w bazie — baza nie rośnie od skanów.
+  Kopie skanów: `backups\skany` i folder firmy.
+* Silnik programu (bez zmian) trzyma w pamięci serwera cały stan i przy otwarciu programu wysyła stanowisku jego pełny
+  widok; dalsza praca to same zmiany. Przy wielokrotnie większej historii warto zaplanować archiwizację lat zamkniętych —
+  to zmiana silnika, poza zakresem przejścia na PostgreSQL.
+* Kopia zapasowa z PostgreSQL wstrzymuje serwer na czas eksportu (3,5 s przy 15 000 operacji); kopia automatyczna
+  działa o 2:00. Dodatkowo zalecany `pg_dump -Fc resinvest` w Harmonogramie zadań.
+
+---
+
+## 7. Bezpieczeństwo
 
 * Hasło bazy tylko w `server.env` (ProgramData) lub w zmiennych środowiskowych; nie jest wypisywane w dzienniku,
   w komunikatach błędów ani wysyłane do przeglądarki.
@@ -152,7 +192,7 @@ Baza PostgreSQL nie jest przy tym zmieniana ani usuwana.
 
 ---
 
-## 7. Eksploatacja
+## 8. Eksploatacja
 
 | Sytuacja | Zachowanie |
 |---|---|
@@ -167,7 +207,7 @@ Ustawienia: `DB_STATEMENT_TIMEOUT_MS` (60000), `DB_CONNECT_TIMEOUT_MS` (15000), 
 
 ---
 
-## 8. Testy
+## 9. Testy
 
 ```
 set RIW_TEST_PG_URL=postgres://postgres:<hasło>@127.0.0.1:5432/postgres

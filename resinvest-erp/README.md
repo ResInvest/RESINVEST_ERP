@@ -1,11 +1,9 @@
-# ResInvest ERP 3.14 (3.14.0)
+# ResInvest ERP 3.15 (3.15.0)
 
-> **Baza danych — tryb firmowy na PostgreSQL.** Serwer pracuje na SQLite (domyślnie, jak dotychczas) albo na centralnej
-> bazie PostgreSQL 14+ (`DB_DRIVER=postgres` w `server.env`). Silnik, interfejs i API są te same w obu trybach.
-> Instrukcja, migracja `SQLite → PostgreSQL`, kopie, przywracanie i wycofanie: [docs/POSTGRESQL.md](docs/POSTGRESQL.md);
-> raport z migracji i testów: [docs/RAPORT_MIGRACJI_POSTGRESQL.md](docs/RAPORT_MIGRACJI_POSTGRESQL.md).
-> Tryb PostgreSQL wymaga sterownika `pg` (`npm ci`); tryb SQLite działa bez żadnych zależności, jak dotąd.
-> Testy PostgreSQL: `RIW_TEST_PG_URL=postgres://postgres:<hasło>@127.0.0.1:5432/postgres npm run test:pg`.
+> Wersja 3.15.0 przenosi tryb firmowy na **PostgreSQL** — centralną bazę dla wielu użytkowników, dużej historii operacji,
+> rejestrów i dokumentów. Instalator ma nową stronę **Baza danych**: tworzy konto i bazę programu, a przy aktualizacji
+> przenosi dotychczasowe dane z SQLite z kontrolą zgodności każdej tabeli. Silnik, operacje, rejestry, poczta i interfejs
+> działają **bez zmian**. SQLite pozostaje jako tryb awaryjny i punkt powrotu. Szczegóły: [docs/POSTGRESQL.md](docs/POSTGRESQL.md).
 
 *Program stworzony przez Roesner Mateusz dla ResInvest Commodities.*
 
@@ -46,12 +44,31 @@ Jeden interfejs — plik **`ResInvest_ERP.html`** — działa w dwóch trybach:
 
 | Tryb | Dla kogo | Dane | Logowanie |
 |---|---|---|---|
-| **Serwer — FIRMOWY** (zalecany do pracy) | wiele stanowisk w sieci firmy, także telefon / tablet | baza **SQLite** na serwerze (transakcje, dziennik zmian z łańcuchem skrótów SHA-256, kopie codzienne) | konta na serwerze, hasła **scrypt**, sesja w ciasteczku HttpOnly, blokada po 5 próbach |
+| **Serwer — FIRMOWY** (zalecany do pracy) | wiele stanowisk w sieci firmy, także telefon / tablet | baza **PostgreSQL** (od 3.15; awaryjnie SQLite) na serwerze (transakcje, dziennik zmian z łańcuchem skrótów SHA-256, kopie codzienne) | konta na serwerze, hasła **scrypt**, sesja w ciasteczku HttpOnly, blokada po 5 próbach |
 | **Lokalny — OFFLINE** | jedno stanowisko, szkolenie, pokaz | przeglądarka (`localStorage`), kopia JSON na żądanie | konta lokalne, hasła **PBKDF2-SHA256**, wylogowanie po bezczynności |
 
 Program nie korzysta z bibliotek zewnętrznych pobieranych z sieci (CDN) — wszystko jest w pliku HTML
 (dołączony dekoder kodów QR jsQR 1.4.0, licencja Apache-2.0: `app/vendor/jsQR.LICENSE`). Internet jest potrzebny tylko
 serwerowi do wysyłki e-maili (Resend); bez poczty zaproszenia zapisują się jako pliki `.eml`.
+
+## Nowe w 3.15.0
+
+**Baza danych PostgreSQL (tryb firmowy)**
+- Serwer pracuje na centralnej bazie **PostgreSQL 14+** (`DB_DRIVER=postgres` w `server.env`). Silnik programu, operacje,
+  rejestry, numeracja dokumentów, korekty, inwentaryzacja, raporty, poczta, uprawnienia i API — bez zmian.
+- **Instalator → strona „Baza danych”**: adres serwera PostgreSQL, konto i baza programu. Z hasłem administratora
+  PostgreSQL instalator sam tworzy konto programu (bez uprawnień administratora) i bazę; hasło administratora nie jest zapisywane.
+- **Aktualizacja = migracja danych**: kopia bazy przed aktualizacją, przeniesienie wszystkich tabel do PostgreSQL w jednej
+  transakcji, porównanie każdej tabeli (liczba wierszy i SHA-256) przed zatwierdzeniem, kontrola rdzeniem serwera
+  (rewizja, stan, łańcuch dziennika). Plik SQLite pozostaje nietknięty jako punkt powrotu. Błąd = serwer zostaje na SQLite.
+- Ochrona danych przy pracy wielu użytkowników: jeden serwer zapisujący na bazę, kontrola rewizji przy każdym zapisie,
+  ponowne połączenie po restarcie bazy, rozstrzyganie zapisu przerwanego zerwaniem połączenia.
+- Kopie zapasowe bez zmian w obsłudze (codziennie, przy starcie, ręcznie, folder firmy); kopia z PostgreSQL to spójny plik
+  `.sqlite` w formacie serwera. `--restore` działa dla obu silników. Skany dokumentów — jak dotąd w `<dane>\skany`.
+- Narzędzie `ResInvestERP-Migracja.cmd` (`plan` / `migrate --confirm` / `verify` / `rollback`) — migracja ręczna,
+  kontrola zgodności i powrót do SQLite z danymi wprowadzonymi w PostgreSQL.
+- Pierwsza zależność npm: sterownik `pg` (dołączany przez instalator). Tryb SQLite działa bez niej.
+- Licencja: `LICENSE` — licencja niewyłączna (pola eksploatacji, wersja 3.15).
 
 ## Nowe w 3.14.0
 * **Trzy instalatory pod nowymi nazwami**, każdy wielostanowiskowy (serwer SQLite + praca w przeglądarce na wielu komputerach i telefonach):

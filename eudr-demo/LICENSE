@@ -3,14 +3,58 @@ Program stworzony przez Roesner Mateusz dla ResInvest Commodities.
 
 Copyright (c) 2026 Mateusz Roesner. Wszelkie prawa zastrzeżone.
 
-Kod źródłowy, dokumentacja i dane przykładowe są własnością autora. Kopiowanie,
-modyfikowanie, rozpowszechnianie i używanie poza ResInvest Commodities wymaga
-pisemnej zgody autora.
+                              LICENCJA NIEWYŁĄCZNA
+            na korzystanie z programu komputerowego ResInvest ERP — moduł EUDR i pulpit obrotu (wersja demonstracyjna)
 
-Plik bazowy base/ResInvest_ERP_3.11.0_TEST.html zawiera komponenty stron trzecich
-na ich własnych licencjach (m.in. jsQR — Apache 2.0, czcionka ResInvestDocSans —
-SIL Open Font License 1.1), wymienione w tym pliku.
+Licencjodawca:   Mateusz Roesner (Autor) — twórca i właściciel autorskich praw majątkowych
+Licencjobiorca:  ResInvest Commodities
 
-OPROGRAMOWANIE JEST DOSTARCZANE „TAK JAK JEST”, BEZ JAKICHKOLWIEK GWARANCJI.
-Moduł EUDR wspiera ewidencję i nie stanowi porady prawnej; oświadczenia
-o należytej staranności składa się w systemie informacyjnym UE.
+Licencja jest udzielana na podstawie art. 67 ust. 1 oraz art. 74 ustawy z dnia 4 lutego 1994 r.
+o prawie autorskim i prawach pokrewnych. Jest to licencja NIEWYŁĄCZNA: Autor zachowuje autorskie prawa
+majątkowe do oprogramowania oraz prawo do korzystania z niego i do udzielania dalszych licencji
+innym podmiotom.
+
+1. Przedmiot licencji
+   Oprogramowanie ResInvest ERP — moduł EUDR i pulpit obrotu (wersja demonstracyjna) — wersja
+   demonstracyjna programu z modułem EUDR i pulpitem obrotu — wraz z kodem źródłowym, dokumentacją i
+   materiałami towarzyszącymi, wykonane przez Autora na potrzeby Licencjobiorcy.
+
+2. Zakres licencji
+   Licencjobiorca otrzymuje niewyłączną, nieprzenoszalną licencję na korzystanie z oprogramowania
+   w ramach własnej działalności, na dowolnej liczbie stanowisk i serwerów w swojej sieci, na czas
+   nieoznaczony, na następujących polach eksploatacji:
+     a) instalowanie, uruchamianie, wyświetlanie i stosowanie oprogramowania,
+     b) trwałe i czasowe zwielokrotnianie w zakresie niezbędnym do tych czynności, w tym wykonywanie
+        kopii zapasowych oprogramowania i danych,
+     c) przetwarzanie własnych danych Licencjobiorcy.
+   Licencja nie obejmuje przeniesienia autorskich praw majątkowych. Szczegółowe warunki (w tym
+   wynagrodzenie, ewentualne przeniesienie praw, zakres modyfikacji, serwis, termin i warunki
+   wypowiedzenia) określa odrębna umowa między Autorem a Licencjobiorcą — w razie rozbieżności
+   pierwszeństwo ma umowa.
+
+3. Ograniczenia
+   Bez uprzedniej pisemnej zgody Autora zabrania się:
+     a) udostępniania, sprzedaży, najmu, użyczenia, sublicencjonowania lub rozpowszechniania
+        oprogramowania osobom trzecim,
+     b) przenoszenia licencji na inny podmiot,
+     c) modyfikowania, dekompilacji lub tworzenia utworów zależnych poza zakresem przewidzianym
+        w umowie lub w bezwzględnie obowiązujących przepisach prawa,
+     d) usuwania lub zmiany oznaczeń autorstwa i praw autorskich, w tym stopki
+        „Program stworzony przez Roesner Mateusz dla ResInvest Commodities”.
+
+4. Dane
+   Dane wprowadzone do programu (operacje, dokumenty, skany, rejestry, kartoteki, konta) stanowią
+   własność Licencjobiorcy. Licencjobiorca odpowiada za kopie zapasowe (w trybie serwera program
+   wykonuje je automatycznie) oraz za zabezpieczenie komputerów, serwera bazy danych i kont.
+
+5. Wyłączenie odpowiedzialności
+   Oprogramowanie jest dostarczane „TAKIE, JAKIE JEST”, bez gwarancji wykraczających poza
+   zapisy umowy. Autor nie odpowiada za szkody wynikłe z użycia oprogramowania niezgodnie
+   z dokumentacją lub z utraty danych, której zapobiegłaby kopia zapasowa.
+
+6. Składniki stron trzecich
+   Składniki wymienione poniżej nie są objęte niniejszą licencją — obowiązują ich własne licencje,
+   które pozostają bez zmian.
+   Plik bazowy base/ResInvest_ERP_3.11.0_TEST.html zawiera komponenty stron trzecich
+   na ich własnych licencjach (m.in. jsQR — Apache 2.0, czcionka ResInvestDocSans —
+   SIL Open Font License 1.1), wymienione w tym pliku.

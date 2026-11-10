@@ -45,8 +45,14 @@ export function tmp(label = "riw") { const d = mkdtempSync(join(tmpdir(), `riw-$
 /** Zakończenie wszystkich połączeń aplikacji z bazą (symulacja zerwania sieci / restartu bazy). */
 export const killConnections = db => adminQuery("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()", [db]);
 
+/** Zmienne procesu potomnego; wartość null usuwa zmienną (pusta zmienna procesu ma pierwszeństwo przed server.env). */
+function envWith(base, over) {
+  const e = Object.assign({}, base, over);
+  for (const [k, v] of Object.entries(over || {})) if (v === null) delete e[k];
+  return e;
+}
 export function runNode(args, { env = {}, input } = {}) {
-  const r = spawnSync(process.execPath, [...NODE_FLAGS, ...args], { cwd: ROOT, env: Object.assign({}, process.env, { BACKUP_COPY_TO: "" }, env), encoding: "utf8", input, maxBuffer: 256 * 1024 * 1024 });
+  const r = spawnSync(process.execPath, [...NODE_FLAGS, ...args], { cwd: ROOT, env: envWith(Object.assign({}, process.env, { BACKUP_COPY_TO: "" }), env), encoding: "utf8", input, maxBuffer: 256 * 1024 * 1024 });
   return { code: r.status, out: r.stdout || "", err: r.stderr || "" };
 }
 export function scenario(dataDir, driver, url) {
@@ -64,7 +70,7 @@ let nextPort = 18200 + Math.floor(Math.random() * 400);
 /** Serwer ResInvest ERP w procesie potomnym. dbEnv: {} = SQLite, { DB_DRIVER: "postgres", DATABASE_URL } = PostgreSQL. */
 export async function startServer(dir, dbEnv = {}, cfgOver = {}) {
   const port = nextPort++, cfgFile = serverConfig(dir, cfgOver);
-  const env = Object.assign({}, process.env, { RIW_CONFIG: cfgFile, RIW_PORT: String(port), RIW_DATA: dir, RIW_HOST: "127.0.0.1", BACKUP_COPY_TO: "", EMAIL_TRANSPORT: "file", DB_DRIVER: "sqlite", DATABASE_URL: "" }, dbEnv);
+  const env = envWith(Object.assign({}, process.env, { RIW_CONFIG: cfgFile, RIW_PORT: String(port), RIW_DATA: dir, RIW_HOST: "127.0.0.1", BACKUP_COPY_TO: "", EMAIL_TRANSPORT: "file", DB_DRIVER: "sqlite", DATABASE_URL: "" }), dbEnv);
   const proc = spawn(process.execPath, [...NODE_FLAGS, "server/riw-server.mjs"], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
   let logs = ""; proc.stdout.on("data", d => { logs += d; }); proc.stderr.on("data", d => { logs += d; });
   const exited = new Promise(ok => proc.on("exit", code => ok(code)));
