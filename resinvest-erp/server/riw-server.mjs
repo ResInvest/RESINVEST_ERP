@@ -1,0 +1,949 @@
+#!/usr/bin/env node
+/* =========================================================================
+   ResInvest ERP Serwer — praca wielostanowiskowa w sieci lokalnej.
+
+   Uruchomienie:  node --disable-warning=ExperimentalWarning server/riw-server.mjs
+   Opcje:         --port 8080  --data <katalog>  --open (otwórz przeglądarkę)
+                  --backup-now                      (kopia i zakończenie)
+                  --restore <plik.sqlite>           (przywrócenie kopii; serwer zatrzymany)
+   Baza danych:   DB_DRIVER=sqlite (domyślnie, plik lokalny) albo DB_DRIVER=postgres (tryb firmowy) — server.env;
+                  migracja SQLite → PostgreSQL i wycofanie: tools/db-migrate.mjs (docs/POSTGRESQL.md)
+                  --reset-password <login>          (nowe hasło tymczasowe; serwer zatrzymany)
+                  --check                           (kontrola spójności bazy i dziennika)
+                  --mail-test <adres>               (wiadomość próbna — sprawdzenie poczty)
+   Interfejs: ten sam plik ResInvest_ERP.html co w trybie lokalnym — wykrywa
+   serwer (/api/health) i przełącza się na logowanie z sesją serwerową.
+   ========================================================================= */
+import { createServer as createHttp } from "node:http";
+import { createServer as createHttps } from "node:https";
+import { readFileSync, writeFileSync, existsSync, copyFileSync, createReadStream, statSync, renameSync, mkdirSync, unlinkSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { gzipSync, gzip } from "node:zlib";
+import { spawn } from "node:child_process";
+import { randomBytes, createHash } from "node:crypto";
+import { networkInterfaces } from "node:os";
+import { ROOT, Store, ROWS, loadConfig, loadEnv, parseDomains, makeLogger, verifyPassword, I18N, R, AuthLib, Service } from "./core.mjs";
+import { mailConfig, mailInfo, mailHint, sendMail, compose, sendRaw } from "./mail.mjs";
+import { databaseConfig } from "./db/index.mjs";
+
+const [major, minor] = process.versions.node.split(".").map(Number);
+if (major < 22 || (major === 22 && minor < 13)) { console.error(`ResInvest ERP Serwer wymaga Node.js 22.13 lub nowszego (jest ${process.versions.node}).`); process.exit(1); }
+
+const t = (s, p) => I18N.t(s, p);
+const N_ = s => s;
+const arg = (name, def) => { const i = process.argv.indexOf(name); return i >= 0 ? (process.argv[i + 1] && !process.argv[i + 1].startsWith("--") ? process.argv[i + 1] : true) : def; };
+const cfg = loadConfig(Object.assign({}, arg("--port") ? { port: Number(arg("--port")) } : {}, arg("--data") ? { dataDir: arg("--data") } : {}));
+const log = makeLogger(join(cfg.dataDir, "logs"));
+const HTML_FILE = join(ROOT, "ResInvest_ERP.html");
+const VERSION = R.VERSION;
+const { env, files: envFiles } = loadEnv(cfg.dataDir);
+let mailCfg = mailConfig(env, cfg.dataDir);           // 3.13: przeładowywane po zmianie w Poczta → Konfiguracja poczty
+// 3.12: druga kopia bazy w folderze firmy (udział sieciowy) — lista folderów rozdzielona średnikiem
+cfg.backup.copyTo = String(env.BACKUP_COPY_TO || "").split(";").map(x => x.trim()).filter(Boolean);
+const HOURS = { invite: Number(env.INVITE_HOURS) || 72, reset: Number(env.RESET_HOURS) || 1, confirm: Number(env.CONFIRM_HOURS) || 48 };
+
+// 3.15: silnik bazy z server.env (DB_DRIVER) — błąd konfiguracji zatrzymuje start z czytelnym komunikatem (bez hasła)
+try { cfg.database = databaseConfig(env); }
+catch (e) { console.error("Konfiguracja bazy danych: " + e.message); process.exit(1); }
+const openStore = (c, l) => {
+  try { return new Store(c, l); }
+  catch (e) {
+    if (c.database.driver !== "postgres" || !(e && (e.name === "PgError" || /PostgreSQL/.test(String(e.message))))) throw e;
+    log("ERROR", "Baza PostgreSQL niedostępna — serwer nie został uruchomiony: " + e.message);
+    console.error("Sprawdź DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD (albo DATABASE_URL) w server.env oraz czy usługa PostgreSQL działa.");
+    process.exit(3);
+  }
+};
+
+/* ---------------- polecenia administracyjne (bez uruchamiania serwera) ---------------- */
+if (arg("--restore") && cfg.database.driver === "postgres") {
+  // PostgreSQL: kopia (.sqlite w formacie serwera) jest sprawdzana, bieżąca baza zachowana jako „pre-restore”,
+  // a dane zastępowane w jednej transakcji — szczegóły: server/migrate.mjs
+  const { restoreToPostgres } = await import("./migrate.mjs");
+  const r = restoreToPostgres(cfg, String(arg("--restore")), (lvl, m) => console.log(`[restore] ${m}`));
+  if (!r.ok) { console.error("Przywracanie przerwane — baza bez zmian: " + r.error); process.exit(1); }
+  if (r.kept) console.log("Poprzednia baza zachowana: " + r.kept);
+  console.log(r.integrity.ok ? `Przywrócono: rewizja ${r.rev == null ? "—" : r.rev}.` : "UWAGA: " + r.integrity.notes.join("; "));
+  process.exit(r.integrity.ok ? 0 : 2);
+}
+if (arg("--restore")) {
+  const src = String(arg("--restore"));
+  if (!existsSync(src)) { console.error("Brak pliku: " + src); process.exit(1); }
+  const probe = new Store(Object.assign({}, cfg, { dataDir: join(cfg.dataDir, ".restore-check"), backupDir: join(cfg.dataDir, ".restore-check") }), () => {});
+  probe.close();
+  const target = join(cfg.dataDir, "resinvest.sqlite");
+  if (existsSync(target)) { const keep = join(cfg.backupDir, `resinvest-${new Date().toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15)}-pre-restore.sqlite`); copyFileSync(target, keep); console.log("Poprzednia baza zachowana: " + keep); }
+  for (const x of ["-wal", "-shm"]) if (existsSync(target + x)) renameSync(target + x, target + x + ".old");
+  copyFileSync(src, target);
+  const s = new Store(cfg, console.log.bind(console, "[restore]"));
+  console.log(s.integrity.ok ? `Przywrócono: rewizja ${s.state ? s.state.rev : "—"}.` : "UWAGA: " + s.integrity.notes.join("; "));
+  s.close(); process.exit(0);
+}
+const store = openStore(cfg, log);
+if (arg("--check")) { console.log(JSON.stringify({ ok: store.integrity.ok, notes: store.integrity.notes, rev: store.state && store.state.rev, journal: store.journalCount }, null, 1)); store.close(); process.exit(store.integrity.ok ? 0 : 2); }
+if (arg("--backup-now")) { const r = store.backup("manual"); console.log(r.file); store.close(); process.exit(0); }
+if (arg("--reset-password")) {
+  const login = String(arg("--reset-password")).toLowerCase(), u = store.state && store.state.users.find(x => x.login === login);
+  if (!u) { console.error("Nie znaleziono loginu: " + login); process.exit(1); }
+  const pw = "Riw-" + randomBytes(6).toString("base64url") + "7";
+  store.setPassword(u.id, pw, true); store.dropUserSessions(u.id);
+  store.logLogin(login, u.id, true, N_("reset hasła z konsoli serwera"), "console");
+  console.log(`Hasło tymczasowe dla ${login}: ${pw}\nUżytkownik ustawi własne hasło przy logowaniu.`);
+  store.close(); process.exit(0);
+}
+
+if (arg("--mail-test")) {
+  const to = String(arg("--mail-test"));
+  const r = await sendMail(mailCfg, "passwordChanged", to, { name: "Test", email: to }, log);
+  console.log(r.ok ? `Wysłano (${mailCfg.transport})${r.file ? ": " + r.file : ""}` : "Błąd: " + r.error);
+  store.close(); process.exit(r.ok ? 0 : 1);
+}
+
+/* ---------------- HTTP ---------------- */
+// connect-src data: — intro zamienia osadzony film na Blob przez fetch(data:) (bez połączeń sieciowych; 3.13)
+const SEC_HEADERS = {
+  "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer",
+  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+};
+const tls = cfg.tls && cfg.tls.cert && cfg.tls.key && existsSync(cfg.tls.cert) && existsSync(cfg.tls.key);
+const COOKIE = "riw_sid";
+const clients = new Set();   // SSE
+const ipHits = new Map();
+
+function send(req, res, status, body, type = "application/json; charset=utf-8", extra = {}) {
+  const view = body && typeof body === "object" && !Buffer.isBuffer(body) ? body[VIEW] : null;
+  const wantGz = /\bgzip\b/.test(req.headers["accept-encoding"] || "");
+  let data;
+  if (view) {
+    const rest = JSON.stringify(Object.assign({}, body)).slice(1, -1);          // pola odpowiedzi poza stanem (ok, res, mail…)
+    if (rest === '"ok":true' && wantGz) {                                          // odczyt stanu — gotowa, zapamiętana kompresja
+      if (view.gz) data = view.gz;
+      else {
+        // 3.14: pełny stan (MB) kompresowany w wątku roboczym — serwer w tym czasie obsługuje innych; równoczesne prośby
+        // o ten sam widok czekają na jedną kompresję (wcześniej gzipSync blokował serwer przy otwieraniu programu przez wiele osób)
+        if (!view.gzWait) view.gzWait = new Promise((ok, fail) => gzip(Buffer.from("{" + rest + "," + view.body + "}"), { level: 1 }, (e, out) => e ? fail(e) : ok(out)));
+        view.gzWait.then(out => { view.gz = out; send(req, res, status, body, type, extra); }, e => {
+          log("ERROR", "Kompresja stanu: " + e.message); view.gzWait = null;
+          const raw = "{" + rest + "," + view.body + "}";               // bez kompresji (awaryjnie)
+          res.writeHead(status, Object.assign({ "Content-Type": type, "Cache-Control": "no-store" }, SEC_HEADERS, extra, { "Content-Length": Buffer.byteLength(raw) })); res.end(raw);
+        });
+        return;
+      }
+    } else data = "{" + (rest ? rest + "," : "") + view.body + "}";
+  } else data = typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body);
+  const headers = Object.assign({ "Content-Type": type, "Cache-Control": "no-store" }, SEC_HEADERS, extra);
+  if (data === (view && view.gz)) headers["Content-Encoding"] = "gzip";
+  else if (data.length > 2048 && wantGz) { data = gzipSync(data, { level: 1 }); headers["Content-Encoding"] = "gzip"; }
+  headers["Content-Length"] = Buffer.byteLength(data);
+  res.writeHead(status, headers); res.end(data);
+}
+const json = (req, res, status, obj, extra) => send(req, res, status, obj, "application/json; charset=utf-8", extra);
+function readBody(req, limit = 60 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    if (Number(req.headers["content-length"] || 0) > limit) { reject(new Error("too large")); req.resume(); return; }
+    const chunks = []; let n = 0;
+    req.on("data", c => { n += c.length; if (n > limit) { reject(new Error("too large")); req.destroy(); } else chunks.push(c); });
+    req.on("end", () => { try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {}); } catch (e) { reject(e); } });
+    req.on("error", reject);
+  });
+}
+/** 3.14: surowa treść żądania (pliki skanów) z limitem rozmiaru; przekroczenie → błąd „too large”. */
+function readRaw(req, limit) {
+  return new Promise((resolve, reject) => {
+    const declared = Number(req.headers["content-length"] || 0);
+    if (declared > limit) { reject(Object.assign(new Error("too large"), { code: "TOO_LARGE" })); req.resume(); return; }
+    const chunks = []; let n = 0, done = false;
+    req.on("data", c => { if (done) return; n += c.length; if (n > limit) { done = true; reject(Object.assign(new Error("too large"), { code: "TOO_LARGE" })); req.resume(); } else chunks.push(c); });
+    req.on("end", () => { if (!done) { done = true; resolve(Buffer.concat(chunks)); } });
+    req.on("error", e => { if (!done) { done = true; reject(e); } });
+  });
+}
+const cookies = req => Object.fromEntries(String(req.headers.cookie || "").split(";").map(x => x.trim().split("=")).filter(x => x[0]).map(([k, ...v]) => [k, decodeURIComponent(v.join("="))]));
+const ipOf = req => (req.socket.remoteAddress || "").replace(/^::ffff:/, "");
+const langOf = (req, user) => (user && user.lang && I18N.has(user.lang)) ? user.lang : (String(req.headers["accept-language"] || "").slice(0, 2).toLowerCase().replace(/[^a-z]/g, "") || "pl");
+const sessionCookie = token => `${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/${tls ? "; Secure" : ""}`;
+const clearCookie = `${COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${tls ? "; Secure" : ""}`;
+function rateLimited(ip) {
+  const now = Date.now(), win = 15 * 60000, arr = (ipHits.get(ip) || []).filter(x => now - x < win);
+  arr.push(now); ipHits.set(ip, arr);
+  return arr.length > cfg.security.ipAttemptsPer15Min;
+}
+function broadcast(rev, by) {
+  const msg = `event: rev\ndata: ${JSON.stringify({ rev, by })}\n\n`;
+  for (const c of clients) { try { c.write(msg); } catch (e) { clients.delete(c); } }
+}
+/**
+ * Stan wysyłany do przeglądarki — WYŁĄCZNIE widok użytkownika (izolacja magazynów, Service.project).
+ * Konta i hasła nie są częścią stanu.
+ */
+/**
+ * Widok stanu dla użytkownika (tylko jego magazyny). Wynik jest zapamiętywany dla bieżącej rewizji: wielu pracowników
+ * odczytujących ten sam stan nie powoduje ponownego liczenia, zamiany na JSON ani kompresji (test obciążeniowy 3.9.1; od 3.10 — także synchronizacja samymi zmianami).
+ * Każda zmiana stanu (nowa rewizja) unieważnia pamięć.
+ */
+const viewCache = { rev: -1, today: "", map: new Map() };
+function viewEntry(userId) {
+  const rev = store.state.rev, today = store.today();
+  if (viewCache.rev !== rev || viewCache.today !== today) { R.applyRoles(store.state); viewCache.rev = rev; viewCache.today = today; viewCache.map.clear(); }
+  let v = viewCache.map.get(userId);
+  if (!v) { v = { proj: Service.project(store.state, { id: userId }), body: null, gz: null }; viewCache.map.set(userId, v); }
+  return v;
+}
+function stateView(userId) {
+  const v = viewEntry(userId);
+  if (v.body === null) v.body = JSON.stringify({ state: v.proj, today: viewCache.today, rev: viewCache.rev }).slice(1, -1);   // wnętrze obiektu — doklejane bez ponownej serializacji
+  return v;
+}
+/**
+ * Synchronizacja samymi zmianami (3.10): przeglądarka podaje rewizję, którą ma (`since`); serwer odsyła rdzeń widoku
+ * (kartoteki, konfiguracja — kilkanaście kB) i w kolekcjach tylko rekordy nowe / zmienione z ich pozycją w widoku
+ * oraz identyfikatory usuniętych lub już niewidocznych. `n` — liczba rekordów kolekcji (kontrola po stronie klienta).
+ * Brak historii zmian, zmiana kont / uprawnień / kolejności → null (pełny stan).
+ */
+function deltaView(userId, since) {
+  if (!Number.isInteger(since) || since < 0) return null;
+  const ch = store.changesSince(since);
+  if (!ch) return null;
+  const v = viewEntry(userId), P = v.proj;
+  if (!P) return null;
+  const core = {}, colls = {};
+  for (const k of Object.keys(P)) if (!ROWS.includes(k)) core[k] = P[k];
+  for (const k of ROWS) {
+    const up = ch.up[k], del = ch.del[k];
+    if (!(up && up.size) && !(del && del.size)) continue;
+    const arr = P[k] || [], ins = [], seen = new Set();
+    if (up && up.size) for (let i = 0; i < arr.length; i++) { const id = String(arr[i].id); if (up.has(id)) { ins.push([i, arr[i]]); seen.add(id); } }
+    const gone = del ? [...del] : [];
+    if (up) for (const id of up) if (!seen.has(id)) gone.push(id);        // zmieniony, ale poza widokiem użytkownika
+    colls[k] = { up: ins, del: gone, n: arr.length };
+  }
+  return { body: JSON.stringify({ delta: { since, core, colls }, today: viewCache.today, rev: viewCache.rev }).slice(1, -1), gz: null };
+}
+/** Znacznik: obiekt odpowiedzi z gotowym fragmentem stanu (pełny widok albo same zmiany od `since`) — patrz send(). */
+const statePayload = (userId, since) => ({ [VIEW]: (since != null && deltaView(userId, since)) || stateView(userId) });
+const sinceOf = v => { const n = Number(v); return v !== undefined && v !== null && v !== "" && Number.isInteger(n) && n >= 0 ? n : null; };
+const VIEW = Symbol("stateView");
+const metaOf = req => ({ ip: ipOf(req), ua: String(req.headers["user-agent"] || "").slice(0, 200) });
+/** Adres programu w linkach e-mail: APP_URL; bez niego — adres wyznaczony przez serwer (nigdy z nagłówka Host). */
+const appUrl = () => {
+  if (env.APP_URL) return String(env.APP_URL).replace(/\/+$/, "");
+  const ip = Object.values(networkInterfaces()).flat().find(n => n && n.family === "IPv4" && !n.internal);
+  return `${tls ? "https" : "http"}://${cfg.host === "127.0.0.1" || !ip ? "localhost" : ip.address}:${cfg.port}`;
+};
+const mailHits = new Map();
+function mailLimited(key, max, minutes) {
+  const now = Date.now(), win = minutes * 60000, arr = (mailHits.get(key) || []).filter(x => now - x < win);
+  arr.push(now); mailHits.set(key, arr);
+  return arr.length > max;
+}
+const whName = id => (R.byId(store.state.warehouses, id) || {}).name || "";
+
+/* ---------------- 3.13: konfiguracja poczty z programu (zapis w <dane>/server.env, bez restartu) ---------------- */
+const MAIL_KEYS = ["EMAIL_TRANSPORT", "SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM", "EMAIL_REPLY_TO", "APP_URL"];
+/** Ustawienia do formularza — bez hasła (tylko informacja, czy jest zapisane). */
+function mailSettings() {
+  return { transport: mailCfg.transport, host: mailCfg.smtp.host, port: mailCfg.smtp.port, secure: mailCfg.smtp.secure, user: mailCfg.smtp.user, hasPass: !!mailCfg.smtp.pass,
+    from: String(env.EMAIL_FROM || ""), replyTo: String(env.EMAIL_REPLY_TO || ""), appUrl: String(env.APP_URL || ""), appUrlEffective: appUrl(),
+    envFile: join(cfg.dataDir, "server.env"), overridden: MAIL_KEYS.filter(k => process.env[k] !== undefined && process.env[k] !== "") };
+}
+/** Wartość dla pliku .env — w cudzysłowie, gdy zawiera spację, # albo cudzysłów (parser server.env zdejmuje cudzysłowy). */
+function envValue(v) {
+  const x = String(v == null ? "" : v);
+  if (/[\r\n]/.test(x)) return null;
+  if (!/[\s#"']/.test(x)) return x;
+  if (!x.includes('"')) return `"${x}"`;
+  if (!x.includes("'")) return `'${x}'`;
+  return null;
+}
+function setEnvLine(text, key, value) {
+  const re = new RegExp(`^[ \\t]*(?:#[ \\t]*)?${key}[ \\t]*=.*$`, "m");
+  const active = new RegExp(`^[ \\t]*${key}[ \\t]*=.*$`, "m");
+  const line = `${key}=${value}`;
+  if (active.test(text)) return text.replace(active, () => line);              // funkcja: „$” w haśle bez specjalnego znaczenia
+  if (re.test(text)) return text.replace(re, () => line);
+  return `${text.replace(/\s*$/, "")}\r\n${line}\r\n`;
+}
+function saveMailConfig(b) {
+  const transport = ["smtp", "resend", "agentmail", "file"].includes(b.transport) ? b.transport : "smtp";
+  const port = Number(b.port) || 0, secure = ["ssl", "starttls", "none"].includes(b.secure) ? b.secure : "";
+  const host = String(b.host || "").trim(), user = String(b.user || "").trim(), from = String(b.from || "").trim(), app = String(b.appUrl || "").trim().replace(/\/+$/, "");
+  if (transport === "smtp") {
+    if (!/^[A-Za-z0-9.-]{3,253}$/.test(host)) return { ok: false, error: t("Podaj adres serwera SMTP (np. smtp.office365.com)") };
+    if (!(port > 0 && port < 65536)) return { ok: false, error: t("Nieprawidłowy port SMTP") };
+    if (user && !/^[^\s]{1,254}$/.test(user)) return { ok: false, error: t("Nieprawidłowy login SMTP") };
+  }
+  if (from && !R.EMAIL_RE.test(addr(from))) return { ok: false, error: t("Nieprawidłowy adres nadawcy") };
+  if (app && !/^https?:\/\/[^\s/]+(:\d+)?$/i.test(app)) return { ok: false, error: t("Adres programu zaczyna się od „http” lub „https”, potem nazwa lub IP serwera i port (bez ścieżki)") };
+  const values = { EMAIL_TRANSPORT: transport, SMTP_HOST: host, SMTP_PORT: port ? String(port) : "", SMTP_SECURE: secure, SMTP_USER: user, EMAIL_FROM: from, APP_URL: app };
+  const passChanged = typeof b.pass === "string" && b.pass !== "";
+  if (passChanged) values.SMTP_PASS = b.pass;
+  if (b.clearPass) values.SMTP_PASS = "";
+  const file = join(cfg.dataDir, "server.env");
+  let text = existsSync(file) ? readFileSync(file, "utf8") : "# ResInvest ERP Serwer — ustawienia administratora (zapisane z programu: Poczta → Konfiguracja poczty)\r\n";
+  for (const [k, v] of Object.entries(values)) {
+    const ev = envValue(v);
+    if (ev === null) return { ok: false, error: t("Wartość pola {k} zawiera niedozwolone znaki", { k }) };
+    text = setEnvLine(text, k, ev);
+  }
+  mkdirSync(cfg.dataDir, { recursive: true });
+  const tmp = file + ".tmp";
+  writeFileSync(tmp, text.replace(/\r?\n/g, "\r\n")); renameSync(tmp, file);
+  const fresh = loadEnv(cfg.dataDir).env;
+  for (const k of MAIL_KEYS) { if (fresh[k] === undefined) delete env[k]; else env[k] = fresh[k]; }
+  mailCfg = mailConfig(env, cfg.dataDir);
+  return { ok: true, info: mailInfo(mailCfg), file, passChanged: passChanged || !!b.clearPass, overridden: MAIL_KEYS.filter(k => process.env[k] !== undefined && process.env[k] !== "") };
+}
+const addr = s => { const m = /<([^>]+)>/.exec(String(s)); return (m ? m[1] : String(s)).trim(); };
+
+/**
+ * 3.13: --mail-setup <plik.json> — zapis poczty z kreatora instalatora (strona „Poczta”) i wiadomość testowa.
+ * Plik JSON (tymczasowy, usuwany przez instalator): { host, port, secure, user, pass, appUrl, test }.
+ * Hasło nie trafia do wiersza poleceń ani do dziennika. Wynik: jedna linia tekstu; kod 0 = zapisano (i wysłano test),
+ * 2 = błędne dane, 3 = zapisano, ale wiadomość testowa nie wyszła (z przyczyną i wskazówką).
+ */
+if (arg("--mail-setup")) {
+  let b = {};
+  // wynik także do pliku (UTF-8 z BOM — odczyt w instalatorze Inno Setup)
+  const say = text => { console.log(text); if (b.resultFile) { try { writeFileSync(String(b.resultFile), "\uFEFF" + text + "\r\n"); } catch (e) { /* tylko konsola */ } } };
+  try { b = JSON.parse(readFileSync(String(arg("--mail-setup")), "utf8").replace(/^\uFEFF/, "")); }
+  catch (e) { console.log("Błąd: nie można odczytać ustawień poczty (" + e.message + ")"); process.exit(2); }
+  const user = String(b.user || "").trim();
+  const prev = String(env.EMAIL_FROM || "");
+  const r = saveMailConfig({ transport: "smtp", host: b.host, port: b.port, secure: b.secure || "", user, pass: String(b.pass || ""),
+    from: b.from || (/@/.test(user) ? `ResInvest ERP <${user}>` : prev), appUrl: b.appUrl || env.APP_URL || "" });
+  if (!r.ok) { say("Błąd: " + r.error); store.close(); process.exit(2); }
+  log("INFO", `Konfiguracja poczty z instalatora: ${r.info.smtp ? r.info.smtp.host + ":" + r.info.smtp.port : r.info.transport}${r.info.configured ? "" : " (niepełna: " + r.info.problem + ")"}`);
+  if (!b.test || !r.info.configured) { say(r.info.configured ? "Zapisano konfigurację poczty." : "Zapisano. Niepełna konfiguracja: " + r.info.problem); store.close(); process.exit(0); }
+  const to = String(b.to || user).trim();
+  if (!R.EMAIL_RE.test(to)) { say("Zapisano konfigurację poczty. Wiadomość testowa pominięta — brak adresu odbiorcy."); store.close(); process.exit(0); }
+  const msg = compose("test", to, { name: "Administrator", transport: "smtp", by: "Instalator ResInvest ERP" });
+  const sent = await sendRaw(mailCfg, msg, log);
+  if (store.state) store.logMail("test", to, null, sent, mailCfg.transport);
+  say(sent.ok ? `Zapisano konfigurację poczty. Wiadomość testowa wysłana na ${to}.` : `Zapisano konfigurację, ale wiadomość testowa nie wyszła: ${sent.error}${sent.hint ? "\n" + sent.hint : ""}`);
+  store.close(); process.exit(sent.ok ? 0 : 3);
+}
+// 3.15 (PostgreSQL): jeden serwer zapisujący na bazę — druga instancja na tej samej bazie nie startuje
+// (każdy serwer trzyma stan w pamięci; dwa naraz nadpisywałyby sobie zmiany). SQLite: bez zmian.
+{
+  const lock = store.db.acquireWriterLock();
+  if (!lock.ok) {
+    log("ERROR", `Bazę ${store.db.describe()} obsługuje już inny serwer ResInvest ERP${lock.holder ? ` (${lock.holder})` : ""}. Ten serwer nie został uruchomiony.`);
+    store.close(); process.exit(2);
+  }
+}
+/** Wysyłka z szablonu + zapis w kolejce `outbox`. Komunikat dla użytkownika bez szczegółów technicznych. */
+async function mailTo(template, u, data, email) {
+  const to = email || u.email || u.login;
+  const r = await sendMail(mailCfg, template, to, Object.assign({ name: u.name, email: to }, data), log);
+  store.logMail(template, to, u.id, r, mailCfg.transport);
+  // 3.13: szczegół i wskazówka trafiają tylko do administratora (wywołanie z panelu); ekran logowania dostaje komunikat ogólny
+  return r.ok ? { ok: true, transport: mailCfg.transport, file: r.file || "" } : { ok: false, error: t("Nie udało się wysłać wiadomości e-mail. Sprawdź konfigurację poczty (dziennik serwera) i spróbuj ponownie."), detail: r.error || "", hint: r.hint || mailHint(r.error) };
+}
+/** Zaproszenie: nowy token (poprzednie tracą ważność), e-mail, wpis audytu. Błąd wysyłki — konto zostaje INVITED. */
+async function sendInvite(u, actor, meta) {
+  const token = store.createToken(u.id, "invite", HOURS.invite, u.email, actor && actor.id);
+  const link = `${appUrl()}/#/invite/accept?token=${token}`;
+  const m = await mailTo("invite", u, { link, hours: HOURS.invite, role: (R.ROLES[u.role] || {}).code, warehouse: whName(u.whId) });
+  // 3.13: e-mail nie wyszedł → link zaproszenia dostaje administrator (może go przekazać sam: Teams, SMS, wydruk).
+  // Administrator i tak może założyć konto z hasłem tymczasowym — link nie daje mu nowych uprawnień.
+  if (!m.ok && actor) m.link = link;
+  else if (!m.ok) store.dropTokens(u.id, "invite");
+  store.auditEvent({ entityId: u.id, opNo: u.login, code: m.ok ? "INVITE_SENT" : "INVITE_EMAIL_FAILED",
+    act: R.Lx(m.ok ? N_("Wysłanie zaproszenia e-mail: {l}") : N_("Wysłanie zaproszenia nieudane: {l}"), { l: u.login }), before: null, after: { email: u.login, wysylka: m.ok ? mailCfg.transport : "błąd" }, source: N_("Administracja — użytkownicy") }, meta, actor);
+  return m;
+}
+async function sendConfirm(u, actor, meta) {
+  const token = store.createToken(u.id, "confirm", HOURS.confirm, u.email, actor && actor.id);
+  const link = `${appUrl()}/#/confirm-email?token=${token}`;
+  const m = await mailTo("confirm", u, { link, hours: HOURS.confirm });
+  if (!m.ok && actor) m.link = link;                        // jak przy zaproszeniu — tylko gdy wysyła administrator
+  else if (!m.ok) store.dropTokens(u.id, "confirm");
+  store.auditEvent({ entityId: u.id, opNo: u.login, code: m.ok ? "EMAIL_CONFIRMATION_SENT" : "EMAIL_CONFIRMATION_FAILED", act: R.Lx(N_("Wysłanie prośby o potwierdzenie adresu: {l}"), { l: u.login }), before: null, after: { wysylka: m.ok ? mailCfg.transport : "błąd" }, source: N_("Administracja — użytkownicy") }, meta, actor);
+  return m;
+}
+async function sendReset(u, actor, meta) {
+  const token = store.createToken(u.id, "reset", HOURS.reset, u.email, actor ? actor.id : u.id);
+  const m = await mailTo("reset", u, { link: `${appUrl()}/#/reset-password?token=${token}`, hours: HOURS.reset });
+  if (!m.ok) store.dropTokens(u.id, "reset");
+  store.auditEvent({ entityId: u.id, opNo: u.login, code: "PASSWORD_RESET_REQUESTED", act: R.Lx(actor ? N_("Reset hasła wysłany przez administratora: {l}") : N_("Prośba o reset hasła: {l}"), { l: u.login }), before: null, after: { wysylka: m.ok ? mailCfg.transport : "błąd" }, source: actor ? N_("Administracja — użytkownicy") : N_("Ekran logowania") }, meta, actor || u);
+  return m;
+}
+/* ---------------- powiadomienia e-mail: kolejka (zapis w bazie), wysyłka w tle, ponowienia ---------------- */
+/** Po zatwierdzonej zmianie: powiadomienia z prośbą o e-mail → kolejka `outbox` (treść PL, link do operacji). */
+function queueNotices(ids) {
+  if (!ids || !ids.length) return 0;
+  const want = new Set(ids);
+  let n = 0;
+  for (const x of store.state.notices || []) {
+    if (!want.has(x.id) || !x.email) continue;
+    const u = R.byId(store.state.users, x.userId);
+    const to = u && (u.email || u.login);
+    if (!to || R.statusOf(u) !== "ACTIVE") continue;
+    const c = R.Notify.mailContent(x);
+    const msg = compose("notice", to, { name: u.name, subject: c.subject, lines: c.lines, link: `${appUrl()}/#/${x.opId ? "operacje?op=" + encodeURIComponent(x.opId) : x.kind === "approval" || x.kind === "rejected" ? "operacje" : x.kind === "registration" ? "uzytkownicy" : "powiadomienia"}` });
+    store.enqueueMail("notice", to, u.id, msg.subject, { html: msg.html, text: msg.text }, x.id);
+    n++;
+  }
+  if (n) setTimeout(() => drainMail().catch(e => log("ERROR", "Kolejka poczty: " + e.message)), 50);
+  return n;
+}
+/* ---------------- wysyłka dokumentów e-mailem: walidacja po stronie serwera ---------------- */
+const MAIL_DOC = { maxMb: 8, maxBody: 12 * 1024 * 1024, maxTo: 10, perHour: 40 };
+const EMAIL_RE = /^[^\s@<>(),;:"\[\]]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
+const clean1 = (s, n) => String(s == null ? "" : s).replace(/[\r\n\t]+/g, " ").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, n);
+/** Dane wiadomości z przeglądarki → zweryfikowane pola (adresy, temat, treść, PDF). Domena odbiorców: opcjonalnie lista dozwolonych (konfiguracja serwera). */
+function validateDocumentMail(b, user) {
+  const to = [...new Set(String(b.to || "").split(/[\s,;]+/).map(x => x.trim().toLowerCase()).filter(Boolean))];
+  if (!to.length) return { field: "to", error: t("Podaj co najmniej jeden adres e-mail odbiorcy.") };
+  if (to.length > MAIL_DOC.maxTo) return { field: "to", error: t("Maksymalnie {n} odbiorców w jednej wysyłce.", { n: MAIL_DOC.maxTo }) };
+  const bad = to.find(x => x.length > 254 || !EMAIL_RE.test(x));
+  if (bad) return { field: "to", error: t("Nieprawidłowy adres e-mail: {e}", { e: bad.slice(0, 80) }) };
+  const domains = (cfg.mail && Array.isArray(cfg.mail.documentDomains) ? cfg.mail.documentDomains : []).map(d => String(d).trim().toLowerCase().replace(/^@/, "")).filter(Boolean);
+  if (domains.length) { const out = to.find(x => !domains.includes(x.split("@")[1])); if (out) return { field: "to", error: t("Adres {e} jest spoza dozwolonych domen: {d}", { e: out, d: domains.join(", ") }) }; }
+  const subject = clean1(b.subject, 200), title = clean1(b.title, 200) || subject;
+  if (!subject) return { field: "subject", error: t("Podaj temat wiadomości.") };
+  const message = String(b.message == null ? "" : b.message).replace(/\r\n/g, "\n").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "").slice(0, 4000);
+  let filename = clean1(b.filename, 120).replace(/[\\/:*?"<>|]+/g, "_");
+  if (!/\.pdf$/i.test(filename)) filename = (filename || "dokument") + ".pdf";
+  const pdf = String(b.pdf || "").replace(/\s+/g, "");
+  if (!pdf || !/^[A-Za-z0-9+/]+=*$/.test(pdf)) return { field: "pdf", error: t("Brak załącznika PDF.") };
+  const buf = Buffer.from(pdf, "base64");
+  if (buf.length > MAIL_DOC.maxMb * 1024 * 1024) return { field: "pdf", error: t("Załącznik jest za duży (maks. {n} MB).", { n: MAIL_DOC.maxMb }) };
+  if (buf.subarray(0, 5).toString("latin1") !== "%PDF-") return { field: "pdf", error: t("Załącznik nie jest plikiem PDF.") };
+  const kind = ["DOC", "KWIT", "RAP"].includes(b.kind) ? b.kind : "RAP";
+  return { to, subject, title, message, filename, pdf, bytes: buf.length, kind, number: clean1(b.number, 60), range: clean1(b.range, 120), warehouse: clean1(b.warehouse, 120) };
+}
+let draining = null;
+/** Wysyłka wiadomości z kolejki (jedna naraz w procesie serwera). Błąd poczty nie wpływa na dane. */
+function drainMail() {
+  if (draining) return draining;
+  draining = (async () => {
+    let sent = 0, failed = 0;
+    for (let guard = 0; guard < 20; guard++) {
+      const rows = store.claimDue(10);
+      if (!rows.length) break;
+      for (const row of rows) {
+        let body = {}; try { body = JSON.parse(row.body || "{}"); } catch (e) {}
+        const r = await sendRaw(mailCfg, { to: row.to_addr, template: row.template, subject: row.subject, html: body.html || "", text: body.text || "", attachments: body.attachments, replyTo: body.replyTo }, log);
+        if (r.ok) { store.markSent(row.id, r, mailCfg.transport); sent++; }
+        else { const f = store.markFailed(row.id, r.error, mailCfg.transport); failed++; if (f.dead) log("ERROR", `E-mail #${row.id} → ${row.to_addr} porzucony po ${f.attempts} próbach`); }
+      }
+    }
+    return { sent, failed };
+  })().finally(() => { draining = null; });
+  return draining;
+}
+
+const TOKEN_ERR = { BAD: N_("Link jest nieprawidłowy."), USED: N_("Link został już wykorzystany."), EXPIRED: N_("Link wygasł — poproś administratora o nowy.") };
+const tokenError = code => ({ ok: false, code, error: t(TOKEN_ERR[code] || TOKEN_ERR.BAD) });
+/** Czynności po zapisie konta: dezaktywacja (wylogowanie + e-mail), zmiana adresu (potwierdzenie + powiadomienie). */
+async function afterUserSave(r, actor, meta) {
+  if (!r || !r.ok || !r.rec) return;
+  const u = r.rec, before = r.before;
+  if (R.statusOf(u) !== "ACTIVE") store.dropUserSessions(u.id);
+  if (!before) return;
+  if (R.statusOf(before) !== "DISABLED" && u.status === "DISABLED") { store.dropTokens(u.id); await mailTo("deactivated", u, {}); }
+  // zatwierdzone zgłoszenie rejestracji → e-mail z informacją o roli i magazynie
+  if (before.selfRegistered && R.statusOf(before) === "INVITED" && R.statusOf(u) === "ACTIVE") {
+    const m = await mailTo("approved", u, { link: appUrl(), role: R.ROLES[u.role] ? R.ROLES[u.role].code : u.role, warehouse: whName(u.whId), by: actor ? actor.name : "" });
+    store.auditEvent({ entityId: u.id, opNo: u.login, code: m.ok ? "REGISTRATION_APPROVED_SENT" : "REGISTRATION_APPROVED_EMAIL_FAILED", act: R.Lx(N_("Powiadomienie o zatwierdzeniu konta: {l}"), { l: u.login }), before: null, after: { wysylka: m.ok ? mailCfg.transport : "błąd" }, source: N_("Administracja — użytkownicy") }, meta, actor);
+  }
+  const oldEmail = before.email || before.login;
+  if (oldEmail !== u.email) {
+    store.dropTokens(u.id);
+    if (R.statusOf(u) === "ACTIVE") {
+      store.applyChange("user.emailUnverified", s => { const x = R.byId(s.users, u.id); x.emailUnverified = true; x.emailVerifiedAt = null; s.rev += 1; return { ok: true }; }, { userId: u.id }, actor);
+      store.dropUserSessions(u.id);
+      await sendConfirm(R.byId(store.state.users, u.id), actor, meta);
+    }
+    await mailTo("emailChanged", u, { oldEmail, newEmail: u.email, by: actor && actor.name }, oldEmail);
+  }
+}
+
+async function handleApi(req, res, url) {
+  const method = req.method, path = url.pathname;
+  const sid = cookies(req)[COOKIE];
+  const sess = store.state ? store.session(sid) : null;
+  const L = langOf(req, sess && sess.user);
+  I18N.setLang(L);
+  if (method !== "GET") {
+    // ochrona przed CSRF: własny nagłówek (wymusza preflight dla obcych stron) + zgodność Origin
+    if (req.headers["x-riw"] !== "1") return json(req, res, 403, { ok: false, error: t("Żądanie odrzucone (brak nagłówka aplikacji)") });
+    const origin = req.headers.origin;
+    if (origin && origin !== `${tls ? "https" : "http"}://${req.headers.host}`) return json(req, res, 403, { ok: false, error: t("Żądanie odrzucone (inne pochodzenie)") });
+  }
+  if (path === "/api/health") return json(req, res, 200, { ok: true, app: "resinvest-erp", mode: "server", version: VERSION, db: store.db.dialect, setup: !store.hasAccounts(), integrity: store.integrity.ok, host: req.headers.host, selfRegistration: !!(store.state && store.state.config.allowSelfRegistration), mailReady: !mailInfo(mailCfg).problem && mailCfg.transport !== "file", companyDomains: store.state ? (store.state.config.companyDomains || []) : ((globalThis.RIW_CONFIG && globalThis.RIW_CONFIG.companyDomains) || []) });
+  if (path === "/api/setup" && method === "POST") {
+    if (store.hasAccounts()) return json(req, res, 409, { ok: false, error: t("Serwer jest już skonfigurowany") });
+    const b = await readBody(req, 64 * 1024);                                    // 3.14: bez sesji — mały limit treści
+    const r = store.setup(b);
+    return json(req, res, r.ok ? 200 : 400, r);
+  }
+  if (path === "/api/auth/login" && method === "POST") {
+    const ip = ipOf(req);
+    if (rateLimited(ip)) return json(req, res, 429, { ok: false, code: "RATE", error: t("Zbyt wiele prób logowania z tego adresu. Spróbuj za kilka minut.") });
+    const b = await readBody(req, 64 * 1024);
+    if (!store.state) return json(req, res, 503, { ok: false, error: t("Serwer nie jest skonfigurowany") });
+    const r = store.login(b.login, b.password, ip);
+    if (!r.ok) return json(req, res, 401, r);
+    const token = store.createSession(r.user.id, ip, req.headers["user-agent"]);
+    log("INFO", `Logowanie: ${r.user.login} (${ip})`);
+    return json(req, res, 200, { ok: true, userId: r.user.id, mustChange: r.mustChange, user: { id: r.user.id, name: r.user.name, login: r.user.login, lang: r.user.lang, theme: r.user.theme } }, { "Set-Cookie": sessionCookie(token) });
+  }
+  if (path === "/api/auth/register" && method === "POST") {
+    const ip = ipOf(req);
+    if (rateLimited(ip)) return json(req, res, 429, { ok: false, code: "RATE", error: t("Zbyt wiele prób logowania z tego adresu. Spróbuj za kilka minut.") });
+    if (!store.state) return json(req, res, 503, { ok: false, error: t("Serwer nie jest skonfigurowany") });
+    const b = await readBody(req, 64 * 1024);
+    // ten sam adres e-mail: najwyżej 3 wiadomości na godzinę (ochrona skrzynek przed zalewem)
+    if (mailLimited("reg:" + String((b.rec && b.rec.email) || "").trim().toLowerCase(), 3, 60)) return json(req, res, 429, { ok: false, code: "RATE", error: t("Zbyt wiele prób rejestracji dla tego adresu. Spróbuj za godzinę.") });
+    const r = store.register(b.rec || {}, b.password, L, metaOf(req));
+    if (!r.ok) return json(req, res, 400, r);
+    broadcast(store.state.rev, null);
+    const u = R.byId(store.state.users, r.userId);
+    const mail = u ? await sendConfirm(u, null, metaOf(req)) : { ok: false };
+    if (!mail.ok) log("WARN", `Rejestracja ${u ? u.login : ""}: e-mail potwierdzający nie wyszedł (${mail.detail || "—"}). Administrator może wysłać go ponownie z modułu Użytkownicy.`);
+    return json(req, res, 200, { ok: true, confirm: true, mail: { ok: !!mail.ok, transport: mail.transport || "" } });
+  }
+  /* ---- linki z e-maili (bez sesji): zaproszenie, reset hasła, potwierdzenie adresu ---- */
+  if (path === "/api/auth/token" && method === "POST") {
+    if (!store.state) return json(req, res, 503, { ok: false, error: t("Serwer nie jest skonfigurowany") });
+    if (rateLimited(ipOf(req))) return json(req, res, 429, { ok: false, code: "RATE", error: t("Zbyt wiele prób z tego adresu. Spróbuj za kilka minut.") });
+    const b = await readBody(req, 64 * 1024);
+    const kind = ["invite", "reset", "confirm"].includes(b.kind) ? b.kind : "";
+    const p = kind ? store.peekToken(String(b.token || ""), kind) : { ok: false, code: "BAD" };
+    if (!p.ok) return json(req, res, 400, tokenError(p.code));
+    const u = R.byId(store.state.users, p.row.user_id);
+    if (!u || (p.row.email && p.row.email !== u.email)) return json(req, res, 400, tokenError("BAD"));
+    return json(req, res, 200, { ok: true, kind, email: u.email, name: u.name, firstName: u.firstName || "" });
+  }
+  if ((path === "/api/invite/accept" || path === "/api/auth/reset") && method === "POST") {
+    if (!store.state) return json(req, res, 503, { ok: false, error: t("Serwer nie jest skonfigurowany") });
+    const ip = ipOf(req);
+    if (rateLimited(ip)) return json(req, res, 429, { ok: false, code: "RATE", error: t("Zbyt wiele prób z tego adresu. Spróbuj za kilka minut.") });
+    const b = await readBody(req, 64 * 1024), kind = path === "/api/invite/accept" ? "invite" : "reset";
+    const p = store.peekToken(String(b.token || ""), kind);
+    if (!p.ok) return json(req, res, 400, tokenError(p.code));
+    const u = R.byId(store.state.users, p.row.user_id);
+    if (!u || (p.row.email && p.row.email !== u.email)) return json(req, res, 400, tokenError("BAD"));
+    const st = R.statusOf(u);
+    if (kind === "invite" && st !== "INVITED") return json(req, res, 400, st === "ACTIVE" ? tokenError("USED") : { ok: false, code: "INACTIVE", error: t("Twoje konto jest nieaktywne.") });
+    if (kind === "reset" && st !== "ACTIVE") return json(req, res, 400, { ok: false, code: "INACTIVE", error: t("Twoje konto jest nieaktywne.") });
+    const pe = AuthLib.passwordError(b.password, u.login); if (pe) return json(req, res, 400, { ok: false, field: "password", error: pe });
+    if (b.password2 !== undefined && b.password2 !== b.password) return json(req, res, 400, { ok: false, field: "password2", error: t("Hasła nie są zgodne") });
+    if (!store.useToken(String(b.token), kind).ok) return json(req, res, 400, tokenError("USED"));
+    const meta = metaOf(req);
+    if (kind === "invite") {
+      const r = store.applyChange("auth.inviteAccept", s => R.Users.activate(s, u.id, Object.assign({ today: store.today() }, meta)), { userId: u.id }, u);
+      if (!r.ok) return json(req, res, 400, { ok: false, error: r.error });
+      store.setPassword(u.id, b.password, false);
+      store.logLogin(u.login, u.id, true, N_("aktywacja konta z zaproszenia"), ip);
+      broadcast(store.state.rev, u.id);
+    } else {
+      store.setPassword(u.id, b.password, false); store.dropUserSessions(u.id); store.dropTokens(u.id, "reset");
+      store.logLogin(u.login, u.id, true, N_("reset hasła z linku e-mail"), ip);
+      store.auditEvent({ entityId: u.id, opNo: u.login, code: "PASSWORD_RESET_COMPLETED", act: R.Lx(N_("Ustawienie nowego hasła z linku e-mail: {l}"), { l: u.login }), before: null, after: null, source: N_("Reset hasła") }, meta, u);
+      await mailTo("passwordChanged", u, {});
+      broadcast(store.state.rev, u.id);
+    }
+    return json(req, res, 200, { ok: true, email: u.email });
+  }
+  if (path === "/api/auth/confirm" && method === "POST") {
+    if (!store.state) return json(req, res, 503, { ok: false, error: t("Serwer nie jest skonfigurowany") });
+    if (rateLimited(ipOf(req))) return json(req, res, 429, { ok: false, code: "RATE", error: t("Zbyt wiele prób z tego adresu. Spróbuj za kilka minut.") });
+    const b = await readBody(req, 64 * 1024);
+    const p = store.peekToken(String(b.token || ""), "confirm");
+    if (!p.ok) return json(req, res, 400, tokenError(p.code));
+    const u = R.byId(store.state.users, p.row.user_id);
+    if (!u || p.row.email !== u.email) return json(req, res, 400, tokenError("BAD"));
+    if (!store.useToken(String(b.token), "confirm").ok) return json(req, res, 400, tokenError("USED"));
+    let notices = [];
+    store.applyChange("auth.emailConfirm", s => {
+      const x = R.byId(s.users, u.id); delete x.emailUnverified; x.emailVerifiedAt = new Date().toISOString(); s.rev += 1;
+      R.audit(s, Object.assign({ user: x }, metaOf(req)), { entity: "user", entityId: x.id, opNo: x.login, event: "user", code: "EMAIL_CONFIRMED", act: R.Lx(N_("Potwierdzenie adresu e-mail: {l}"), { l: x.login }), before: null, after: { email: x.login }, source: N_("Potwierdzenie adresu e-mail") });
+      // zgłoszenie rejestracji z potwierdzonym adresem → powiadomienie administratorów (w programie i e-mailem)
+      if (x.selfRegistered && R.statusOf(x) === "INVITED") { R.applyRoles(s); notices = R.Notify.forRegistration(s, x, { today: store.today(), source: N_("Rejestracja") }).map(n => n.id); }
+      return { ok: true };
+    }, { userId: u.id }, u);
+    broadcast(store.state.rev, u.id);
+    if (notices.length) queueNotices(notices);
+    const pending = !!u.selfRegistered && R.statusOf(R.byId(store.state.users, u.id)) === "INVITED";
+    return json(req, res, 200, { ok: true, email: u.email, pending });
+  }
+  /** „Nie pamiętam hasła” — zawsze ta sama odpowiedź (bez ujawniania, czy konto istnieje), limit prób. */
+  if (path === "/api/auth/forgot" && method === "POST") {
+    if (!store.state) return json(req, res, 503, { ok: false, error: t("Serwer nie jest skonfigurowany") });
+    const ip = ipOf(req);
+    if (rateLimited(ip) || mailLimited("ip:" + ip, 10, 60)) return json(req, res, 429, { ok: false, code: "RATE", error: t("Zbyt wiele prób z tego adresu. Spróbuj za kilka minut.") });
+    const b = await readBody(req, 64 * 1024);
+    const em = R.validateCompanyEmail(b.email, store.state.config.companyDomains);
+    if (!em.ok) return json(req, res, 400, { ok: false, field: "email", error: em.error });
+    const same = { ok: true, message: t("Jeśli konto z tym adresem istnieje i jest aktywne, wysłaliśmy wiadomość z linkiem do ustawienia nowego hasła.") };
+    const u = store.state.users.find(x => R.normalizeEmail(x.email || x.login) === em.email);
+    if (u && R.statusOf(u) === "ACTIVE" && store.account(u.id) && !mailLimited("em:" + em.email, 3, 60)) await sendReset(u, null, metaOf(req));
+    else store.logLogin(em.email, u ? u.id : null, false, N_("reset hasła — bez wysyłki (brak aktywnego konta lub limit)"), ip);
+    return json(req, res, 200, same);
+  }
+  if (path === "/api/auth/logout" && method === "POST") { if (sid) store.dropSession(sid); if (sess) store.logLogin(sess.user.login, sess.userId, true, N_("wylogowanie"), ipOf(req)); return json(req, res, 200, { ok: true }, { "Set-Cookie": clearCookie }); }
+
+  /* ---- od tego miejsca wymagana sesja ---- */
+  if (!sess && path === "/api/auth/me") return json(req, res, 200, { ok: false, code: "AUTH" });
+  if (!sess) return json(req, res, 401, { ok: false, code: "AUTH", error: t("Sesja wygasła — zaloguj się ponownie.") }, { "Set-Cookie": clearCookie });
+  const user = sess.user, acc = store.account(user.id);
+  const must = acc && acc.must_change;
+  if (path === "/api/auth/me") return json(req, res, 200, { ok: true, userId: user.id, mustChange: !!must, idleMinutes: cfg.session.idleMinutes, user: { id: user.id, name: user.name, login: user.login, lang: user.lang, theme: user.theme } });
+  if (path === "/api/auth/password" && method === "POST") {
+    const b = await readBody(req, 64 * 1024);
+    if (!AuthLib || !store.account(user.id)) return json(req, res, 400, { ok: false, error: t("Nie znaleziono konta") });
+    if (!verifyPassword(b.old, store.account(user.id))) { store.logLogin(user.login, user.id, false, N_("zmiana hasła — błędne obecne hasło"), ipOf(req)); return json(req, res, 400, { ok: false, field: "old", error: t("Obecne hasło jest nieprawidłowe") }); }
+    const pe = AuthLib.passwordError(b.new, user.login); if (pe) return json(req, res, 400, { ok: false, field: "new", error: pe });
+    if (verifyPassword(b.new, store.account(user.id))) return json(req, res, 400, { ok: false, field: "new", error: t("Nowe hasło musi być inne niż obecne") });
+    store.setPassword(user.id, b.new, false); store.dropUserSessions(user.id, sid); store.dropTokens(user.id, "reset");
+    store.logLogin(user.login, user.id, true, N_("zmiana hasła"), ipOf(req));
+    store.auditEvent({ entityId: user.id, opNo: user.login, code: "PASSWORD_CHANGED", act: R.Lx(N_("Zmiana własnego hasła: {l}"), { l: user.login }), before: null, after: null, source: N_("Moje konto") }, metaOf(req), user);
+    await mailTo("passwordChanged", user, {});
+    return json(req, res, 200, { ok: true });
+  }
+  if (must) return json(req, res, 403, { ok: false, code: "MUST_CHANGE", error: t("Ustaw nowe hasło przed rozpoczęciem pracy") });
+
+  if (path === "/api/state" && method === "GET") return json(req, res, 200, Object.assign({ ok: true }, statePayload(user.id, sinceOf(url.searchParams.get("since")))));
+  if (path === "/api/events" && method === "GET") {
+    res.writeHead(200, Object.assign({ "Content-Type": "text/event-stream", "Cache-Control": "no-store", Connection: "keep-alive" }, SEC_HEADERS));
+    res.write(`event: rev\ndata: ${JSON.stringify({ rev: store.state.rev })}\n\n`);
+    clients.add(res); req.on("close", () => clients.delete(res));
+    return;
+  }
+  /* ---- 3.14: skany dokumentów i zdjęcia operacji ---- */
+  if (path === "/api/scans" && method === "POST") {
+    R.applyRoles(store.state);
+    if (!R.can(user, "scans.add")) return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Nie masz uprawnień do wykonania tej operacji.") });
+    const opId = String(url.searchParams.get("opId") || ""), kind = String(url.searchParams.get("kind") || ""), name = String(url.searchParams.get("name") || "").slice(0, 160);
+    const op = R.byId(store.state.operations, opId);
+    if (!op) { req.resume(); return json(req, res, 404, { ok: false, error: t("Nie znaleziono operacji") }); }
+    if (!R.Scans.access(user, op)) { req.resume(); return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Brak dostępu do magazynu tej operacji") }); }
+    if (!R.SCAN_KINDS[kind]) { req.resume(); return json(req, res, 400, { ok: false, error: t("Wybierz rodzaj skanu") }); }
+    let buf;
+    try { buf = await readRaw(req, R.SCAN_MAX_BYTES); }
+    catch (e) { return json(req, res, e.code === "TOO_LARGE" ? 413 : 400, { ok: false, error: e.code === "TOO_LARGE" ? t("Plik jest za duży (najwięcej {n} MB)", { n: R.SCAN_MAX_BYTES / 1048576 }) : t("Nie udało się odebrać pliku") }); }
+    const type = R.scanSniff(buf);
+    if (!type) return json(req, res, 415, { ok: false, error: t("Dozwolone pliki: PDF, JPG, PNG, WEBP, HEIC, TIFF") });
+    const id = R.uid("sc").replace(/[^a-z0-9_]/gi, "").toLowerCase();
+    const rel = `${R.scanFolder(op.date)}/${R.scanFileName(op, kind, id, R.SCAN_TYPES[type])}`;
+    try { await store.saveScan(rel, buf); }
+    catch (e) { log("ERROR", `Zapis skanu ${rel}: ${e.message}`); return json(req, res, 500, { ok: false, error: t("Nie udało się zapisać pliku na serwerze") }); }
+    const sha = createHash("sha256").update(buf).digest("hex");
+    // operacja mogła zostać anulowana / usunięta w trakcie wysyłki — silnik sprawdza to ponownie przy dołączaniu
+    const r = store.execute(user.id, "scan.attach", { opId, scan: { id, kind, name: name || rel.split("/").pop(), file: rel, type, size: buf.length, sha }, source: N_("Skany dokumentów") }, L, metaOf(req));
+    const changed = !!r.__changed; delete r.__changed; delete r.before;
+    if (!r.ok) { try { unlinkSync(store.scanPath(rel)); } catch (e) { /* plik zostaje w kopii */ } return json(req, res, r.code === "FORBIDDEN" ? 403 : 400, { ok: false, error: r.error }); }
+    if (changed) broadcast(store.state.rev, user.id);
+    // druga kopia w folderze firmy (udział) — w tle, bez czekania na VPN
+    if ((cfg.backup.copyTo || []).length) setImmediate(() => { for (const d of cfg.backup.copyTo) { try { const dst = join(d, "skany", rel); mkdirSync(dirname(dst), { recursive: true }); copyFileSync(store.scanPath(rel), dst); } catch (e) { log("WARN", `Kopia skanu w folderze firmy NIEUDANA (${d}): ${e.message}`); } } });
+    // zmiany od rewizji przeglądarki (bez „haveRev” — bez stanu: przeglądarka dostanie zmiany przez SSE, serwer nie liczy pełnego widoku)
+    const since = sinceOf(url.searchParams.get("haveRev"));
+    return json(req, res, 200, Object.assign({ ok: true, scan: r.scan }, changed && since != null ? statePayload(user.id, since) : {}));
+  }
+  if (path === "/api/scans/file" && method === "GET") {
+    const op = R.byId(store.state.operations, String(url.searchParams.get("opId") || ""));
+    const sc = op && (op.scans || []).find(x => x.id === String(url.searchParams.get("id") || ""));
+    if (!op || !sc) return json(req, res, 404, { ok: false, error: t("Nie znaleziono skanu") });
+    R.applyRoles(store.state);
+    if (!R.Scans.access(user, op)) return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Brak dostępu do magazynu tej operacji") });
+    const p = store.scanPath(sc.file);
+    let st = null; try { st = p && statSync(p); } catch (e) { /* brak pliku */ }
+    if (!st) return json(req, res, 404, { ok: false, error: t("Plik skanu nie istnieje w folderze serwera (sprawdź kopię w backups\\skany)") });
+    const dl = url.searchParams.get("download") === "1";
+    res.writeHead(200, Object.assign({}, SEC_HEADERS, { "Content-Type": R.SCAN_TYPES[sc.type] ? sc.type : "application/octet-stream", "Content-Length": st.size, "Cache-Control": "private, max-age=3600",
+      "Content-Disposition": `${dl ? "attachment" : "inline"}; filename="${sc.file.split("/").pop()}"; filename*=UTF-8''${encodeURIComponent(sc.name)}` }));
+    createReadStream(p).pipe(res);
+    return;
+  }
+  if (path === "/api/cmd" && method === "POST") {
+    const b = await readBody(req);
+    const cmd = String(b.cmd || ""), args = b.args || {};
+    // 3.14: skan dołącza wyłącznie serwer po zapisaniu pliku (/api/scans) — nie z polecenia przeglądarki
+    if (cmd === "scan.attach") return json(req, res, 403, { ok: true, res: { ok: false, code: "FORBIDDEN", error: t("Skany dodaje się przez wysłanie pliku") }, today: store.today() });
+    // nowe konto w trybie FIRMOWYM tylko przez zaproszenie (/api/users/invite) albo z hasłem tymczasowym (/api/users)
+    if (cmd === "user.save" && !(args.rec && args.rec.id)) return json(req, res, 403, { ok: true, res: { ok: false, code: "FORBIDDEN", error: t("Nowe konto dodaje się przez zaproszenie e-mail") }, today: store.today() });
+    const r = store.execute(user.id, cmd, args, L, metaOf(req));
+    const changed = !!r.__changed; delete r.__changed;
+    if (changed) {
+      if (r.notices) { queueNotices(r.notices); delete r.notices; }
+      if (cmd === "user.save") await afterUserSave(r, user, metaOf(req));
+      if (cmd === "user.remove" && r.ok) { store.dropAccount(String(args.id)); store.dropTokens(String(args.id)); }
+      broadcast(store.state.rev, user.id);
+    }
+    const out = Object.assign({}, r); delete out.before;
+    // odmowa z powodu uprawnień / dostępu do magazynu — HTTP 403 (treść jak zwykle w `res`)
+    return json(req, res, out.code === "FORBIDDEN" ? 403 : 200, Object.assign({ ok: true, res: out }, changed ? statePayload(user.id, sinceOf(b.haveRev)) : { today: store.today() }));
+  }
+  /* ---- użytkownicy i hasła (administrator) ---- */
+  if (path.startsWith("/api/users")) {
+    R.applyRoles(store.state);
+    if (path === "/api/users/accounts" && method === "GET" && R.can(user, "users.read") && !R.can(user, "users.manage")) {
+      const out = {};
+      for (const u of Service.project(store.state, user).users) { const a = store.account(u.id); out[u.id] = a ? { hasPassword: true, lastLogin: a.last_login } : { hasPassword: false }; }
+      return json(req, res, 200, { ok: true, accounts: out });
+    }
+    if (!R.can(user, "users.manage")) return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Nie masz uprawnień do wykonania tej operacji.") });
+    if (path === "/api/users/accounts" && method === "GET") {
+      const out = {};
+      for (const u of store.state.users) {
+        const a = store.account(u.id), tk = store.tokenInfo(u.id).find(x => x.kind === "invite");
+        const invite = tk ? { sentAt: tk.createdAt, expiresAt: tk.expiresAt, used: !!tk.usedAt, expired: !tk.usedAt && Date.parse(tk.expiresAt) < Date.now() } : null;
+        out[u.id] = Object.assign(a ? { hasPassword: true, mustChange: !!a.must_change, failed: a.failed, lockedUntil: a.locked_until, lastLogin: a.last_login, changedAt: a.changed_at } : { hasPassword: false }, { invite });
+      }
+      return json(req, res, 200, { ok: true, accounts: out, mail: mailInfo(mailCfg) });
+    }
+    const b = await readBody(req);
+    const meta = metaOf(req);
+    if (path === "/api/users" && method === "POST") {
+      const pe = AuthLib.passwordError(b.password, b.rec && (b.rec.email || b.rec.login));
+      if (pe) return json(req, res, 200, { ok: true, res: { ok: false, errors: { password: pe }, error: pe } });
+      const rec = Object.assign({}, b.rec, { id: undefined, status: "ACTIVE" });
+      const r = store.execute(user.id, "user.save", { rec, source: "Administracja — użytkownicy" }, L, meta);
+      const changed = !!r.__changed; delete r.__changed; delete r.before;
+      if (r.ok) { store.setPassword(r.rec.id, b.password, true); store.logLogin(r.rec.login, r.rec.id, true, N_("hasło ustawione przez administratora"), ipOf(req)); }
+      if (changed) broadcast(store.state.rev, user.id);
+      return json(req, res, 200, Object.assign({ ok: true, res: r }, changed ? statePayload(user.id) : {}));
+    }
+    /** Dodaj użytkownika → zaproszenie e-mail (konto INVITED do czasu ustawienia hasła z linku). */
+    if (path === "/api/users/invite" && method === "POST") {
+      const rec = Object.assign({}, b.rec, { id: undefined, status: "INVITED" });
+      const r = store.execute(user.id, "user.save", { rec, source: "Administracja — użytkownicy" }, L, meta);
+      const changed = !!r.__changed; delete r.__changed; delete r.before;
+      let mail = null;
+      if (r.ok) mail = await sendInvite(r.rec, user, meta);
+      if (changed) broadcast(store.state.rev, user.id);
+      return json(req, res, 200, Object.assign({ ok: true, res: r, mail }, changed ? statePayload(user.id) : {}));
+    }
+    /** Ponowne wysłanie: zaproszenie (INVITED) albo potwierdzenie adresu (zmieniony e-mail). Bez nowego konta. */
+    if (path === "/api/users/resend" && method === "POST") {
+      const u = R.byId(store.state.users, b.userId);
+      if (!u) return json(req, res, 404, { ok: false, error: t("Nie znaleziono użytkownika") });
+      if (u.role === "admin" && user.role !== "admin") return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Nie masz uprawnień do wykonania tej operacji.") });
+      let mail;
+      if (R.statusOf(u) === "INVITED" && !u.selfRegistered) mail = await sendInvite(u, user, meta);
+      else if (u.emailUnverified) mail = await sendConfirm(u, user, meta);
+      else return json(req, res, 400, { ok: false, error: t("Konto jest aktywne — zaproszenie nie jest potrzebne") });
+      return json(req, res, 200, Object.assign({ ok: true, mail }, statePayload(user.id)));
+    }
+    /** Reset hasła wysłany przez administratora (link e-mail; hasła administrator nie zna). */
+    if (path === "/api/users/reset-link" && method === "POST") {
+      const u = R.byId(store.state.users, b.userId);
+      if (!u) return json(req, res, 404, { ok: false, error: t("Nie znaleziono użytkownika") });
+      if (u.role === "admin" && user.role !== "admin") return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Nie masz uprawnień do wykonania tej operacji.") });
+      if (R.statusOf(u) !== "ACTIVE") return json(req, res, 400, { ok: false, error: t("Twoje konto jest nieaktywne.") });
+      const mail = await sendReset(u, user, meta);
+      return json(req, res, 200, Object.assign({ ok: true, mail }, statePayload(user.id)));
+    }
+    if (path === "/api/users/password" && method === "POST") {
+      const u = R.byId(store.state.users, b.userId);
+      if (!u) return json(req, res, 404, { ok: false, error: t("Nie znaleziono użytkownika") });
+      if (u.role === "admin" && user.role !== "admin") return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Nie masz uprawnień do wykonania tej operacji.") });
+      const pe = AuthLib.passwordError(b.password, u.login); if (pe) return json(req, res, 400, { ok: false, error: pe });
+      store.setPassword(u.id, b.password, b.mustChange !== false); store.dropUserSessions(u.id); store.dropTokens(u.id, "reset");
+      store.logLogin(u.login, u.id, true, N_("hasło ustawione przez administratora"), ipOf(req));
+      store.auditEvent({ entityId: u.id, opNo: u.login, code: "PASSWORD_SET_BY_ADMIN", act: R.Lx(N_("Hasło tymczasowe ustawione przez administratora: {l}"), { l: u.login }), before: null, after: { zmianaWymagana: b.mustChange !== false }, source: N_("Administracja — użytkownicy") }, meta, user);
+      return json(req, res, 200, { ok: true });
+    }
+    if (path === "/api/users/unlock" && method === "POST") {
+      if (!store.account(b.userId)) return json(req, res, 404, { ok: false, error: t("Nie znaleziono konta") });
+      store.db.prepare("UPDATE accounts SET failed = 0, locked_until = NULL WHERE user_id = ?").run(b.userId);
+      const ul = R.byId(store.state.users, b.userId);
+      if (ul) store.auditEvent({ entityId: ul.id, opNo: ul.login, code: "USER_UNLOCKED", act: R.Lx(N_("Odblokowanie konta po nieudanych logowaniach: {l}"), { l: ul.login }), before: null, after: null, source: N_("Administracja — użytkownicy") }, meta, user);
+      return json(req, res, 200, { ok: true });
+    }
+  }
+  if ((path === "/api/auth/log" || path === "/api/audit/extra") && method === "GET") {
+    R.applyRoles(store.state);
+    if (!R.can(user, "users.manage") && !R.can(user, "audit.read")) return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Nie masz uprawnień do wykonania tej operacji.") });
+    const rows = store.db.prepare("SELECT ts, login, user_id AS userId, ok, reason, ip FROM login_log ORDER BY id DESC LIMIT 1000").all().map(r => Object.assign({}, r, { ok: !!r.ok }));
+    return json(req, res, 200, { ok: true, log: rows, mail: store.mailLog(300), mailConfig: mailInfo(mailCfg) });
+  }
+  /* ---- wysyłka dokumentu / raportu e-mailem (PDF w załączniku) — 3.6 ---- */
+  if (path === "/api/mail-document" && method === "POST") {
+    R.applyRoles(store.state);
+    if (!R.can(user, "reports.export")) return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Brak uprawnienia „{p}”", { p: "reports.export" }) });
+    let b;
+    try { b = await readBody(req, MAIL_DOC.maxBody); } catch (e) { return json(req, res, 413, { ok: false, error: t("Załącznik jest za duży (maks. {n} MB).", { n: MAIL_DOC.maxMb }) }); }
+    const v = validateDocumentMail(b, user);
+    if (v.error) return json(req, res, 400, { ok: false, field: v.field, error: v.error });
+    const since = new Date(Date.now() - 3600 * 1000).toISOString();
+    if (store.documentsSince(user.id, since) + v.to.length > MAIL_DOC.perHour) return json(req, res, 429, { ok: false, error: t("Limit wysyłki: {n} wiadomości z dokumentami na godzinę. Spróbuj później.", { n: MAIL_DOC.perHour }) });
+    const meta = metaOf(req), byEmail = user.email || user.login;
+    const data = { subject: v.subject, title: v.title, message: v.message, range: v.range, warehouse: v.warehouse, filename: v.filename, sizeKb: Math.max(1, Math.round(v.bytes / 1024)), by: user.name, byEmail };
+    const ids = [];
+    for (const to of v.to) {
+      const msg = compose("document", to, data);
+      // treść i załącznik w kolejce do chwili wysłania — po wysyłce usuwane (zostaje wpis w dzienniku)
+      ids.push(store.enqueueMail("document", to, user.id, msg.subject, { html: msg.html, text: msg.text, replyTo: byEmail, attachments: [{ filename: v.filename, content: v.pdf, contentType: "application/pdf" }] }, null));
+    }
+    store.auditEvent({ entityId: v.number || v.filename, opNo: v.number || v.filename, code: "MAIL_DOCUMENT", act: R.Lx(N_("Wysłanie e-mailem: {title} → {to}"), { title: v.title.slice(0, 160), to: v.to.join(", ") }), before: null, after: { odbiorcy: v.to, temat: v.subject, plik: v.filename, kB: data.sizeKb, rodzaj: v.kind }, entity: "report", event: "print", source: N_("Wysyłka e-mailem") }, meta, user);
+    broadcast(store.state.rev, null);
+    const r = await drainMail();
+    const queued = store.outbox("", 50).rows.filter(x => ids.includes(x.id));
+    const sent = queued.filter(x => x.status === "SENT").length;
+    return json(req, res, 200, { ok: true, sent, queued: ids.length - sent, transport: mailCfg.transport,
+      message: sent === ids.length ? t("Wysłano do: {to}.", { to: v.to.join(", ") }) : t("Wiadomość w kolejce wysyłki ({n}) — system ponowi próbę automatycznie.", { n: ids.length - sent }), failed: r.failed });
+  }
+  /* ---- poczta: dziennik wysyłki, ponowienie, test, przetworzenie kolejki (administrator) ---- */
+  if (path.startsWith("/api/mail/")) {
+    R.applyRoles(store.state);
+    if (!R.can(user, "notifications.manage")) return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Nie masz uprawnień do wykonania tej operacji.") });
+    if (path === "/api/mail/outbox" && method === "GET") {
+      const st = String(url.searchParams.get("status") || "");
+      const o = store.outbox(["QUEUED", "SENDING", "SENT", "FAILED", "DEAD"].includes(st) ? st : "", 300);
+      return json(req, res, 200, { ok: true, rows: o.rows.map(x => Object.assign({}, x, x.error ? { hint: mailHint(x.error) } : {})), stats: o.stats, mail: mailInfo(mailCfg), settings: mailSettings() });
+    }
+    if (method !== "POST") return json(req, res, 404, { ok: false, error: t("Nie znaleziono") });
+    const b = await readBody(req, 64 * 1024), meta = metaOf(req);
+    if (path === "/api/mail/retry") {
+      if (!store.retryMail(b.id)) return json(req, res, 400, { ok: false, error: t("Tej wiadomości nie można ponowić (wysłana albo bez zapisanej treści).") });
+      store.auditEvent({ entityId: String(b.id), opNo: `#${b.id}`, code: "MAIL_RETRIED", act: R.Lx(N_("Ponowienie wiadomości e-mail #{n}"), { n: b.id }), before: null, after: null, entity: "system", event: "settings", source: N_("Poczta") }, meta, user);
+      const r = await drainMail();
+      return json(req, res, 200, { ok: true, message: t("Wysłano: {a}, nieudane: {b}", { a: r.sent, b: r.failed }) });
+    }
+    if (path === "/api/mail/test") {
+      // 3.13: wysyłka od razu (bez kolejki) — administrator widzi wynik i wskazówkę w tym samym oknie
+      const to = String(b.to || "").trim().toLowerCase() || user.email || user.login;
+      if (!R.EMAIL_RE.test(to)) return json(req, res, 400, { ok: false, error: t("Nieprawidłowy adres e-mail") });
+      const msg = compose("test", to, { name: user.name, transport: mailInfo(mailCfg).transport, by: user.name });
+      const r = await sendRaw(mailCfg, msg, log);
+      store.logMail("test", to, user.id, r, mailCfg.transport);
+      store.auditEvent({ entityId: user.id, opNo: to, code: "MAIL_TEST", act: R.Lx(N_("Wiadomość testowa na adres {e}"), { e: to }), before: null, after: { transport: mailCfg.transport, wynik: r.ok ? "wysłano" : "błąd" }, entity: "system", event: "settings", source: N_("Poczta") }, meta, user);
+      if (!r.ok) return json(req, res, 200, { ok: false, error: t("Wysyłka nieudana"), detail: r.error, hint: r.hint || "" });
+      return json(req, res, 200, { ok: true, message: mailCfg.transport === "file" ? t("Poczta nieskonfigurowana — wiadomość zapisano jako plik {f}.", { f: r.file || "" }) : t("Wiadomość wysłana na adres {e}.", { e: to }) });
+    }
+    if (path === "/api/mail/config") {
+      if (user.role !== "admin") return json(req, res, 403, { ok: false, code: "FORBIDDEN", error: t("Konfigurację poczty zmienia wyłącznie administrator.") });
+      const r = saveMailConfig(b);
+      if (!r.ok) return json(req, res, 400, r);
+      store.auditEvent({ entityId: "mail", opNo: "server.env", code: "SETTINGS_CHANGED", act: R.Lx(N_("Konfiguracja poczty: {h}"), { h: r.info.smtp ? `${r.info.smtp.host}:${r.info.smtp.port}` : r.info.transport }),
+        before: null, after: Object.assign({ transport: r.info.transport, nadawca: r.info.from, link: appUrl() }, r.info.smtp ? { serwer: r.info.smtp.host, port: r.info.smtp.port, login: r.info.smtp.user, haslo: r.passChanged ? "zmienione" : "bez zmian" } : {}), entity: "system", event: "settings", source: N_("Poczta") }, meta, user);
+      log("INFO", `Konfiguracja poczty zmieniona przez ${user.login}: ${r.info.transport}${r.info.smtp ? " " + r.info.smtp.host + ":" + r.info.smtp.port : ""}${r.info.configured ? "" : " (niepełna: " + r.info.problem + ")"}`);
+      return json(req, res, 200, { ok: true, mail: r.info, appUrl: appUrl(), envFile: r.file, overridden: r.overridden });
+    }
+    if (path === "/api/mail/drain") { const r = await drainMail(); return json(req, res, 200, { ok: true, message: t("Wysłano: {a}, nieudane: {b}", { a: r.sent, b: r.failed }) }); }
+    return json(req, res, 404, { ok: false, error: t("Nie znaleziono") });
+  }
+  /* ---- kopie zapasowe ---- */
+  if (path === "/api/backups") {
+    if (!R.can(user, "data.backup")) return json(req, res, 403, { ok: false, error: t("Brak uprawnienia „{p}”", { p: "data.backup" }) });
+    if (method === "POST") { const r = store.backup("manual"); return json(req, res, 200, { ok: true, name: r.name }); }
+    return json(req, res, 200, { ok: true, backups: store.listBackups(), keepDays: cfg.backup.keepDays, dir: cfg.backupDir, last: store.lastBackup() });
+  }
+  if (path.startsWith("/api/backups/") && method === "GET") {
+    if (!R.can(user, "data.backup")) return json(req, res, 403, { ok: false, error: t("Brak uprawnienia „{p}”", { p: "data.backup" }) });
+    const f = store.backupPath(decodeURIComponent(path.slice("/api/backups/".length)));
+    if (!f) return json(req, res, 404, { ok: false, error: t("Nie znaleziono") });
+    res.writeHead(200, Object.assign({ "Content-Type": "application/octet-stream", "Content-Disposition": `attachment; filename="${f.split(/[\\/]/).pop()}"`, "Content-Length": statSync(f).size }, SEC_HEADERS));
+    return void createReadStream(f).pipe(res);
+  }
+  return json(req, res, 404, { ok: false, error: t("Nie znaleziono") });
+}
+
+/**
+ * 3.14: program (ResInvest_ERP.html, ok. 7 MB) w pamięci — odczyt i kompresja raz, ponownie tylko po zmianie pliku
+ * (aktualizacja instalatorem). Wcześniej każde otwarcie programu czytało i kompresowało plik, blokując serwer dla innych.
+ */
+let pageCache = null;
+function programPage() {
+  let st; try { st = statSync(HTML_FILE); } catch (e) { return null; }
+  const key = `${st.size}:${st.mtimeMs}`;
+  if (!pageCache || pageCache.key !== key) {
+    const raw = readFileSync(HTML_FILE);
+    pageCache = { key, raw, gz: gzipSync(raw, { level: 6 }), etag: `"riw-${VERSION}-${createHash("sha1").update(raw).digest("hex").slice(0, 16)}"` };
+  }
+  return pageCache;
+}
+async function handler(req, res) {
+  const url = new URL(req.url, "http://localhost");
+  try {
+    if (url.pathname.startsWith("/api/")) return await handleApi(req, res, url);
+    if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html" || url.pathname === "/ResInvest_ERP.html")) {
+      const page = programPage();
+      if (!page) return send(req, res, 500, "Brak pliku ResInvest_ERP.html — uruchom: npm run build", "text/plain; charset=utf-8");
+      // 3.14: ten sam plik dla wszystkich — przygotowany raz (także skompresowany); przeglądarka sprawdza ETag (304 bez przesyłania)
+      const head = Object.assign({}, SEC_HEADERS, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", ETag: page.etag, Vary: "Accept-Encoding" });
+      if (req.headers["if-none-match"] === page.etag) { res.writeHead(304, head); return res.end(); }
+      const gz = /\bgzip\b/.test(req.headers["accept-encoding"] || "");
+      const data = gz ? page.gz : page.raw;
+      res.writeHead(200, Object.assign(head, gz ? { "Content-Encoding": "gzip" } : {}, { "Content-Length": data.length }));
+      return res.end(data);
+    }
+    if (url.pathname === "/favicon.ico") { res.writeHead(204); return res.end(); }
+    send(req, res, 404, "Not found", "text/plain; charset=utf-8");
+  } catch (e) {
+    log("ERROR", `${req.method} ${url.pathname}: ${e.stack || e.message}`);
+    if (!res.headersSent) json(req, res, e.message === "too large" ? 413 : 500, { ok: false, error: t("Błąd serwera: {m}", { m: e.message }) });
+  }
+}
+
+// 3.12: domeny adresów e-mail z server.env (wariant instalacji: firma / Gmail / bez ograniczeń) — nowa baza i istniejące dane
+const domainsEnv = parseDomains(env.COMPANY_DOMAINS);
+if (domainsEnv && domainsEnv.error) log("ERROR", domainsEnv.error + " — pozostają domeny zapisane w danych");
+else if (domainsEnv) {
+  globalThis.RIW_CONFIG = Object.assign({}, globalThis.RIW_CONFIG, { companyDomains: domainsEnv.list });
+  const cur = store.state && store.state.config.companyDomains;
+  if (store.state && JSON.stringify(cur || []) !== JSON.stringify(domainsEnv.list)) {
+    const r = store.applyChange("system.companyDomains", s => {
+      const before = { domeny: (s.config.companyDomains || []).join(", ") || "dowolne" };
+      s.config = Object.assign({}, s.config, { companyDomains: domainsEnv.list });
+      s.rev += 1;
+      R.audit(s, { user: null, source: N_("Konfiguracja serwera (server.env)") }, { entity: "system", entityId: "settings", opNo: "—", event: "settings", code: "SETTINGS_CHANGED",
+        act: R.Lx(N_("Zmiana konfiguracji systemu")), before, after: { domeny: domainsEnv.list.join(", ") || "dowolne" } });
+      return { ok: true };
+    }, { domains: domainsEnv.list });
+    log(r && r.ok ? "INFO" : "ERROR", r && r.ok ? `Domeny e-mail kont: ${domainsEnv.list.map(d => "@" + d).join(", ") || "dowolne"} (COMPANY_DOMAINS)` : "COMPANY_DOMAINS: zapis nieudany — " + (r && r.error));
+  }
+}
+// pusta baza + initialAdmin w konfiguracji → konto startowe administratora (jednorazowo, przed przyjęciem żądań)
+if (!store.hasAccounts() && cfg.initialAdmin && cfg.initialAdmin.email) {
+  const b = store.bootstrap(cfg.initialAdmin);
+  if (!b.ok) log("ERROR", "Konto startowe administratora nie zostało utworzone: " + b.error);
+}
+const server = tls ? createHttps({ cert: readFileSync(cfg.tls.cert), key: readFileSync(cfg.tls.key) }, handler) : createHttp(handler);
+server.requestTimeout = 120000;
+server.listen(cfg.port, cfg.host, () => {
+  try { programPage(); } catch (e) { log("WARN", "Program HTML: " + e.message); }   // przygotowanie pliku programu przed pierwszym otwarciem
+  const proto = tls ? "https" : "http";
+  const ips = Object.values(networkInterfaces()).flat().filter(n => n && n.family === "IPv4" && !n.internal).map(n => n.address);
+  log("INFO", `ResInvest ERP Serwer ${VERSION} — ${proto}://localhost:${cfg.port}` + (cfg.host === "0.0.0.0" && ips.length ? ` · w sieci: ${ips.map(ip => `${proto}://${ip}:${cfg.port}`).join(", ")}` : ""));
+  log("INFO", `Baza danych: ${store.db.describe()}`);
+  log("INFO", `Dane: ${cfg.dataDir} · kopie: ${cfg.backupDir}${cfg.backup.copyTo.length ? " + folder firmy: " + cfg.backup.copyTo.join("; ") : ""} · spójność: ${store.integrity.ok ? "OK" : store.integrity.notes.join("; ")}`);
+  const mi = mailInfo(mailCfg);
+  log("INFO", `Poczta: ${mi.transport}${mi.smtp ? ` ${mi.smtp.host}:${mi.smtp.port} (${mi.smtp.secure})` : ""}${mi.configured ? "" : ` (NIEPEŁNA KONFIGURACJA: ${mi.problem} — wysyłka nie zadziała)`} · nadawca: ${mi.from} · linki: ${appUrl()}${env.APP_URL ? "" : " (ustaw APP_URL)"}${mi.outDir ? " · wiadomości zapisywane w: " + mi.outDir : ""}${envFiles.length ? " · środowisko: " + envFiles.join(", ") : ""}`);
+  if (!store.hasAccounts()) log("INFO", "Pierwsze uruchomienie — otwórz adres serwera w przeglądarce i utwórz konto administratora.");
+  // Windows: okno aplikacji Edge/Chrome z polityką autoodtwarzania (intro z dźwiękiem od pierwszej klatki), gdy jest skrypt instalatora
+  const launcher = join(ROOT, "ResInvestERP-Otworz.cmd");
+  if (arg("--open")) { const u = `${proto}://localhost:${cfg.port}/`; const cmd = process.platform === "win32" ? (existsSync(launcher) ? ["cmd", ["/c", launcher, u]] : ["cmd", ["/c", "start", "", u]]) : process.platform === "darwin" ? ["open", [u]] : ["xdg-open", [u]]; try { spawn(cmd[0], cmd[1], { detached: true, stdio: "ignore" }).unref(); } catch (e) {} }
+  try { store.autoBackup(true); } catch (e) { log("ERROR", "Kopia przy starcie: " + e.message); }
+});
+const timers = [
+  setInterval(() => { try { store.autoBackup(false); store.purgeSessions(); } catch (e) { log("ERROR", "Kopia automatyczna: " + e.message); } }, 10 * 60000),
+  setInterval(() => { for (const c of clients) { try { c.write(": ping\n\n"); } catch (e) { clients.delete(c); } } }, 25000),
+  // kolejka poczty: ponowienia według terminów (1 min, 5 min, 15 min, 1 h, 6 h)
+  setInterval(() => { drainMail().catch(e => log("ERROR", "Kolejka poczty: " + e.message)); }, 5000)
+];
+function shutdown(sig) {
+  log("INFO", `Zatrzymywanie (${sig})…`);
+  timers.forEach(clearInterval);
+  for (const c of clients) { try { c.end(); } catch (e) {} }
+  server.close(() => { store.close(); process.exit(0); });
+  setTimeout(() => { store.close(); process.exit(0); }, 3000).unref();
+}
+// 3.14: odporność — błąd w obsłudze jednego żądania nie zatrzymuje serwera; błąd krytyczny: zapis w dzienniku, zamknięcie bazy
+// i kod 70 (program uruchamiający ResInvestERP-Serwer.cmd startuje serwer ponownie po 5 s; baza jest transakcyjna)
+process.on("unhandledRejection", e => log("ERROR", "Nieobsłużony błąd (serwer działa dalej): " + ((e && e.stack) || e)));
+process.on("uncaughtException", e => {
+  log("ERROR", "BŁĄD KRYTYCZNY — ponowne uruchomienie serwera: " + ((e && e.stack) || e));
+  try { store.close(); } catch (x) { /* baza już zamknięta */ }
+  process.exit(70);
+});
+server.on("error", e => {
+  if (e && e.code === "EADDRINUSE") { log("ERROR", `Port ${cfg.port} jest zajęty — serwer ResInvest ERP już działa na tym komputerze albo port zajął inny program.`); process.exit(2); }
+  log("ERROR", "Serwer HTTP: " + ((e && e.stack) || e));
+});
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
