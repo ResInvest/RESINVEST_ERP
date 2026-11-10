@@ -1478,3 +1478,13 @@ button.wh-chip.switchable:hover{border-color:var(--brand);box-shadow:0 0 0 3px v
 .demo-ribbon span{flex:1 1 240px;min-width:0}
 .demo-list{margin:var(--s3) 0 0;padding-left:var(--s6);display:grid;gap:var(--s2)}
 @media (max-width:640px){.demo-ribbon{margin:var(--s2) var(--s3) 0}}
+
+/* 3.15: rejestr operacji pogrupowany wg dni / miesięcy (jak „Kwit produkcji dnia”) */
+.ops-period{display:flex;align-items:center;gap:6px;padding:8px 14px;color:var(--text-3);font-size:13px;border-top:1px solid var(--border)}
+.ops-period b{color:var(--text);font-weight:600;text-transform:capitalize}
+.ops-nav .btn-row{display:flex;gap:4px}
+.ops-nav .lbl-spacer{display:block;font-size:12px;line-height:1.4;visibility:hidden}
+.tbl tr.ops-grp td{background:var(--surface-2);font-weight:600;font-size:12.5px;padding-top:9px;padding-bottom:9px;border-top:1px solid var(--border)}
+.tbl tr.ops-grp td .ops-grp-l{display:inline-flex;align-items:center;gap:6px;text-transform:capitalize}
+.tbl tr.ops-grp td .ops-grp-s{float:right;color:var(--text-3);font-weight:500}
+@media (max-width:640px){.tbl tr.ops-grp td .ops-grp-s{float:none;display:block;margin-top:2px}}

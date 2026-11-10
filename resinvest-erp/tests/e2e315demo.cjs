@@ -90,6 +90,27 @@ const watch = page => { page.on("pageerror", e => errors.push(e.message)); page.
     check("Dane wersji demo zachowane po przeładowaniu; dane trybu lokalnego bez zmian",
       (await page.evaluate(() => { const s = JSON.parse(localStorage.getItem("riw.demo315.v3.state")); return s.operations.length; })) === n0 + 1
       && (await page.evaluate(() => localStorage.getItem("riw.v3.state"))) === "ZNACZNIK-DANYCH-LOKALNYCH");
+    // 3.15: rejestr operacji wg okresu (dzień / tydzień / miesiąc / rok / cały okres), jak „Kwit produkcji dnia”
+    await page.evaluate(() => { location.hash = "#/operacje"; }); await page.waitForSelector("#o-mode");
+    const opsView = () => page.evaluate(() => ({ groups: [...document.querySelectorAll("#ops-table tr.ops-grp")].map(r => r.dataset.opsGroup), rows: [...document.querySelectorAll("#ops-table tr[data-opid]")].map(r => r.dataset.opid), label: (document.querySelector("#ops-period") || {}).textContent || "" }));
+    await page.selectOption("#o-scope", "all"); await page.selectOption("#o-mode", "all"); await page.waitForTimeout(150);
+    const all = await opsView();
+    const allOk = all.groups.length >= 2 && all.groups.every(g => /^\d{4}-\d{2}$/.test(g)) && all.rows.length === await page.evaluate(() => RIW_DEBUG.store.state.operations.filter(o => !o.deleted).length);
+    check("Operacje — cały okres: wszystkie operacje pogrupowane miesiącami (nagłówek z liczbą i wartością)", allOk, { g: all.groups, n: all.rows.length });
+    await page.selectOption("#o-mode", "month"); await page.waitForTimeout(150);
+    await page.fill("#o-ym", "2026-09"); await page.dispatchEvent("#o-ym", "change"); await page.waitForTimeout(150);
+    const mon = await opsView();
+    const monDates = await page.evaluate(ids => ids.map(id => RIW.byId(RIW_DEBUG.store.state.operations, id).date), mon.rows);
+    check("Operacje — miesiąc: tylko wrzesień 2026, podział na dni", mon.rows.length > 0 && monDates.every(d => d.startsWith("2026-09")) && mon.groups.every(g => g.startsWith("2026-09-")) && new Set(monDates).size === mon.groups.length, { g: mon.groups.length, d: new Set(monDates).size });
+    await page.click("#o-next"); await page.waitForTimeout(150);
+    const nxt = await page.evaluate(() => RIW_DEBUG.app && document.querySelector("#o-ym").value);
+    await page.selectOption("#o-mode", "week"); await page.waitForTimeout(150);
+    const wk = await opsView();
+    const wkDates = await page.evaluate(ids => ids.map(id => RIW.byId(RIW_DEBUG.store.state.operations, id).date), wk.rows);
+    const span = wkDates.length ? (Date.parse(wkDates.reduce((a, b) => a > b ? a : b)) - Date.parse(wkDates.reduce((a, b) => a < b ? a : b))) / 864e5 : 0;
+    await page.selectOption("#o-mode", "day"); await page.waitForTimeout(150);
+    const dy = await opsView();
+    check("Operacje — przewijanie ← → (miesiąc), tydzień (≤ 7 dni, podział na dni), dzień (bez nagłówków)", nxt === "2026-10" && span <= 6 && dy.groups.length === 0 && /tydzień|dzień/i.test(wk.label + dy.label), { nxt, span, dyg: dy.groups.length });
     // telefon
     const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "pl-PL" });
     await ctx2.addInitScript(() => { try { localStorage.setItem("riw.lang", "pl"); localStorage.setItem("riw.intro", "0"); } catch (e) {} });

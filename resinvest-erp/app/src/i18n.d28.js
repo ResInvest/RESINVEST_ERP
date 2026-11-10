@@ -52,5 +52,16 @@
   "Motywy, kolory, język (PL / CS / EN) i rozdzielczość": ["Motivy, barvy, jazyk (PL / CS / EN) a rozlišení", "Themes, colours, language (PL / CS / EN) and resolution"],
   "Przywrócenie danych przykładowych i zmiana daty systemowej (Administracja)": ["Obnovení ukázkových dat a změna systémového data (Administrace)", "Restoring the sample data and changing the system date (Administration)"],
   "Wersja demonstracyjna — co sprawdzić": ["Demonstrační verze — co vyzkoušet", "Demo version — what to try"],
-  "Wszystkie funkcje działają na tym samym silniku co program firmowy. Dane przykładowe: magazyny RiC Zabrze, RiC Brąszewice i RiC Rokitki, operacje od sierpnia 2026. Zaloguj się innym kontem demonstracyjnym (hasło demo1234), aby sprawdzić role: kierownik, magazynier, obserwator, audytor.": ["Všechny funkce běží na stejném jádru jako firemní program. Ukázková data: sklady RiC Zabrze, RiC Brąszewice a RiC Rokitki, operace od srpna 2026. Přihlaste se jiným demonstračním účtem (heslo demo1234) a vyzkoušejte role: vedoucí, skladník, pozorovatel, auditor.", "All functions run on the same engine as the company program. Sample data: warehouses RiC Zabrze, RiC Brąszewice and RiC Rokitki, operations from August 2026. Sign in with another demo account (password demo1234) to check the roles: manager, warehouse keeper, observer, auditor."]
+  "Wszystkie funkcje działają na tym samym silniku co program firmowy. Dane przykładowe: magazyny RiC Zabrze, RiC Brąszewice i RiC Rokitki, operacje od sierpnia 2026. Zaloguj się innym kontem demonstracyjnym (hasło demo1234), aby sprawdzić role: kierownik, magazynier, obserwator, audytor.": ["Všechny funkce běží na stejném jádru jako firemní program. Ukázková data: sklady RiC Zabrze, RiC Brąszewice a RiC Rokitki, operace od srpna 2026. Přihlaste se jiným demonstračním účtem (heslo demo1234) a vyzkoušejte role: vedoucí, skladník, pozorovatel, auditor.", "All functions run on the same engine as the company program. Sample data: warehouses RiC Zabrze, RiC Brąszewice and RiC Rokitki, operations from August 2026. Sign in with another demo account (password demo1234) to check the roles: manager, warehouse keeper, observer, auditor."],
+  "Cały okres": ["Celé období", "Whole period"],
+  "cały okres": ["celé období", "whole period"],
+  "Poprzedni okres": ["Předchozí období", "Previous period"],
+  "Następny okres": ["Následující období", "Next period"],
+  "Niedziela": ["Neděle", "Sunday"],
+  "Poniedziałek": ["Pondělí", "Monday"],
+  "Wtorek": ["Úterý", "Tuesday"],
+  "Środa": ["Středa", "Wednesday"],
+  "Czwartek": ["Čtvrtek", "Thursday"],
+  "Piątek": ["Pátek", "Friday"],
+  "Sobota": ["Sobota", "Saturday"]
 }); })(typeof globalThis !== "undefined" ? globalThis : this);
