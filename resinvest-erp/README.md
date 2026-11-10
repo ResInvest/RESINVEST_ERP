@@ -70,6 +70,23 @@ serwerowi do wysyłki e-maili (Resend); bez poczty zaproszenia zapisują się ja
 - Pierwsza zależność npm: sterownik `pg` (dołączany przez instalator). Tryb SQLite działa bez niej.
 - Licencja: `LICENSE` — licencja niewyłączna (pola eksploatacji, wersja 3.15).
 
+**Stany początkowe magazynów (edytor)**
+- Nowy ekran **Kartoteki → Stany początkowe** (także z ekranów Magazyny i Administracja): administrator wpisuje stan każdego
+  produktu w RiC Zabrze, RiC Brąszewice i RiC Rokitki przy przenoszeniu danych z dotychczasowego systemu albo ze spisu.
+- Zapis tworzy dokument **Bilans otwarcia** (ta sama numeracja i księga co dotychczas) z samymi różnicami — poprawka nie
+  kasuje historii. Kontrola: data nie w przyszłości i nie w zamkniętym okresie, brak stanów ujemnych, audyt „przed → po”.
+- Uprawnienie „Magazyny — dodawanie i edycja” (Administrator); pozostałe role — podgląd.
+
+**Trzy wersje programu**
+- **Firmowa** — `ResInvestERP_SerwerFirma.exe` (konta @resinvest.group, poczta Microsoft 365),
+- **Bez ograniczeń** — `ResInvestERP_SerwerNoLimit.exe` (dowolna domena e-mail),
+- **Demonstracyjna** — `ResInvest_ERP_Demo.html` (`npm run build:demo`): jeden plik, bez instalacji i bez serwera;
+  dane przykładowe, konta demonstracyjne (hasło `demo1234`), pasek „Wersja demonstracyjna” z listą „Co sprawdzić”
+  (WZ i PDF, skany, motywy, MM, korekty, raporty, stany początkowe). Dane zapisuje w osobnej przestrzeni przeglądarki —
+  nie miesza się z danymi trybu lokalnego. Wariant Gmail (`ResInvestERP_GoogleSerwer.exe`) pozostaje bez zmian.
+
+**Architektura** — opis warstw i struktury folderów: [docs/ARCHITEKTURA.md](docs/ARCHITEKTURA.md).
+
 ## Nowe w 3.14.0
 * **Trzy instalatory pod nowymi nazwami**, każdy wielostanowiskowy (serwer SQLite + praca w przeglądarce na wielu komputerach i telefonach):
   * `ResInvestERP_SerwerFirma.exe` — konta `@resinvest.group`, poczta Microsoft 365;

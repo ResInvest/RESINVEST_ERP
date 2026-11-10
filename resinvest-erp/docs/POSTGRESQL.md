@@ -91,6 +91,9 @@ To jest zalecana droga — migrację produkcyjną wykonuje instalator na serwerz
 6. Plik `resinvest.sqlite` zostaje **bez zmian** jako punkt powrotu (rozdz. 5). Kolejne aktualizacje nie pokazują
    strony „Baza danych” — serwer pracuje już na PostgreSQL, kopia przed aktualizacją powstaje z PostgreSQL.
 
+Przeniesienie danych z **innego systemu** (nie z SQLite programu): po instalacji administrator wpisuje stany magazynów
+RiC Zabrze, RiC Brąszewice i RiC Rokitki w **Kartoteki → Stany początkowe** (dokument „Bilans otwarcia”).
+
 Instalacja cicha (`/VERYSILENT`) pomija stronę „Baza danych” i nie zmienia silnika bazy.
 Baza na innym komputerze: w `pg_hba.conf` dopuść tylko adres serwera ERP (`hostssl resinvest resinvest_app <adres>/32
 scram-sha-256`), włącz `ssl = on` i ustaw w `server.env` `DB_SSL=verify-full` (albo co najmniej `require`).
