@@ -23,7 +23,7 @@
    Kody wyjścia: 0 — gotowe, 2 — błędne dane albo brak połączenia, 3 — migracja nieudana (serwer na SQLite),
                  4 — w PostgreSQL są inne dane (serwer na SQLite, nic nie nadpisano).
    ========================================================================= */
-import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
@@ -33,39 +33,10 @@ import { databaseConfig } from "./db/index.mjs";
 import { PgDb } from "./db/postgres.mjs";
 import { pgCounts } from "./db/transfer.mjs";
 import { migrateToPostgres, verifyAgainstPostgres } from "./migrate.mjs";
+import { envValue, writeEnvKeys } from "./env-file.mjs";
+export { writeEnvKeys };
 
 const IDENT = /^[a-z_][a-z0-9_]{0,62}$/;
-
-/** Wartość do pliku KLUCZ=wartość (jak zapis poczty w riw-server.mjs): cudzysłów, gdy potrzebny; null = niedozwolone znaki. */
-function envValue(v) {
-  const x = String(v == null ? "" : v);
-  if (/[\r\n]/.test(x)) return null;
-  if (!/[\s#"']/.test(x)) return x;
-  if (!x.includes('"')) return `"${x}"`;
-  if (!x.includes("'")) return `'${x}'`;
-  return null;
-}
-function setEnvLine(text, key, value) {
-  const re = new RegExp(`^[ \\t]*(?:#[ \\t]*)?${key}[ \\t]*=.*$`, "m");
-  const active = new RegExp(`^[ \\t]*${key}[ \\t]*=.*$`, "m");
-  const line = `${key}=${value}`;
-  if (active.test(text)) return text.replace(active, () => line);
-  if (re.test(text)) return text.replace(re, () => line);
-  return `${text.replace(/\s*$/, "")}\r\n${line}\r\n`;
-}
-/** Zapis kluczy do <dane>\server.env (plik tymczasowy → zmiana nazwy: plik nigdy nie jest zapisany w połowie). */
-export function writeEnvKeys(dataDir, values) {
-  const file = join(dataDir, "server.env");
-  let text = existsSync(file) ? readFileSync(file, "utf8") : "# ResInvest ERP Serwer — ustawienia administratora\r\n";
-  for (const [k, v] of Object.entries(values)) {
-    const ev = envValue(v);
-    if (ev === null) throw new Error(`Wartość ${k} zawiera niedozwolone znaki (znak nowej linii albo oba rodzaje cudzysłowów)`);
-    text = setEnvLine(text, k, ev);
-  }
-  mkdirSync(dataDir, { recursive: true });
-  writeFileSync(file + ".tmp", text.replace(/\r?\n/g, "\r\n")); renameSync(file + ".tmp", file);
-  return file;
-}
 
 /**
  * Czy plik SQLite zawiera dane programu. Otwarcie w trybie niezmiennym (immutable): bez plików -wal / -shm obok bazy —

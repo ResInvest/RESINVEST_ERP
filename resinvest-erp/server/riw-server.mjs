@@ -18,13 +18,17 @@ import { createServer as createHttp } from "node:http";
 import { createServer as createHttps } from "node:https";
 import { readFileSync, writeFileSync, existsSync, copyFileSync, createReadStream, statSync, renameSync, mkdirSync, unlinkSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { gzipSync, gzip } from "node:zlib";
 import { spawn } from "node:child_process";
 import { randomBytes, createHash } from "node:crypto";
 import { networkInterfaces } from "node:os";
 import { ROOT, Store, ROWS, loadConfig, loadEnv, parseDomains, makeLogger, verifyPassword, I18N, R, AuthLib, Service } from "./core.mjs";
 import { mailConfig, mailInfo, mailHint, sendMail, compose, sendRaw } from "./mail.mjs";
 import { databaseConfig } from "./db/index.mjs";
+import { gzipSync } from "node:zlib";
+import { SEC_HEADERS, createResponder, readBody, readRaw, cookies, ipOf } from "./http/respond.mjs";
+import { createStateViews, sinceOf } from "./http/state-view.mjs";
+import { createWindowLimiter } from "./http/rate-limit.mjs";
+import { envValue, setEnvLine } from "./env-file.mjs";
 
 const [major, minor] = process.versions.node.split(".").map(Number);
 if (major < 22 || (major === 22 && minor < 13)) { console.error(`ResInvest ERP Serwer wymaga Node.js 22.13 lub nowszego (jest ${process.versions.node}).`); process.exit(1); }
@@ -119,129 +123,22 @@ if (arg("--mail-test")) {
 }
 
 /* ---------------- HTTP ---------------- */
-// connect-src data: — intro zamienia osadzony film na Blob przez fetch(data:) (bez połączeń sieciowych; 3.13)
-const SEC_HEADERS = {
-  "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer",
-  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
-};
 const tls = cfg.tls && cfg.tls.cert && cfg.tls.key && existsSync(cfg.tls.cert) && existsSync(cfg.tls.key);
 const COOKIE = "riw_sid";
 const clients = new Set();   // SSE
-const ipHits = new Map();
+const limiter = createWindowLimiter();     // logowania z adresu IP i wysyłka e-mail (okno przesuwne)
 
-function send(req, res, status, body, type = "application/json; charset=utf-8", extra = {}) {
-  const view = body && typeof body === "object" && !Buffer.isBuffer(body) ? body[VIEW] : null;
-  const wantGz = /\bgzip\b/.test(req.headers["accept-encoding"] || "");
-  let data;
-  if (view) {
-    const rest = JSON.stringify(Object.assign({}, body)).slice(1, -1);          // pola odpowiedzi poza stanem (ok, res, mail…)
-    if (rest === '"ok":true' && wantGz) {                                          // odczyt stanu — gotowa, zapamiętana kompresja
-      if (view.gz) data = view.gz;
-      else {
-        // 3.14: pełny stan (MB) kompresowany w wątku roboczym — serwer w tym czasie obsługuje innych; równoczesne prośby
-        // o ten sam widok czekają na jedną kompresję (wcześniej gzipSync blokował serwer przy otwieraniu programu przez wiele osób)
-        if (!view.gzWait) view.gzWait = new Promise((ok, fail) => gzip(Buffer.from("{" + rest + "," + view.body + "}"), { level: 1 }, (e, out) => e ? fail(e) : ok(out)));
-        view.gzWait.then(out => { view.gz = out; send(req, res, status, body, type, extra); }, e => {
-          log("ERROR", "Kompresja stanu: " + e.message); view.gzWait = null;
-          const raw = "{" + rest + "," + view.body + "}";               // bez kompresji (awaryjnie)
-          res.writeHead(status, Object.assign({ "Content-Type": type, "Cache-Control": "no-store" }, SEC_HEADERS, extra, { "Content-Length": Buffer.byteLength(raw) })); res.end(raw);
-        });
-        return;
-      }
-    } else data = "{" + (rest ? rest + "," : "") + view.body + "}";
-  } else data = typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body);
-  const headers = Object.assign({ "Content-Type": type, "Cache-Control": "no-store" }, SEC_HEADERS, extra);
-  if (data === (view && view.gz)) headers["Content-Encoding"] = "gzip";
-  else if (data.length > 2048 && wantGz) { data = gzipSync(data, { level: 1 }); headers["Content-Encoding"] = "gzip"; }
-  headers["Content-Length"] = Buffer.byteLength(data);
-  res.writeHead(status, headers); res.end(data);
-}
-const json = (req, res, status, obj, extra) => send(req, res, status, obj, "application/json; charset=utf-8", extra);
-function readBody(req, limit = 60 * 1024 * 1024) {
-  return new Promise((resolve, reject) => {
-    if (Number(req.headers["content-length"] || 0) > limit) { reject(new Error("too large")); req.resume(); return; }
-    const chunks = []; let n = 0;
-    req.on("data", c => { n += c.length; if (n > limit) { reject(new Error("too large")); req.destroy(); } else chunks.push(c); });
-    req.on("end", () => { try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {}); } catch (e) { reject(e); } });
-    req.on("error", reject);
-  });
-}
-/** 3.14: surowa treść żądania (pliki skanów) z limitem rozmiaru; przekroczenie → błąd „too large”. */
-function readRaw(req, limit) {
-  return new Promise((resolve, reject) => {
-    const declared = Number(req.headers["content-length"] || 0);
-    if (declared > limit) { reject(Object.assign(new Error("too large"), { code: "TOO_LARGE" })); req.resume(); return; }
-    const chunks = []; let n = 0, done = false;
-    req.on("data", c => { if (done) return; n += c.length; if (n > limit) { done = true; reject(Object.assign(new Error("too large"), { code: "TOO_LARGE" })); req.resume(); } else chunks.push(c); });
-    req.on("end", () => { if (!done) { done = true; resolve(Buffer.concat(chunks)); } });
-    req.on("error", e => { if (!done) { done = true; reject(e); } });
-  });
-}
-const cookies = req => Object.fromEntries(String(req.headers.cookie || "").split(";").map(x => x.trim().split("=")).filter(x => x[0]).map(([k, ...v]) => [k, decodeURIComponent(v.join("="))]));
-const ipOf = req => (req.socket.remoteAddress || "").replace(/^::ffff:/, "");
+const { send, json } = createResponder((lvl, m) => log(lvl, m));
 const langOf = (req, user) => (user && user.lang && I18N.has(user.lang)) ? user.lang : (String(req.headers["accept-language"] || "").slice(0, 2).toLowerCase().replace(/[^a-z]/g, "") || "pl");
 const sessionCookie = token => `${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/${tls ? "; Secure" : ""}`;
 const clearCookie = `${COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${tls ? "; Secure" : ""}`;
-function rateLimited(ip) {
-  const now = Date.now(), win = 15 * 60000, arr = (ipHits.get(ip) || []).filter(x => now - x < win);
-  arr.push(now); ipHits.set(ip, arr);
-  return arr.length > cfg.security.ipAttemptsPer15Min;
-}
+const rateLimited = ip => limiter.hit("ip:" + ip, cfg.security.ipAttemptsPer15Min, 15);
 function broadcast(rev, by) {
   const msg = `event: rev\ndata: ${JSON.stringify({ rev, by })}\n\n`;
   for (const c of clients) { try { c.write(msg); } catch (e) { clients.delete(c); } }
 }
-/**
- * Stan wysyłany do przeglądarki — WYŁĄCZNIE widok użytkownika (izolacja magazynów, Service.project).
- * Konta i hasła nie są częścią stanu.
- */
-/**
- * Widok stanu dla użytkownika (tylko jego magazyny). Wynik jest zapamiętywany dla bieżącej rewizji: wielu pracowników
- * odczytujących ten sam stan nie powoduje ponownego liczenia, zamiany na JSON ani kompresji (test obciążeniowy 3.9.1; od 3.10 — także synchronizacja samymi zmianami).
- * Każda zmiana stanu (nowa rewizja) unieważnia pamięć.
- */
-const viewCache = { rev: -1, today: "", map: new Map() };
-function viewEntry(userId) {
-  const rev = store.state.rev, today = store.today();
-  if (viewCache.rev !== rev || viewCache.today !== today) { R.applyRoles(store.state); viewCache.rev = rev; viewCache.today = today; viewCache.map.clear(); }
-  let v = viewCache.map.get(userId);
-  if (!v) { v = { proj: Service.project(store.state, { id: userId }), body: null, gz: null }; viewCache.map.set(userId, v); }
-  return v;
-}
-function stateView(userId) {
-  const v = viewEntry(userId);
-  if (v.body === null) v.body = JSON.stringify({ state: v.proj, today: viewCache.today, rev: viewCache.rev }).slice(1, -1);   // wnętrze obiektu — doklejane bez ponownej serializacji
-  return v;
-}
-/**
- * Synchronizacja samymi zmianami (3.10): przeglądarka podaje rewizję, którą ma (`since`); serwer odsyła rdzeń widoku
- * (kartoteki, konfiguracja — kilkanaście kB) i w kolekcjach tylko rekordy nowe / zmienione z ich pozycją w widoku
- * oraz identyfikatory usuniętych lub już niewidocznych. `n` — liczba rekordów kolekcji (kontrola po stronie klienta).
- * Brak historii zmian, zmiana kont / uprawnień / kolejności → null (pełny stan).
- */
-function deltaView(userId, since) {
-  if (!Number.isInteger(since) || since < 0) return null;
-  const ch = store.changesSince(since);
-  if (!ch) return null;
-  const v = viewEntry(userId), P = v.proj;
-  if (!P) return null;
-  const core = {}, colls = {};
-  for (const k of Object.keys(P)) if (!ROWS.includes(k)) core[k] = P[k];
-  for (const k of ROWS) {
-    const up = ch.up[k], del = ch.del[k];
-    if (!(up && up.size) && !(del && del.size)) continue;
-    const arr = P[k] || [], ins = [], seen = new Set();
-    if (up && up.size) for (let i = 0; i < arr.length; i++) { const id = String(arr[i].id); if (up.has(id)) { ins.push([i, arr[i]]); seen.add(id); } }
-    const gone = del ? [...del] : [];
-    if (up) for (const id of up) if (!seen.has(id)) gone.push(id);        // zmieniony, ale poza widokiem użytkownika
-    colls[k] = { up: ins, del: gone, n: arr.length };
-  }
-  return { body: JSON.stringify({ delta: { since, core, colls }, today: viewCache.today, rev: viewCache.rev }).slice(1, -1), gz: null };
-}
-/** Znacznik: obiekt odpowiedzi z gotowym fragmentem stanu (pełny widok albo same zmiany od `since`) — patrz send(). */
-const statePayload = (userId, since) => ({ [VIEW]: (since != null && deltaView(userId, since)) || stateView(userId) });
-const sinceOf = v => { const n = Number(v); return v !== undefined && v !== null && v !== "" && Number.isInteger(n) && n >= 0 ? n : null; };
-const VIEW = Symbol("stateView");
+/* widok stanu dla użytkownika (izolacja magazynów, pamięć na rewizję, synchronizacja zmianami) — server/http/state-view.mjs */
+const { statePayload } = createStateViews({ store, R, Service, ROWS });
 const metaOf = req => ({ ip: ipOf(req), ua: String(req.headers["user-agent"] || "").slice(0, 200) });
 /** Adres programu w linkach e-mail: APP_URL; bez niego — adres wyznaczony przez serwer (nigdy z nagłówka Host). */
 const appUrl = () => {
@@ -249,12 +146,7 @@ const appUrl = () => {
   const ip = Object.values(networkInterfaces()).flat().find(n => n && n.family === "IPv4" && !n.internal);
   return `${tls ? "https" : "http"}://${cfg.host === "127.0.0.1" || !ip ? "localhost" : ip.address}:${cfg.port}`;
 };
-const mailHits = new Map();
-function mailLimited(key, max, minutes) {
-  const now = Date.now(), win = minutes * 60000, arr = (mailHits.get(key) || []).filter(x => now - x < win);
-  arr.push(now); mailHits.set(key, arr);
-  return arr.length > max;
-}
+const mailLimited = (key, max, minutes) => limiter.hit("mail:" + key, max, minutes);
 const whName = id => (R.byId(store.state.warehouses, id) || {}).name || "";
 
 /* ---------------- 3.13: konfiguracja poczty z programu (zapis w <dane>/server.env, bez restartu) ---------------- */
@@ -264,23 +156,6 @@ function mailSettings() {
   return { transport: mailCfg.transport, host: mailCfg.smtp.host, port: mailCfg.smtp.port, secure: mailCfg.smtp.secure, user: mailCfg.smtp.user, hasPass: !!mailCfg.smtp.pass,
     from: String(env.EMAIL_FROM || ""), replyTo: String(env.EMAIL_REPLY_TO || ""), appUrl: String(env.APP_URL || ""), appUrlEffective: appUrl(),
     envFile: join(cfg.dataDir, "server.env"), overridden: MAIL_KEYS.filter(k => process.env[k] !== undefined && process.env[k] !== "") };
-}
-/** Wartość dla pliku .env — w cudzysłowie, gdy zawiera spację, # albo cudzysłów (parser server.env zdejmuje cudzysłowy). */
-function envValue(v) {
-  const x = String(v == null ? "" : v);
-  if (/[\r\n]/.test(x)) return null;
-  if (!/[\s#"']/.test(x)) return x;
-  if (!x.includes('"')) return `"${x}"`;
-  if (!x.includes("'")) return `'${x}'`;
-  return null;
-}
-function setEnvLine(text, key, value) {
-  const re = new RegExp(`^[ \\t]*(?:#[ \\t]*)?${key}[ \\t]*=.*$`, "m");
-  const active = new RegExp(`^[ \\t]*${key}[ \\t]*=.*$`, "m");
-  const line = `${key}=${value}`;
-  if (active.test(text)) return text.replace(active, () => line);              // funkcja: „$” w haśle bez specjalnego znaczenia
-  if (re.test(text)) return text.replace(re, () => line);
-  return `${text.replace(/\s*$/, "")}\r\n${line}\r\n`;
 }
 function saveMailConfig(b) {
   const transport = ["smtp", "resend", "agentmail", "file"].includes(b.transport) ? b.transport : "smtp";
@@ -940,7 +815,7 @@ server.listen(cfg.port, cfg.host, () => {
   try { store.autoBackup(true); } catch (e) { log("ERROR", "Kopia przy starcie: " + e.message); }
 });
 const timers = [
-  setInterval(() => { try { store.autoBackup(false); store.purgeSessions(); } catch (e) { log("ERROR", "Kopia automatyczna: " + e.message); } }, 10 * 60000),
+  setInterval(() => { try { store.autoBackup(false); store.purgeSessions(); limiter.prune(60); } catch (e) { log("ERROR", "Kopia automatyczna: " + e.message); } }, 10 * 60000),
   setInterval(() => { for (const c of clients) { try { c.write(": ping\n\n"); } catch (e) { clients.delete(c); } } }, 25000),
   // kolejka poczty: ponowienia według terminów (1 min, 5 min, 15 min, 1 h, 6 h)
   setInterval(() => { drainMail().catch(e => log("ERROR", "Kolejka poczty: " + e.message)); }, 5000)

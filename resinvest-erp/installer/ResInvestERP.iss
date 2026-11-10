@@ -275,6 +275,7 @@ Source: "..\app\assets\fonts\LICENSE-OFL.txt"; DestDir: "{app}\docs"; DestName: 
 Source: "..\server\*.mjs"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
 ; warstwa bazy danych (SQLite / PostgreSQL), narzędzie migracji i sterownik PostgreSQL (node_modules: npm ci --omit=dev przed budową)
 Source: "..\server\db\*.mjs"; DestDir: "{app}\server\db"; Components: server; Flags: ignoreversion
+Source: "..\server\http\*.mjs"; DestDir: "{app}\server\http"; Components: server; Flags: ignoreversion
 Source: "..\tools\db-migrate.mjs"; DestDir: "{app}\tools"; Components: server; Flags: ignoreversion
 Source: "..\node_modules\*"; DestDir: "{app}\node_modules"; Components: server; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\app\src\*.js"; DestDir: "{app}\app\src"; Components: server; Flags: ignoreversion
