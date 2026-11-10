@@ -1,5 +1,16 @@
 # ResInvest ERP 3.14 (3.14.0)
 
+> **Baza danych — tryb firmowy na PostgreSQL.** Serwer pracuje na SQLite (domyślnie, jak dotychczas) albo na centralnej
+> bazie PostgreSQL 14+ (`DB_DRIVER=postgres` w `server.env`). Silnik, interfejs i API są te same w obu trybach.
+> Instrukcja, migracja `SQLite → PostgreSQL`, kopie, przywracanie i wycofanie: [docs/POSTGRESQL.md](docs/POSTGRESQL.md);
+> raport z migracji i testów: [docs/RAPORT_MIGRACJI_POSTGRESQL.md](docs/RAPORT_MIGRACJI_POSTGRESQL.md).
+>
+> Szybki start z repozytorium: `npm ci` → `npm run server` (Node.js 22.13+). Testy PostgreSQL:
+> `RIW_TEST_PG_URL=postgres://postgres:<hasło>@127.0.0.1:5432/postgres npm run test:pg`.
+> Instalator Windows: `installer/ResInvestERP-Serwer.iss` (Inno Setup 6.4+, opis budowania w nagłówku pliku).
+> Katalogi `tests/` (poza testami PostgreSQL) i `tools/build.mjs`, do których odwołują się starsze skrypty w
+> `package.json`, nie są częścią tego repozytorium — źródła odtworzono z instalatora 3.14.0.
+
 *Program stworzony przez Roesner Mateusz dla ResInvest Commodities.*
 
 > Wersja 3.7.0 to wersja startowa dla firmy: **czysta baza danych** (bez danych przykładowych), konto startowe

@@ -66,16 +66,34 @@ export class PgError extends Error {
   }
 }
 
+/**
+ * Wartość parametru. PostgreSQL nie przechowuje znaku NUL w tekście; node:sqlite zwraca taki tekst tylko do znaku NUL,
+ * więc tekst jest tu obcinany w tym samym miejscu — program widzi tę samą wartość na obu silnikach
+ * (dotyczy pól wpisywanych z zewnątrz: login, przeglądarka; dane JSON zapisują NUL jako sekwencję \u0000).
+ */
+function bind(v) {
+  if (v === undefined) return null;
+  if (typeof v === "string") { const i = v.indexOf("\u0000"); return i < 0 ? v : v.slice(0, i); }
+  if (typeof v === "boolean") return v ? 1 : 0;
+  if (typeof v === "bigint") return v.toString();
+  return v;
+}
 class PgStatement {
   constructor(db, sql) { this.db = db; this.q = toPg(sql); }
   _run(args) {
     if (args.length !== this.q.params) throw new Error(`Liczba parametrów (${args.length}) nie zgadza się z poleceniem (${this.q.params}): ${this.q.text.slice(0, 120)}`);
-    return this.db._query(this.q, args.map(v => v === undefined ? null : typeof v === "boolean" ? (v ? 1 : 0) : typeof v === "bigint" ? v.toString() : v));
+    return this.db._query(this.q, args.map(bind));
   }
   get(...args) { return this._run(args).rows[0]; }
   all(...args) { return this._run(args).rows; }
   iterate(...args) { return this._run(args).rows[Symbol.iterator](); }
   run(...args) {
+    // zapis odroczony (deferWrites): polecenie trafia do bazy razem z COMMIT, w tej samej transakcji; wynik nie jest znany
+    if (this.db.deferred) {
+      if (args.length !== this.q.params) throw new Error(`Liczba parametrów (${args.length}) nie zgadza się z poleceniem (${this.q.params}): ${this.q.text.slice(0, 120)}`);
+      this.db.deferred.push({ text: this.q.text, values: args.map(bind), name: this.q.name });
+      return { changes: undefined, lastInsertRowid: undefined };
+    }
     const r = this._run(args);
     const out = { changes: r.rowCount || 0, lastInsertRowid: 0 };
     if (this.q.returning && r.rows[0]) out.lastInsertRowid = r.rows[0][this.q.returning];
@@ -133,7 +151,7 @@ export class PgDb {
   }
   _connect() {
     this.info = this._call({ op: "connect" }, (this.conn.client.connectionTimeoutMillis || 15000) + 5000);
-    this.connected = true; this.inTx = false;
+    this.connected = true; this.inTx = false; this.deferred = null;
     return this.info;
   }
   /**
@@ -166,7 +184,24 @@ export class PgDb {
     if (this.connected) return true;
     try { this.reconnect(); return true; } catch (e) { if (e.fatal) throw e; return false; }
   }
+  /**
+   * Odroczenie zapisów bieżącej transakcji: kolejne `run()` są zbierane i wysyłane jedną paczką razem z COMMIT
+   * (jedna wymiana z bazą zamiast kilkunastu). Atomowość bez zmian — to nadal jedna transakcja; błąd dowolnego polecenia
+   * wycofuje całość. Odczyt (get / all / exec) w trakcie najpierw wysyła zebrane zapisy, więc widzi je jak zwykle.
+   * Używane tam, gdzie wyniki pojedynczych zapisów nie są potrzebne (zapis stanu komendy).
+   */
+  deferWrites() { if (this.inTx && !this.deferred) this.deferred = []; }
   _query(q, values) {
+    if (this.deferred) {
+      const list = this.deferred, commit = /^COMMIT\b/i.test(q.text);
+      this.deferred = /^ROLLBACK\b/i.test(q.text) || commit ? null : [];
+      if (list.length && (commit || this.deferred)) {
+        try {
+          const r = this._call({ op: "batch", list: commit ? [...list, { text: "COMMIT" }] : list });   // zapisy (+ zatwierdzenie) w jednej wymianie
+          if (commit) { this.inTx = false; return r; }
+        } catch (e) { this.deferred = null; if (e instanceof PgError && e.connectionLost) { this.connected = false; this.inTx = false; } throw e; }
+      }
+    }
     const msg = values ? { op: "query", text: q.text, values, name: q.name } : { op: "query", text: q.text };
     if (this.fenced) { const e = new PgError({ message: "Bazę obsługuje inny serwer ResInvest ERP — ten proces nie może zapisywać. Zatrzymaj ten serwer.", code: "RIW_FENCED" }); e.fatal = true; throw e; }
     try {

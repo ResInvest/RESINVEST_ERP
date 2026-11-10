@@ -1,6 +1,7 @@
 /* Warstwa bazy: tłumaczenie poleceń SQLite → PostgreSQL, zgodność interfejsu z node:sqlite, konfiguracja. */
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { DatabaseSync } from "node:sqlite";
 import { toPg, PgDb } from "../server/db/postgres.mjs";
 import { databaseConfig } from "../server/db/index.mjs";
 import { TABLES, PG_DDL, SQLITE_DDL } from "../server/db/schema.mjs";
@@ -103,9 +104,12 @@ test("dziennik zmian jest tylko do dopisywania (UPDATE / DELETE / TRUNCATE odrzu
   assert.equal(db.prepare("SELECT cmd FROM journal WHERE hash = ?").get("h-unit-1").cmd, "x");
 });
 
-test("błąd polecenia nie zrywa połączenia; znak NUL jest odrzucany przez bazę (nie gubiony po cichu)", { skip }, () => {
+test("błąd polecenia nie zrywa połączenia; tekst ze znakiem NUL zapisywany do znaku NUL (jak czyta go SQLite)", { skip }, () => {
   assert.throws(() => db.exec("SELECT * FROM nie_ma_takiej_tabeli"), e => e.name === "PgError" && e.code === "42P01" && !e.connectionLost);
-  assert.throws(() => db.prepare("INSERT INTO meta(key, value) VALUES (?, ?)").run("nul", "a\u0000b"));
+  db.prepare("INSERT INTO meta(key, value) VALUES (?, ?)").run("nul", "a\u0000b");
+  assert.equal(db.prepare("SELECT value FROM meta WHERE key = ?").get("nul").value, "a");
+  const lite = new DatabaseSync(":memory:"); lite.exec("CREATE TABLE m(v TEXT)"); lite.prepare("INSERT INTO m VALUES (?)").run("a\u0000b");
+  assert.equal(lite.prepare("SELECT v FROM m").get().v, "a", "ta sama wartość widziana przez program na SQLite"); lite.close();
   assert.equal(db.prepare("SELECT 1 AS x").get().x, 1);
 });
 

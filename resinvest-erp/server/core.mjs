@@ -323,8 +323,9 @@ export class Store {
       // (inny proces zmienił dane → nic nie zapisujemy; ochrona przed nadpisaniem cudzych zmian)
       if (this.pg && !full) {
         const cur = this.db.prepare("SELECT rev FROM state WHERE id = 1 FOR UPDATE").get();
-        if (!cur || cur.rev !== prev.rev) throw new Error(`stan w bazie (rewizja ${cur ? cur.rev : "brak"}) różni się od stanu serwera (rewizja ${prev.rev}) — dane zmienił inny proces; uruchom serwer ponownie`);
+        if (!cur || cur.rev !== prev.rev) { this.needsReload = true; throw new Error(`stan w bazie (rewizja ${cur ? cur.rev : "brak"}) różni się od stanu serwera (rewizja ${prev.rev}) — dane zmienił inny proces; serwer wczyta stan z bazy przy następnej operacji`); }
       }
+      if (this.pg) this.db.deferWrites();       // zapisy tej transakcji wysyłane jedną paczką razem z COMMIT
       if (full) this.db.exec("DELETE FROM rows");
       for (const p of plan) {
         const upSet = new Set(p.upRows.map(r => r.i));
@@ -344,8 +345,13 @@ export class Store {
     catch (e) {
       // PostgreSQL: połączenie zerwane w trakcie zapisu — wynik zatwierdzenia nieznany. Wpis dziennika o tym skrócie
       // istnieje tylko wtedy, gdy cała transakcja została zatwierdzona; inaczej baza wycofała wszystko (nic nie zapisano).
-      if (!(this.pg && e && e.connectionLost && this.db.recover())) throw e;
-      if (!this.db.prepare("SELECT 1 AS x FROM journal WHERE hash = ?").get(hash)) throw e;
+      // Gdy bazy nie da się teraz zapytać, wynik pozostaje nieznany: serwer nie zgaduje — przed następną operacją
+      // wczyta stan z bazy (heal), a użytkownik dostaje informację, że zapis trzeba sprawdzić.
+      if (!(this.pg && e && e.connectionLost) || e.notSent) throw e;      // notSent: polecenie nie dotarło do bazy — na pewno nic nie zapisano
+      let found = null;
+      try { if (this.db.recover()) found = !!this.db.prepare("SELECT 1 AS x FROM journal WHERE hash = ?").get(hash); } catch (x) { if (x && x.fatal) throw x; }
+      if (found === null) { this.needsReload = true; e.uncertain = true; throw e; }
+      if (!found) throw e;
       this.pendingHead = hash;
       this.log("WARN", `Zapis ${cmd} (rewizja ${next.rev}) potwierdzony w dzienniku po zerwaniu połączenia z bazą`);
     }
@@ -387,10 +393,27 @@ export class Store {
   }
 
 
+  /**
+   * 3.15 (PostgreSQL): po zapisie o nieznanym wyniku albo po wykryciu zmiany danych przez inny proces stan w pamięci
+   * jest wczytywany z bazy przed kolejną operacją — serwer nigdy nie pracuje na stanie innym niż zapisany.
+   * Zwraca null (stan aktualny) albo odpowiedź z błędem (baza nadal niedostępna).
+   */
+  heal() {
+    if (!this.needsReload) return null;
+    try { this.load(); this.needsReload = false; this.log("WARN", `Stan wczytany ponownie z bazy (rewizja ${this.state ? this.state.rev : "—"})`); return null; }
+    catch (e) { this.log("ERROR", "Ponowne wczytanie stanu z bazy nieudane: " + e.message); return { ok: false, code: "DB", error: t("Zapis w bazie nieudany — nic nie zapisano: {m}", { m: e.message }) }; }
+  }
+  /** Odpowiedź po nieudanym zapisie; przy nieznanym wyniku (zerwane połączenie w chwili zatwierdzania) — prośba o sprawdzenie. */
+  saveError(label, e) {
+    this.log("ERROR", `Zapis nieudany (${label}): ${e.message}`);
+    if (e && e.uncertain) return { ok: false, code: "DB_UNCERTAIN", error: "Połączenie z bazą danych zostało przerwane w chwili zapisu. Odśwież program i sprawdź, czy operacja została zapisana, zanim wprowadzisz ją ponownie." };
+    return { ok: false, error: t("Zapis w bazie nieudany — nic nie zapisano: {m}", { m: e.message }), code: "DB" };
+  }
   /** Komenda usługi: silnik na kopii → zapis atomowy → stan w pamięci. */
   execute(userId, cmd, args, lang, meta) {
     if (!Service.has(cmd)) return { ok: false, error: t("Nieznana komenda: {c}", { c: cmd }), code: "UNKNOWN" };
     I18N.setLang(lang || "pl");
+    { const h = this.heal(); if (h) return h; }
     const ctx = Object.assign({ user: { id: userId }, today: this.today() }, meta && { ip: meta.ip || "", ua: String(meta.ua || "").slice(0, 200) });
     const rev0 = this.state.rev;
     const { res, state } = this.runFast(cmd, work => Service.run(this.state, cmd, args, ctx, work));
@@ -398,7 +421,7 @@ export class Store {
       const u = R.byId(state.users, userId) || R.byId(this.state.users, userId);
       const journalArgs = cmd === "data.import" ? { operacje: (args.state && args.state.operations || []).length, rewizja: args.state && args.state.rev } : args;
       try { this.saveState(state, u, cmd, journalArgs, rev0); }
-      catch (e) { this.log("ERROR", `Zapis nieudany (${cmd}): ${e.message}`); return { ok: false, error: t("Zapis w bazie nieudany — nic nie zapisano: {m}", { m: e.message }), code: "DB" }; }
+      catch (e) { return this.saveError(cmd, e); }
       res.__changed = true;
     }
     return res;
@@ -433,11 +456,12 @@ export class Store {
   }
   /** Zmiana stanu przez hosta (bez komendy użytkownika): aktywacja, wpis audytu. Zapis atomowy jak execute. */
   applyChange(label, fn, journalArgs, actor) {
+    { const h = this.heal(); if (h) return h; }
     const rev0 = this.state.rev;
     const { res, state } = this.runFast(label, work => Service.apply(this.state, fn, work));
     if (state) {
       try { this.saveState(state, actor || null, label, journalArgs || {}, rev0); }
-      catch (e) { this.log("ERROR", `Zapis nieudany (${label}): ${e.message}`); return { ok: false, error: t("Zapis w bazie nieudany — nic nie zapisano: {m}", { m: e.message }), code: "DB" }; }
+      catch (e) { return this.saveError(label, e); }
       res.__changed = true;
     }
     return res;
@@ -563,12 +587,13 @@ export class Store {
   register(rec, password, lang, meta) {
     I18N.setLang(lang || "pl");
     const pe = AuthLib.passwordError(password, rec && rec.email); if (pe) return { ok: false, errors: { password: pe }, error: pe };
+    { const h = this.heal(); if (h) return h; }
     const rev0 = this.state.rev;
     // adres potwierdza się linkiem z e-maila; administratorzy dostają powiadomienie po potwierdzeniu
     const { res, state } = this.runFast("auth.register", work => Service.register(this.state, rec, this.today(), meta, { emailUnverified: true }, work));
     if (!state) return res;
     try { this.saveState(state, null, "auth.register", { email: res.rec.login }, rev0); }
-    catch (e) { return { ok: false, error: t("Zapis w bazie nieudany — nic nie zapisano: {m}", { m: e.message }) }; }
+    catch (e) { return this.saveError("auth.register", e); }
     this.setPassword(res.rec.id, password, false);
     this.log("INFO", `Rejestracja: ${res.rec.login} — oczekuje na potwierdzenie adresu i zatwierdzenie`);
     return { ok: true, userId: res.rec.id };

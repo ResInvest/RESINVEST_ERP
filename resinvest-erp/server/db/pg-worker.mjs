@@ -30,7 +30,8 @@ function isConnError(e) {
 }
 
 async function connect() {
-  if (client) { try { client.removeAllListeners("error"); await client.end(); } catch (e) { /* stare połączenie już zerwane */ } }
+  // stare połączenie zamykane bez czekania (zerwane gniazdo mogłoby wstrzymać zakończenie) — gniazdo niszczone od razu
+  if (client) { const old = client; try { old.removeAllListeners("error"); old.on("error", () => {}); old.end().catch(() => {}); old.connection.stream.destroy(); } catch (e) { /* stare połączenie już zerwane */ } }
   client = null; broken = null;
   const c = new pg.Client(Object.assign({}, conn.client, { types }));
   c.on("error", e => { if (client === c) broken = e; });
