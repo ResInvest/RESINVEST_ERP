@@ -94,6 +94,13 @@
       }
       if (Object.keys(errors).length) return { ok: false, errors, error: t("Popraw zaznaczone pozycje") };
       if (!changes.length) return { ok: false, code: "NOCHANGE", error: t("Brak zmian do zapisania") };
+      // numer BO: w jednej serii WZ licznik przesuwany za numery już zajęte w magazynie i roku (np. numer WZ wpisany
+      // ręcznie) — ta sama zasada co przy numerze z formularza operacji (autoNo); openingBalance nadaje kolejny numer
+      if (R.unifiedNumbering(state)) {
+        const series = R.DOC_SERIES, ym = Dates.ym(date), key = `${series}-${ym}`;
+        const fmtNo = n => `${series}/${String(n).padStart(3, "0")}/${ym.slice(5, 7)}/${ym.slice(0, 4)}`;
+        for (let guard = 0; guard < 1000 && R.docNoTaken(state, "BO", whId, date.slice(0, 4), fmtNo((state.seq[key] || 0) + 1)); guard++) state.seq[key] = (state.seq[key] || 0) + 1;
+      }
       const c = Object.assign({}, ctx, { source: SOURCE });
       const no = R.openingBalance(state, whId, date, changes.map(x => ({ productId: x.productId, qty: x.delta })), c);
       // szczegóły zmian w tym samym wpisie audytu, który utworzył dokument BO (przed → po dla każdego produktu)

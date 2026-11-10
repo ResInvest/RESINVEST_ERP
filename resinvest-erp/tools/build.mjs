@@ -86,6 +86,8 @@ export function loadConfig() {
 const cfg = loadConfig();
 
 let html = read("index.template.html");
+// 3.15: wersja demonstracyjna — skrypt „przed pierwszym malowaniem” czyta motyw z osobnej przestrzeni przeglądarki
+if (cfg.storageNs) html = html.replace(/localStorage\.getItem\("riw\./g, `localStorage.getItem("${cfg.storageNs}.`);
 const put = (marker, value) => {
   if (!html.includes(marker)) throw new Error("Brak znacznika " + marker);
   html = html.split(marker).join(value);

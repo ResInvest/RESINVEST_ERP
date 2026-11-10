@@ -105,8 +105,22 @@ resinvest-erp/
 | jeden ogranicznik zamiast dwóch + okresowe czyszczenie | pamięć nie rośnie z liczbą adresów IP |
 | `opening.js` / `opening-view.js` — nowa funkcja jako osobny moduł domeny i osobny ekran | brak zmian w `engine.js` poza eksportem modułu |
 
-Weryfikacja każdej zmiany: `npm run check`, `npm run i18n`, testy jednostkowe (212), serwerowe (80), e2e (489),
-PostgreSQL (54), test obciążeniowy projektu.
+Weryfikacja każdej zmiany: `npm run check`, `npm run i18n`, testy jednostkowe (216), serwerowe (85), e2e,
+PostgreSQL, test obciążeniowy projektu.
+
+### Recenzja zmian 3.15 (wynik i poprawki)
+
+| Uwaga recenzenta | Poprawka | Test |
+|---|---|---|
+| Numer BO z edytora mógł powtórzyć numer WZ wpisany wcześniej ręcznie (ta sama seria, magazyn i rok) | `opening.js`: licznik serii przesuwany za numery zajęte (`docNoTaken`), jak w formularzu operacji | `features315`: „omija numer WZ wpisany wcześniej ręcznie” (bez poprawki: duplikat `WZ/002/11/2026`) |
+| Wersja demonstracyjna dzieliła z programem firmowym preferencje przeglądarki (motyw, język, intro, adresy e-mail) | `lsKey` w `core.js`, klucze w `intro.js` i `views.js`, skrypt motywu przed pierwszym malowaniem w `build.mjs` | `e2e315demo` (izolacja kluczy) |
+| Dokument BO zmniejszający stan (korekta stanu początkowego) oznaczony „+” w rejestrze | znak „±” dla BO z ujemną pozycją | — |
+| Testy 3.15 poza budową instalatora i paczką testów Windows | dopisane do `build-installer*.{sh,ps1}` i `make-test-pack.py` | — |
+| Czyszczenie ogranicznika stałym oknem 60 min | czyszczenie wg najdłuższego faktycznie użytego okna | `server-modules315` |
+| Braki testów | nieaktywny produkt i magazyn, rola z ograniczonym dostępem, numeracja „osobne serie”, `env-file`, `rate-limit` | `features315`, `server-modules315` |
+
+Znane ograniczenia sprzed 3.15 (bez zmian, do osobnej decyzji): numery KOR/AN korzystają z tego samego licznika
+bez pomijania numerów zajętych; `Dates.isISO` przyjmuje nieistniejące daty (np. 2026-02-30).
 
 ## 6. Dalsze porządkowanie (plan, kolejność wg ryzyka)
 

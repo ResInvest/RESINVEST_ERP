@@ -815,7 +815,7 @@ server.listen(cfg.port, cfg.host, () => {
   try { store.autoBackup(true); } catch (e) { log("ERROR", "Kopia przy starcie: " + e.message); }
 });
 const timers = [
-  setInterval(() => { try { store.autoBackup(false); store.purgeSessions(); limiter.prune(60); } catch (e) { log("ERROR", "Kopia automatyczna: " + e.message); } }, 10 * 60000),
+  setInterval(() => { try { store.autoBackup(false); store.purgeSessions(); limiter.prune(); } catch (e) { log("ERROR", "Kopia automatyczna: " + e.message); } }, 10 * 60000),
   setInterval(() => { for (const c of clients) { try { c.write(": ping\n\n"); } catch (e) { clients.delete(c); } } }, 25000),
   // kolejka poczty: ponowienia według terminów (1 min, 5 min, 15 min, 1 h, 6 h)
   setInterval(() => { drainMail().catch(e => log("ERROR", "Kolejka poczty: " + e.message)); }, 5000)

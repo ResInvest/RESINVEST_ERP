@@ -1555,8 +1555,9 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
    ========================================================================= */
 (function (root) {
   "use strict";
-  const PREF_MUSIC = "riw.music";
-  const PREF_INTRO = "riw.intro";
+  const ns = k => root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? k.replace(/^riw\./, root.RIW_CONFIG.storageNs + ".") : k;   // 3.15: wersja demo
+  const PREF_MUSIC = ns("riw.music");
+  const PREF_INTRO = ns("riw.intro");
   const DBG = root.RIW_DEBUG = root.RIW_DEBUG || {};
   const t = s => (root.RIW_I18N ? root.RIW_I18N.t(s) : s);
 
@@ -9512,6 +9513,13 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
       }
       if (Object.keys(errors).length) return { ok: false, errors, error: t("Popraw zaznaczone pozycje") };
       if (!changes.length) return { ok: false, code: "NOCHANGE", error: t("Brak zmian do zapisania") };
+      // numer BO: w jednej serii WZ licznik przesuwany za numery już zajęte w magazynie i roku (np. numer WZ wpisany
+      // ręcznie) — ta sama zasada co przy numerze z formularza operacji (autoNo); openingBalance nadaje kolejny numer
+      if (R.unifiedNumbering(state)) {
+        const series = R.DOC_SERIES, ym = Dates.ym(date), key = `${series}-${ym}`;
+        const fmtNo = n => `${series}/${String(n).padStart(3, "0")}/${ym.slice(5, 7)}/${ym.slice(0, 4)}`;
+        for (let guard = 0; guard < 1000 && R.docNoTaken(state, "BO", whId, date.slice(0, 4), fmtNo((state.seq[key] || 0) + 1)); guard++) state.seq[key] = (state.seq[key] || 0) + 1;
+      }
       const c = Object.assign({}, ctx, { source: SOURCE });
       const no = R.openingBalance(state, whId, date, changes.map(x => ({ productId: x.productId, qty: x.delta })), c);
       // szczegóły zmian w tym samym wpisie audytu, który utworzył dokument BO (przed → po dla każdego produktu)
@@ -10928,8 +10936,10 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const fid = key => "f-" + key.replace(/\./g, "-");
   const str = v => String(v == null ? "" : v).trim();
-  const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
-  const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} };
+  /** 3.15: wersja demonstracyjna — klucze „riw.*” w osobnej przestrzeni (storageNs); program firmowy: klucze bez zmian. */
+  const lsKey = k => root.RIW_CONFIG && root.RIW_CONFIG.storageNs && /^riw\./.test(k) ? k.replace(/^riw\./, root.RIW_CONFIG.storageNs + ".") : k;
+  const lsGet = (k, d) => { try { const v = localStorage.getItem(lsKey(k)); return v === null ? d : v; } catch (e) { return d; } };
+  const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(lsKey(k)); else localStorage.setItem(lsKey(k), v); } catch (e) {} };
   const ssGet = (k, d) => { try { const v = sessionStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
   const ssSet = (k, v) => { try { if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) {} };
   const initials = name => String(name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase();
@@ -14403,7 +14413,8 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
       if (whId && l.whId !== whId) continue;
       if (l.kind !== "BO" && l.kind !== "INW") continue;
       const r = extra.get(l.docNo) || { type: l.kind === "BO" ? "BO" : "IN", no: l.docNo, date: l.date, whId: l.whId, productId: null, qty: null, unit: null, value: 0, partner: "", place: App.whName(l.whId), stock: l.kind === "BO" ? "+" : "±", status: "POSTED", lines: 0, userName: l.userName };
-      r.lines++; extra.set(l.docNo, r);
+      r.lines++; if (l.kind === "BO" && l.qty < 0) r.stock = "±";   // 3.15: korekta stanu początkowego (różnica ujemna)
+      extra.set(l.docNo, r);
     }
     rows.push(...extra.values());
     return rows.sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : String(b.no).localeCompare(String(a.no)));
@@ -14470,7 +14481,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
   const splitMails = s => [...new Set(String(s || "").split(/[\s,;]+/).map(x => x.trim().toLowerCase()).filter(Boolean))];
   function bytesToB64(bytes) { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); }
   const MailDialog = {
-    LAST: "riw.mail.lastTo",
+    LAST: root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? root.RIW_CONFIG.storageNs + ".mail.lastTo" : "riw.mail.lastTo",
     lastTo() { try { return localStorage.getItem(this.LAST) || ""; } catch (e) { return ""; } },
     open({ m, bytes, name }, kind) {
       const server = Store.mode === "server", u = App.user();
@@ -17674,11 +17685,12 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
     html() {
       const S = Store.state, f = form(), edit = App.can("warehouses.edit");
       const whs = S.warehouses.filter(w => w.active !== false && R.canAccessWh(App.user(), w.id));
-      if (!whs.some(w => w.id === f.whId)) { f.whId = (whs[0] || {}).id || ""; f.values = {}; }
-      if (!f.date) f.date = App.today();
+      if (!whs.some(w => w.id === f.whId)) { f.whId = (whs[0] || {}).id || ""; f.values = {}; f.date = ""; }
       const wh = R.byId(S.warehouses, f.whId);
       const rows = wh ? O.sheet(S, wh.id) : [];
       const docs = wh ? O.documents(S, wh.id) : [];
+      // data domyślna: data ostatniego bilansu otwarcia magazynu (poprawka stanu początkowego), inaczej dzisiejsza
+      if (!f.date) f.date = docs.length ? docs[0].date : App.today();
       const empty = wh && !docs.length && !S.operations.some(o => o.whId === wh.id);
       const body = rows.map(r => {
         const typed = f.values[r.productId];
@@ -17718,24 +17730,27 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
     },
     bind(page) {
       const f = form();
-      const wh = $("#op-wh", page); if (wh) wh.onchange = () => { f.whId = wh.value; f.values = {}; App.render(); };
+      const wh = $("#op-wh", page); if (wh) wh.onchange = () => { f.whId = wh.value; f.values = {}; f.date = ""; App.render(); };
+      const sheet = new Map(O.sheet(Store.state, f.whId).map(r => [r.productId, r]));      // raz na wyświetlenie ekranu
+      const esc$ = v => root.CSS && CSS.escape ? CSS.escape(v) : String(v).replace(/["\\]/g, "\\$&");
       const dt = $("#op-date", page); if (dt) dt.onchange = () => { f.date = dt.value; };
       // różnica liczona na bieżąco w komórce — bez przerysowania całego ekranu przy każdym znaku
       $$("[data-oin]", page).forEach(inp => inp.oninput = () => {
         const pid = inp.dataset.oin; f.values[pid] = inp.value;
-        const cell = $(`[data-odelta="${pid}"]`, page), r = O.sheet(Store.state, f.whId).find(x => x.productId === pid);
+        const cell = $(`[data-odelta="${esc$(pid)}"]`, page), r = sheet.get(pid);
         const next = inp.value === "" ? null : parse(inp.value), d = next === null || !r ? null : R.rq(next - r.opening);
         if (cell) cell.innerHTML = d === null || Math.abs(d) <= EPS ? "" : `<span class="${d > 0 ? "pos" : "neg"}">${d > 0 ? "+" : ""}${esc(fmtQ(d))}</span>`;
-        const msg = $(`[data-omsg="${pid}"]`, page); if (msg) msg.classList.toggle("hidden", !(inp.value !== "" && next === null));
+        const msg = $(`[data-omsg="${esc$(pid)}"]`, page); if (msg) msg.classList.toggle("hidden", !(inp.value !== "" && next === null));
         if (msg && inp.value !== "" && next === null) msg.textContent = NumParse.parse(inp.value).error;
       });
       const reset = $("#op-reset", page); if (reset) reset.onclick = () => { f.values = {}; App.render(); };
       const save = $("#op-save", page);
       if (save) save.onclick = async () => {
         const lines = Object.entries(f.values).filter(([, v]) => v !== "").map(([productId, qty]) => ({ productId, qty }));
-        if (!lines.length) { Toast.info(t("Brak zmian do zapisania"), t("Wpisz nowy stan początkowy przy wybranych produktach.")); return; }
+        const changed = lines.filter(l => { const r = sheet.get(l.productId), n = parse(l.qty); return !r || n === null || Math.abs(n - r.opening) > EPS; });
+        if (!changed.length) { Toast.info(t("Brak zmian do zapisania"), t("Wpisz nowy stan początkowy przy wybranych produktach.")); return; }
         const whName = App.whName(f.whId);
-        const ok = await Modal.confirm({ title: t("Zapisać stany początkowe?"), text: t("Magazyn {w}, data {d}: zmiana stanu początkowego {n} produktów. Powstanie dokument „Bilans otwarcia” z różnicami.", { w: whName, d: Dates.pl(f.date), n: lines.length }), ok: t("Zapisz") });
+        const ok = await Modal.confirm({ title: t("Zapisać stany początkowe?"), text: t("Magazyn {w}, data {d}: zmiana stanu początkowego {n} produktów. Powstanie dokument „Bilans otwarcia” z różnicami.", { w: whName, d: Dates.pl(f.date), n: changed.length }), ok: t("Zapisz") });
         if (!ok.ok) return;
         save.disabled = true;
         const res = await Store.exec("stock.opening", { whId: f.whId, date: f.date, lines }, SRC);
@@ -17743,7 +17758,7 @@ var RIW_FONTS = {"regular":{"name":"ResInvestDocSans-Regular","file":"ResInvestD
         $$("[data-omsg]", page).forEach(x => x.classList.add("hidden"));
         if (!res.ok) {
           for (const [k, msg] of Object.entries(res.errors || {})) {
-            const x = $(`[data-omsg="${k.startsWith("p:") ? k.slice(2) : k}"]`, page);
+            const x = $(`[data-omsg="${esc$(k.startsWith("p:") ? k.slice(2) : k)}"]`, page);
             if (x) { x.textContent = msg; x.classList.remove("hidden"); }
           }
           Toast.err(t("Nie zapisano"), res.error); return;

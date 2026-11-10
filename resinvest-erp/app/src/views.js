@@ -72,7 +72,8 @@
       if (whId && l.whId !== whId) continue;
       if (l.kind !== "BO" && l.kind !== "INW") continue;
       const r = extra.get(l.docNo) || { type: l.kind === "BO" ? "BO" : "IN", no: l.docNo, date: l.date, whId: l.whId, productId: null, qty: null, unit: null, value: 0, partner: "", place: App.whName(l.whId), stock: l.kind === "BO" ? "+" : "±", status: "POSTED", lines: 0, userName: l.userName };
-      r.lines++; extra.set(l.docNo, r);
+      r.lines++; if (l.kind === "BO" && l.qty < 0) r.stock = "±";   // 3.15: korekta stanu początkowego (różnica ujemna)
+      extra.set(l.docNo, r);
     }
     rows.push(...extra.values());
     return rows.sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : String(b.no).localeCompare(String(a.no)));
@@ -139,7 +140,7 @@
   const splitMails = s => [...new Set(String(s || "").split(/[\s,;]+/).map(x => x.trim().toLowerCase()).filter(Boolean))];
   function bytesToB64(bytes) { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); }
   const MailDialog = {
-    LAST: "riw.mail.lastTo",
+    LAST: root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? root.RIW_CONFIG.storageNs + ".mail.lastTo" : "riw.mail.lastTo",
     lastTo() { try { return localStorage.getItem(this.LAST) || ""; } catch (e) { return ""; } },
     open({ m, bytes, name }, kind) {
       const server = Store.mode === "server", u = App.user();

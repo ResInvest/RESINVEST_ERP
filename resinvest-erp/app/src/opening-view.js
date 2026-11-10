@@ -24,11 +24,12 @@
     html() {
       const S = Store.state, f = form(), edit = App.can("warehouses.edit");
       const whs = S.warehouses.filter(w => w.active !== false && R.canAccessWh(App.user(), w.id));
-      if (!whs.some(w => w.id === f.whId)) { f.whId = (whs[0] || {}).id || ""; f.values = {}; }
-      if (!f.date) f.date = App.today();
+      if (!whs.some(w => w.id === f.whId)) { f.whId = (whs[0] || {}).id || ""; f.values = {}; f.date = ""; }
       const wh = R.byId(S.warehouses, f.whId);
       const rows = wh ? O.sheet(S, wh.id) : [];
       const docs = wh ? O.documents(S, wh.id) : [];
+      // data domyślna: data ostatniego bilansu otwarcia magazynu (poprawka stanu początkowego), inaczej dzisiejsza
+      if (!f.date) f.date = docs.length ? docs[0].date : App.today();
       const empty = wh && !docs.length && !S.operations.some(o => o.whId === wh.id);
       const body = rows.map(r => {
         const typed = f.values[r.productId];
@@ -68,24 +69,27 @@
     },
     bind(page) {
       const f = form();
-      const wh = $("#op-wh", page); if (wh) wh.onchange = () => { f.whId = wh.value; f.values = {}; App.render(); };
+      const wh = $("#op-wh", page); if (wh) wh.onchange = () => { f.whId = wh.value; f.values = {}; f.date = ""; App.render(); };
+      const sheet = new Map(O.sheet(Store.state, f.whId).map(r => [r.productId, r]));      // raz na wyświetlenie ekranu
+      const esc$ = v => root.CSS && CSS.escape ? CSS.escape(v) : String(v).replace(/["\\]/g, "\\$&");
       const dt = $("#op-date", page); if (dt) dt.onchange = () => { f.date = dt.value; };
       // różnica liczona na bieżąco w komórce — bez przerysowania całego ekranu przy każdym znaku
       $$("[data-oin]", page).forEach(inp => inp.oninput = () => {
         const pid = inp.dataset.oin; f.values[pid] = inp.value;
-        const cell = $(`[data-odelta="${pid}"]`, page), r = O.sheet(Store.state, f.whId).find(x => x.productId === pid);
+        const cell = $(`[data-odelta="${esc$(pid)}"]`, page), r = sheet.get(pid);
         const next = inp.value === "" ? null : parse(inp.value), d = next === null || !r ? null : R.rq(next - r.opening);
         if (cell) cell.innerHTML = d === null || Math.abs(d) <= EPS ? "" : `<span class="${d > 0 ? "pos" : "neg"}">${d > 0 ? "+" : ""}${esc(fmtQ(d))}</span>`;
-        const msg = $(`[data-omsg="${pid}"]`, page); if (msg) msg.classList.toggle("hidden", !(inp.value !== "" && next === null));
+        const msg = $(`[data-omsg="${esc$(pid)}"]`, page); if (msg) msg.classList.toggle("hidden", !(inp.value !== "" && next === null));
         if (msg && inp.value !== "" && next === null) msg.textContent = NumParse.parse(inp.value).error;
       });
       const reset = $("#op-reset", page); if (reset) reset.onclick = () => { f.values = {}; App.render(); };
       const save = $("#op-save", page);
       if (save) save.onclick = async () => {
         const lines = Object.entries(f.values).filter(([, v]) => v !== "").map(([productId, qty]) => ({ productId, qty }));
-        if (!lines.length) { Toast.info(t("Brak zmian do zapisania"), t("Wpisz nowy stan początkowy przy wybranych produktach.")); return; }
+        const changed = lines.filter(l => { const r = sheet.get(l.productId), n = parse(l.qty); return !r || n === null || Math.abs(n - r.opening) > EPS; });
+        if (!changed.length) { Toast.info(t("Brak zmian do zapisania"), t("Wpisz nowy stan początkowy przy wybranych produktach.")); return; }
         const whName = App.whName(f.whId);
-        const ok = await Modal.confirm({ title: t("Zapisać stany początkowe?"), text: t("Magazyn {w}, data {d}: zmiana stanu początkowego {n} produktów. Powstanie dokument „Bilans otwarcia” z różnicami.", { w: whName, d: Dates.pl(f.date), n: lines.length }), ok: t("Zapisz") });
+        const ok = await Modal.confirm({ title: t("Zapisać stany początkowe?"), text: t("Magazyn {w}, data {d}: zmiana stanu początkowego {n} produktów. Powstanie dokument „Bilans otwarcia” z różnicami.", { w: whName, d: Dates.pl(f.date), n: changed.length }), ok: t("Zapisz") });
         if (!ok.ok) return;
         save.disabled = true;
         const res = await Store.exec("stock.opening", { whId: f.whId, date: f.date, lines }, SRC);
@@ -93,7 +97,7 @@
         $$("[data-omsg]", page).forEach(x => x.classList.add("hidden"));
         if (!res.ok) {
           for (const [k, msg] of Object.entries(res.errors || {})) {
-            const x = $(`[data-omsg="${k.startsWith("p:") ? k.slice(2) : k}"]`, page);
+            const x = $(`[data-omsg="${esc$(k.startsWith("p:") ? k.slice(2) : k)}"]`, page);
             if (x) { x.textContent = msg; x.classList.remove("hidden"); }
           }
           Toast.err(t("Nie zapisano"), res.error); return;

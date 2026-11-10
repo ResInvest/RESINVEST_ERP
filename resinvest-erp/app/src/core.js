@@ -25,8 +25,10 @@
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const fid = key => "f-" + key.replace(/\./g, "-");
   const str = v => String(v == null ? "" : v).trim();
-  const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
-  const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} };
+  /** 3.15: wersja demonstracyjna — klucze „riw.*” w osobnej przestrzeni (storageNs); program firmowy: klucze bez zmian. */
+  const lsKey = k => root.RIW_CONFIG && root.RIW_CONFIG.storageNs && /^riw\./.test(k) ? k.replace(/^riw\./, root.RIW_CONFIG.storageNs + ".") : k;
+  const lsGet = (k, d) => { try { const v = localStorage.getItem(lsKey(k)); return v === null ? d : v; } catch (e) { return d; } };
+  const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(lsKey(k)); else localStorage.setItem(lsKey(k), v); } catch (e) {} };
   const ssGet = (k, d) => { try { const v = sessionStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
   const ssSet = (k, v) => { try { if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) {} };
   const initials = name => String(name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase();

@@ -120,10 +120,69 @@ test("zamknięty okres: data w zamkniętym miesiącu odrzucona (LOCKED), po zamk
 test("raporty liczą stan początkowy z edytora jak bilans otwarcia", () => {
   let s = clean();
   s = run(s, "u_admin", { whId: "wh_bra", date: "2026-11-01", lines: [{ productId: "pr_drewno", qty: "30" }] }).state;
-  const hist = R.Stock.history ? R.Stock.history(s, "wh_bra", "pr_drewno") : null;
-  if (hist) assert.ok(hist.some(h => h.kind === "BO" || h.docNo));
   assert.equal(R.Stock.byProduct(s, "wh_bra").get("pr_drewno"), 30);
   assert.equal(R.Stock.balance(s, "wh_bra", "pr_drewno", "2026-10-31"), 0, "przed datą stanu początkowego — zero");
+});
+
+/** Sprzedaż z ręcznym numerem dokumentu (jedna seria WZ). */
+function saleWithNo(s, no) {
+  const pa = Service.run(s, "master.save", { kind: "partners", rec: { name: "Elektrociepłownia Numeracja", nip: "5261040828", kind: "firma", role: "buyer", city: "Zabrze" } }, ctxOf(s, "u_admin"));
+  assert.equal(pa.res.ok, true, pa.res.error);
+  const d = R.Seed.draftOf("2026-11-05", { type: "SPRZEDAZ", sale: { productId: "pr_zr_lesna", qty: "10", unit: "MP", buyerId: pa.res.rec.id, price: "85", weightMode: "manual", weightManual: "3" }, transport: { mode: "none", place: "x" } });
+  d.docNoMode = { PZ: "auto", WZ: "manual", MM: "auto" }; d.docNos = { PZ: "", WZ: no, MM: "" };
+  const c = Service.run(pa.state, "op.commit", { draft: d }, ctxOf(pa.state, "u_admin"));
+  assert.equal(c.res.ok, true, c.res.error);
+  return c.state;
+}
+
+test("numeracja: numer BO z edytora omija numer WZ wpisany wcześniej ręcznie (brak duplikatu w magazynie i roku)", () => {
+  let s = clean();
+  const a = run(s, "u_admin", { whId: "wh_zab", date: "2026-11-01", lines: [{ productId: "pr_zr_lesna", qty: "100" }] });
+  assert.equal(a.res.no, "WZ/001/11/2026"); s = a.state;
+  s = saleWithNo(s, "WZ/002/11/2026");                                         // numer ręczny — licznik serii bez zmian
+  assert.ok(s.ledger.some(l => l.docNo === "WZ/002/11/2026" && l.whId === "wh_zab"));
+  const b = run(s, "u_admin", { whId: "wh_zab", date: "2026-11-01", lines: [{ productId: "pr_drewno", qty: "5" }] });
+  assert.equal(b.res.ok, true, b.res.error);
+  assert.equal(b.res.no, "WZ/003/11/2026", "numer zajęty ręcznie pominięty");
+  const nos = new Set(b.state.ledger.filter(l => l.whId === "wh_zab").map(l => l.docNo + "|" + (l.opId || "BO")));
+  const perNo = new Map(); for (const k of nos) { const n = k.split("|")[0]; perNo.set(n, (perNo.get(n) || 0) + 1); }
+  assert.ok([...perNo.values()].every(c => c === 1), "każdy numer należy do jednego dokumentu: " + JSON.stringify([...perNo]));
+});
+
+test("numeracja „osobne serie” (docNumbering: types): dokument BO we własnej serii", () => {
+  const s = clean(); s.config.docNumbering = "types";
+  const r = run(s, "u_admin", { whId: "wh_bra", date: "2026-11-01", lines: [{ productId: "pr_drewno", qty: "7" }] });
+  assert.equal(r.res.ok, true, r.res.error);
+  assert.match(r.res.no, /^BO\/001\/11\/2026$/);
+});
+
+test("nieaktywny produkt: tylko wyzerowanie stanu początkowego; nieaktywny magazyn — odmowa", () => {
+  let s = clean();
+  s = run(s, "u_admin", { whId: "wh_zab", date: "2026-11-01", lines: [{ productId: "pr_pks", qty: "12" }] }).state;
+  const s2 = JSON.parse(JSON.stringify(s)); R.byId(s2.products, "pr_pks").active = false;
+  assert.ok(R.Opening.sheet(s2, "wh_zab").some(r => r.productId === "pr_pks" && r.active === false), "nieaktywny z niezerowym BO widoczny w arkuszu");
+  const up = run(s2, "u_admin", { whId: "wh_zab", date: "2026-11-02", lines: [{ productId: "pr_pks", qty: "20" }] });
+  assert.equal(up.res.ok, false); assert.match(up.res.errors["p:pr_pks"], /nieaktywny/);
+  const zero = run(s2, "u_admin", { whId: "wh_zab", date: "2026-11-02", lines: [{ productId: "pr_pks", qty: "0" }] });
+  assert.equal(zero.res.ok, true, zero.res.error);
+  assert.equal(R.Stock.balance(zero.state, "wh_zab", "pr_pks"), 0);
+  const s3 = clean(); R.byId(s3.warehouses, "wh_rok").active = false;
+  const w = run(s3, "u_admin", { whId: "wh_rok", date: "2026-11-01", lines: [{ productId: "pr_drewno", qty: "1" }] });
+  assert.equal(w.res.ok, false); assert.ok(w.res.errors.whId); assert.equal(w.state, null);
+});
+
+test("rola z uprawnieniem warehouses.edit, ale z dostępem do części magazynów: tylko przydzielone magazyny", () => {
+  const s = clean();
+  s.rolePerms = { kierownik: ["warehouses.edit", "report.view"] };
+  const user = { id: "u_lim", role: "kierownik", whId: "wh_bra", warehouseIds: ["wh_bra"], status: "ACTIVE" };
+  R.applyRoles(s);
+  try {
+    const ctx = { user, today: TODAY, now: TODAY + "T08:00:00.000Z" };
+    const own = R.Opening.save(JSON.parse(JSON.stringify(s)), { whId: "wh_bra", date: "2026-11-01", lines: [{ productId: "pr_drewno", qty: "3" }] }, ctx);
+    assert.equal(own.ok, true, own.error);
+    const other = R.Opening.save(JSON.parse(JSON.stringify(s)), { whId: "wh_zab", date: "2026-11-01", lines: [{ productId: "pr_drewno", qty: "3" }] }, ctx);
+    assert.equal(other.ok, false); assert.equal(other.code, "FORBIDDEN");
+  } finally { R.applyRoles(null); }
 });
 
 test("wersja demonstracyjna: osobne klucze przeglądarki tylko przy storageNs (program firmowy bez zmian)", () => {

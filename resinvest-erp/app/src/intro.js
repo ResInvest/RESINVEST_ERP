@@ -23,8 +23,9 @@
    ========================================================================= */
 (function (root) {
   "use strict";
-  const PREF_MUSIC = "riw.music";
-  const PREF_INTRO = "riw.intro";
+  const ns = k => root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? k.replace(/^riw\./, root.RIW_CONFIG.storageNs + ".") : k;   // 3.15: wersja demo
+  const PREF_MUSIC = ns("riw.music");
+  const PREF_INTRO = ns("riw.intro");
   const DBG = root.RIW_DEBUG = root.RIW_DEBUG || {};
   const t = s => (root.RIW_I18N ? root.RIW_I18N.t(s) : s);
 
