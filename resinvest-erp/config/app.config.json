@@ -17,7 +17,12 @@
     "adminEmail": "magazyn@resinvest.group",
     "adminName": "Administrator",
     "adminPassword": "Admin1234",
-    "allowSelfRegistration": true
+    "allowSelfRegistration": true,
+    "testAdmin": {
+      "email": "test@resinvest.group",
+      "name": "Administrator testowy",
+      "password": "Test1234"
+    }
   },
   "sampleData": false
 }

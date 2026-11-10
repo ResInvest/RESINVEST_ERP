@@ -1,0 +1,16 @@
+ResInvest ERP — moduł EUDR i pulpit obrotu (wersja demonstracyjna 3.12.0)
+Program stworzony przez Roesner Mateusz dla ResInvest Commodities.
+
+Copyright (c) 2026 Mateusz Roesner. Wszelkie prawa zastrzeżone.
+
+Kod źródłowy, dokumentacja i dane przykładowe są własnością autora. Kopiowanie,
+modyfikowanie, rozpowszechnianie i używanie poza ResInvest Commodities wymaga
+pisemnej zgody autora.
+
+Plik bazowy base/ResInvest_ERP_3.11.0_TEST.html zawiera komponenty stron trzecich
+na ich własnych licencjach (m.in. jsQR — Apache 2.0, czcionka ResInvestDocSans —
+SIL Open Font License 1.1), wymienione w tym pliku.
+
+OPROGRAMOWANIE JEST DOSTARCZANE „TAK JAK JEST”, BEZ JAKICHKOLWIEK GWARANCJI.
+Moduł EUDR wspiera ewidencję i nie stanowi porady prawnej; oświadczenia
+o należytej staranności składa się w systemie informacyjnym UE.

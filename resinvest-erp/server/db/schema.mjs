@@ -2,7 +2,7 @@
    ResInvest ERP Serwer — schemat bazy danych (jedno źródło prawdy dla obu silników).
 
    * SQLITE_DDL  — dokładnie ten sam schemat, którego serwer używa od 3.10 (bez zmian),
-   * PG_DDL      — odpowiednik w PostgreSQL (tryb firmowy, od 3.15),
+   * PG_DDL      — odpowiednik w PostgreSQL (tryb firmowy),
    * TABLES      — opis tabel (kolumny, klucz, typ) używany przez przenoszenie danych
                    SQLite ↔ PostgreSQL, kopie zapasowe i kontrolę zgodności.
 

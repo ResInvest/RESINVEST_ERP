@@ -1,6 +1,6 @@
 # ResInvest ERP Serwer — baza PostgreSQL (tryb firmowy)
 
-Od wydania z warstwą `server/db` serwer pracuje na jednym z dwóch silników bazy:
+Serwer pracuje na jednym z dwóch silników bazy:
 
 | Tryb | Ustawienie | Zastosowanie |
 |---|---|---|

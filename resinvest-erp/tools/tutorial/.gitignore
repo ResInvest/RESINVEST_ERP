@@ -1,0 +1,14 @@
+cap/
+mp3/
+music_src/
+chk/
+chk2/
+*.wav
+*.mp4
+*.ass
+timing.json
+timing_final.json
+music_plan.txt
+_*.ass
+_parts.txt
+*.mp3

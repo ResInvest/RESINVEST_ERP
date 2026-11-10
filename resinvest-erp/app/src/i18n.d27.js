@@ -134,5 +134,7 @@
   "Nie udało się odebrać pliku": ["Soubor se nepodařilo přijmout", "Could not receive the file"],
   "Nie udało się zapisać pliku na serwerze": ["Soubor se nepodařilo uložit na serveru", "Could not save the file on the server"],
   "Plik skanu nie istnieje w folderze serwera (sprawdź kopię w backups\\skany)": ["Soubor skenu ve složce serveru neexistuje (zkontrolujte zálohu v backups\\skany)", "The scan file does not exist in the server folder (check the copy in backups\\skany)"],
-  "Skany dodaje się przez wysłanie pliku": ["Skeny se přidávají odesláním souboru", "Scans are added by uploading a file"]
+  "Skany dodaje się przez wysłanie pliku": ["Skeny se přidávají odesláním souboru", "Scans are added by uploading a file"],
+  /* ---- Serwer: baza PostgreSQL ---- */
+  "Połączenie z bazą danych zostało przerwane w chwili zapisu. Odśwież program i sprawdź, czy operacja została zapisana, zanim wprowadzisz ją ponownie.": ["Připojení k databázi bylo přerušeno v okamžiku ukládání. Obnovte program a zkontrolujte, zda byla operace uložena, než ji zadáte znovu.", "The database connection was lost at the moment of saving. Refresh the program and check whether the operation was saved before entering it again."]
 }); })(typeof globalThis !== "undefined" ? globalThis : this);

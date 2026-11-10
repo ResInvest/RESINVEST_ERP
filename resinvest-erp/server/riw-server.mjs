@@ -42,7 +42,7 @@ let mailCfg = mailConfig(env, cfg.dataDir);           // 3.13: przeładowywane p
 cfg.backup.copyTo = String(env.BACKUP_COPY_TO || "").split(";").map(x => x.trim()).filter(Boolean);
 const HOURS = { invite: Number(env.INVITE_HOURS) || 72, reset: Number(env.RESET_HOURS) || 1, confirm: Number(env.CONFIRM_HOURS) || 48 };
 
-// 3.15: silnik bazy z server.env (DB_DRIVER) — błąd konfiguracji zatrzymuje start z czytelnym komunikatem (bez hasła)
+// silnik bazy z server.env (DB_DRIVER) — błąd konfiguracji zatrzymuje start z czytelnym komunikatem (bez hasła)
 try { cfg.database = databaseConfig(env); }
 catch (e) { console.error("Konfiguracja bazy danych: " + e.message); process.exit(1); }
 const openStore = (c, l) => {
@@ -322,7 +322,7 @@ if (arg("--mail-setup")) {
   say(sent.ok ? `Zapisano konfigurację poczty. Wiadomość testowa wysłana na ${to}.` : `Zapisano konfigurację, ale wiadomość testowa nie wyszła: ${sent.error}${sent.hint ? "\n" + sent.hint : ""}`);
   store.close(); process.exit(sent.ok ? 0 : 3);
 }
-// 3.15 (PostgreSQL): jeden serwer zapisujący na bazę — druga instancja na tej samej bazie nie startuje
+// PostgreSQL: jeden serwer zapisujący na bazę — druga instancja na tej samej bazie nie startuje
 // (każdy serwer trzyma stan w pamięci; dwa naraz nadpisywałyby sobie zmiany). SQLite: bez zmian.
 {
   const lock = store.db.acquireWriterLock();

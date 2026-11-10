@@ -9,24 +9,25 @@ Data: 2026-11-10 · wersja programu: 3.14.0 (silnik i interfejs bez zmian) · ga
 | Warstwa PostgreSQL w serwerze (tryb firmowy) | wykonana, przetestowana na PostgreSQL 16.15 |
 | SQLite (tryb jednostanowiskowy / awaryjny / powrót) | zachowany, zachowanie bez zmian |
 | Narzędzie migracji, kontroli i wycofania | wykonane, przetestowane na danych testowych |
-| Testy automatyczne | 47 / 47, cztery kolejne pełne przebiegi bez błędu |
+| Testy PostgreSQL (nowe) | 47 / 47, pięć pełnych przebiegów bez błędu |
+| Dotychczasowe testy programu na zmienionym kodzie | jednostkowe 203 / 203, serwerowe 80 / 80, przeglądarkowe 459 / 459 |
+| Testy przeglądarka + serwer na PostgreSQL | 66 / 66 (`e2e-server`, `e2e313`, `e2e314`) |
 | **Migracja bazy produkcyjnej** | **NIE wykonana — wymaga Twojej zgody i dostępu do serwera firmy** |
-| Instalator Windows (`installer/ResInvestERP-Serwer.iss`) | skrypt napisany, **nieskompilowany i nieuruchomiony** (brak Windows / Inno Setup w środowisku pracy) |
+| Instalator Windows (`installer/ResInvestERP.iss`) | uzupełniony o warstwę bazy, narzędzie migracji i sterownik; **nieskompilowany** (brak Wine / Windows w środowisku pracy) |
 
 ## 2. Analiza stanu wyjściowego
 
-Repozytorium zawierało tylko `index.html` (wydanie 3.5.0) i moduł skanera. Źródła serwera odtworzyłem z przesłanego
-instalatora `ResInvestERP_SerwerFirma.exe` (Inno Setup 6.4, wydanie 3.14.0) — rozpakowany statycznie, bez uruchamiania;
-każdy plik zgodny z sumą SHA-256 zapisaną w instalatorze. Trafiły do `resinvest-erp/` (bez `node.exe`).
+Praca opiera się na źródłach 3.14.0 z gałęzi `ccr-7050ba98-yk1is9` (PR #2). Na początku odtworzyłem je z przesłanego
+instalatora `ResInvestERP_SerwerFirma.exe` (rozpakowany statycznie, bez uruchamiania); pliki serwera okazały się
+bajt w bajt identyczne ze źródłami z PR #2, więc zmiany zostały połączone z tą gałęzią — razem z jej testami,
+narzędziami i skryptami instalatorów.
 
 Ustalenia:
 
 * cała trwałość jest w klasie `Store` (`server/core.mjs`): synchroniczny `node:sqlite`, 8 tabel, stan programu w pamięci
   serwera, każda komenda = jedna transakcja (zmienione rekordy + rdzeń stanu + wpis dziennika z łańcuchem SHA-256),
 * poza `Store` z bazy korzystają bezpośrednio tylko dwa miejsca w `riw-server.mjs` (odblokowanie konta, dziennik logowań),
-* tryb OFFLINE (plik HTML bez serwera) nie używa SQLite — dane trzyma przeglądarka; nie wymagał zmian,
-* w instalatorze nie ma katalogów `tests/` i `tools/` ani skryptu instalatora, do których odwołuje się `package.json` —
-  dotychczasowych testów programu (jednostkowych i E2E) **nie mogłem uruchomić**; zastąpiłem je testami opisanymi niżej.
+* tryb OFFLINE (plik HTML bez serwera) nie używa SQLite — dane trzyma przeglądarka; nie wymagał zmian.
 
 ## 3. Rozwiązanie
 
@@ -34,9 +35,13 @@ Zasada: nie zmieniać silnika, logiki, API ani interfejsu — wymienić wyłącz
 
 * `server/db/` — wspólny interfejs dla obu silników; PostgreSQL przez sterownik `pg` w wątku roboczym z synchronicznym
   wywołaniem (kolejność poleceń i transakcji identyczna jak w SQLite). Opis: `docs/POSTGRESQL.md`.
-* Zakres zmian w istniejącym kodzie: `core.mjs` +61 / −33 wierszy z 769, `riw-server.mjs` +38 / −2 z 913,
-  `mail.mjs`, `app/src/*`, `ResInvest_ERP.html`, `config/app.config.json`, `data/` — **bez zmian** (porównane z instalatorem).
-* Jedyna nowa zależność: `pg` (czysty JavaScript).
+* Zakres zmian w istniejącym kodzie: `core.mjs` i `riw-server.mjs` — po kilkadziesiąt wierszy (wybór silnika, zapis stanu,
+  kopia, przywracanie, blokada serwera); `mail.mjs`, silnik (`engine.js`, `service.js`) i moduły interfejsu — **bez zmian**.
+  Poza tym: jeden nowy komunikat w słowniku `i18n.d27.js` (CS/EN), skrypty budowy instalatora, `tools/loadtest.mjs`
+  (odczyt rozmiaru pliku bazy w trybie PostgreSQL), przebudowane pliki `ResInvest_ERP*.html` (nowy komunikat w słowniku).
+* Jedyna nowa zależność: `pg` (czysty JavaScript) — **pierwsza zależność npm w projekcie**. Tryb SQLite jej nie ładuje
+  i działa bez `node_modules`; instalator dołącza ją po `npm ci --omit=dev`. To decyzja do Twojej akceptacji —
+  alternatywą jest własna implementacja protokołu PostgreSQL (więcej kodu do utrzymania, mniej sprawdzona).
 * Jedyna zmiana widoczna w API: dodatkowe pole `db` w `/api/health` oraz nowy kod błędu `DB_UNCERTAIN` (tylko PostgreSQL,
   tylko przy zerwaniu połączenia w chwili zatwierdzania zapisu).
 
@@ -57,7 +62,22 @@ Uruchomienie: `npm run test:pg` z `RIW_TEST_PG_URL`.
 | Ochrona przed utratą danych | `tests/resilience-pg.test.mjs` | 6 | zerwanie połączenia przed i w chwili zatwierdzania, baza niedostępna, niepewny wynik zapisu |
 | Obciążenie | `tests/load-pg.test.mjs` | 2 | równoczesne zapisy i odczyty wielu użytkowników na obu silnikach |
 
-Scenariusz regresyjny obejmuje: zakup z produkcją i transportem własnym, zakup towaru, sprzedaż (WZ), odmowę sprzedaży
+### Dotychczasowe testy programu
+
+| Zestaw | Wynik |
+|---|---|
+| `npm run check`, `npm run i18n` (CS/EN: 0 braków, 0 nieużywanych), `npm run themes`, `npm run build` | zaliczone |
+| `npm run test:unit` | 203 / 203 |
+| `npm run test:server` (SQLite) | 80 / 80 |
+| `npm run test:e2e` (Chromium; SQLite) | 382 + 32 + 11 + 21 + 13 = 459 / 459 |
+| `e2e-server`, `e2e313`, `e2e314` z serwerem na **PostgreSQL** (`DB_DRIVER=postgres`) | 32 + 21 + 13 = 66 / 66 |
+| `tools/loadtest.mjs --users 40 --seconds 20` na SQLite | zaliczony: 3 786 żądań, 186,6/s, 0 błędów |
+| `tools/loadtest.mjs --users 40 --seconds 20` na **PostgreSQL** | zaliczony: 3 574 żądania, 176,5/s, 0 błędów, 1 178 operacji bez strat i duplikatów, skany 205 / 205, `--check` OK |
+
+Testów `npm run test:server` nie uruchamiałem na PostgreSQL: startują wiele serwerów równolegle, a każdy wymagałby
+osobnej bazy. Ich zakres na PostgreSQL pokrywają częściowo testy `tests/server-pg.test.mjs` i testy przeglądarkowe powyżej.
+
+Scenariusz regresyjny (nowe testy) obejmuje: zakup z produkcją i transportem własnym, zakup towaru, sprzedaż (WZ), odmowę sprzedaży
 ponad stan, produkcję, przesunięcie MM dwuetapowe (odmowa obcego magazynu, przyjęcie z różnicą, odmowa drugiego
 przyjęcia), korektę i jej wycofanie, anulowanie, wersje robocze, kartoteki, użytkowników, ustawienia, planer,
 powiadomienia, rejestr wydruków, inwentaryzację miesiąca z zamknięciem, odmowy uprawnień, walidację.
@@ -95,28 +115,29 @@ na PostgreSQL przy 500 operacjach wzrostu nie było, dłuższej serii na Postgre
 | 2 | Login zawierający znak NUL: na PostgreSQL błąd 500 zamiast odmowy 401 (PostgreSQL nie przyjmuje NUL w tekście) | test wstrzyknięć | tekst obcinany na znaku NUL — tak samo, jak czyta go program z SQLite | serwer 13/13, test jednostkowy |
 | 3 | Zegar testowy: warstwa PostgreSQL używała `Date.now()` do limitów czasu | test regresji | zegar monotoniczny (`performance.now()`), odporny na zmianę czasu systemowego | regresja 8/8 |
 | 4 | Utracone potwierdzenie zapisu + baza niedostępna: serwer zgłaszał „nic nie zapisano”, choć zapis mógł się dokonać — stan w pamięci rozjeżdżał się z bazą (wystąpiło raz w równoległym przebiegu) | test odporności | wynik rozstrzygany w dzienniku; gdy to niemożliwe — komunikat „sprawdź zapis” i wczytanie stanu z bazy przed następną operacją; stare połączenie zamykane bez czekania | odporność 6/6, pełny zestaw 4× |
+| 6 | `tools/loadtest.mjs` kończył się błędem w trybie PostgreSQL (odczyt rozmiaru nieistniejącego pliku `resinvest.sqlite`) | test obciążeniowy projektu na PostgreSQL | rozmiar 0, gdy pliku nie ma | loadtest na obu silnikach: zaliczony |
 | 5 | Wartości tekstowe ze znakiem NUL w SQLite są widziane przez program tylko do tego znaku | test migracji | raport migracji podaje liczbę takich wartości; przenoszona jest część widoczna dla programu | migracja 9/9 |
 
 ## 6. Czego nie zweryfikowałem
 
 * **Baza produkcyjna** — nie mam do niej dostępu; wszystkie wyniki dotyczą danych przykładowych programu i danych
   wytworzonych w testach. Polecenie `plan` pokaże stan rzeczywistej bazy bez jej zmieniania.
-* **Windows** — testy przeszły na Linuksie. Kod nie zawiera nic zależnego od systemu poza ścieżkami, ale uruchomienia
-  na Windows i kompilacji instalatora nie wykonałem.
-* **Dotychczasowe testy programu** (jednostkowe, E2E w przeglądarce) — nie ma ich w instalatorze ani w repozytorium.
-  Interfejs w przeglądarce nie był klikany; plik HTML jest identyczny z wydaniem 3.14.0, a API zwraca te same odpowiedzi.
+* **Windows i instalatory** — testy przeszły na Linuksie; instalatorów nie zbudowałem (brak Wine w środowisku pracy),
+  więc zmiana w `installer/ResInvestERP.iss` (trzy wiersze `Source:`) i w skryptach budowy nie była kompilowana.
+* **Testy `npm run test:server` na PostgreSQL** — patrz rozdz. 4.
 * **Połączenie szyfrowane (TLS) z PostgreSQL** i baza na innym komputerze — konfiguracja jest, test nie był wykonany.
 * **Przerwanie pracy przez wyłączenie zasilania** serwera bazy — testowane było zrywanie połączeń, nie awaria sprzętu.
-* Kreator poczty z instalatora 3.14 — jego kodu nie ma w repozytorium; nowy skrypt instalatora go nie zawiera.
+* **Paczka testów Windows** (`installer/test-windows`) nie zawiera nowych testów PostgreSQL — wymagają działającego PostgreSQL.
 
 ## 7. Gotowość do wdrożenia
 
 Kod jest gotowy do próby na serwerze firmy. Zalecana kolejność (szczegóły: `docs/POSTGRESQL.md`, rozdz. 2–3):
 
-1. Zbudować instalator na Windows i zainstalować jako aktualizację (dane i tryb SQLite pozostają bez zmian).
+1. Zbudować instalatory (`installer/build-installer.ps1` albo `build-installer-wine.sh`) i zainstalować jako aktualizację
+   (dane i tryb SQLite pozostają bez zmian).
 2. Uruchomić serwer na SQLite — potwierdzić, że nic się nie zmieniło.
 3. Zainstalować PostgreSQL, założyć konto i bazę, wpisać dane do `server.env`.
-4. `ResInvestERP-Migracja.cmd plan` — przesłać mi wynik albo ocenić go samodzielnie.
+4. `ResInvestERP-Migracja.cmd plan` — ocenić wynik (niczego nie zmienia).
 5. **Po Twojej zgodzie:** `migrate --confirm`, przegląd raportu, `DB_DRIVER=postgres`, start, kontrola spójności.
 6. Przez pierwsze dni zachować plik `resinvest.sqlite` i codziennie sprawdzać kopie.
 

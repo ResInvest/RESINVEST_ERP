@@ -4,12 +4,8 @@
 > bazie PostgreSQL 14+ (`DB_DRIVER=postgres` w `server.env`). Silnik, interfejs i API są te same w obu trybach.
 > Instrukcja, migracja `SQLite → PostgreSQL`, kopie, przywracanie i wycofanie: [docs/POSTGRESQL.md](docs/POSTGRESQL.md);
 > raport z migracji i testów: [docs/RAPORT_MIGRACJI_POSTGRESQL.md](docs/RAPORT_MIGRACJI_POSTGRESQL.md).
->
-> Szybki start z repozytorium: `npm ci` → `npm run server` (Node.js 22.13+). Testy PostgreSQL:
-> `RIW_TEST_PG_URL=postgres://postgres:<hasło>@127.0.0.1:5432/postgres npm run test:pg`.
-> Instalator Windows: `installer/ResInvestERP-Serwer.iss` (Inno Setup 6.4+, opis budowania w nagłówku pliku).
-> Katalogi `tests/` (poza testami PostgreSQL) i `tools/build.mjs`, do których odwołują się starsze skrypty w
-> `package.json`, nie są częścią tego repozytorium — źródła odtworzono z instalatora 3.14.0.
+> Tryb PostgreSQL wymaga sterownika `pg` (`npm ci`); tryb SQLite działa bez żadnych zależności, jak dotąd.
+> Testy PostgreSQL: `RIW_TEST_PG_URL=postgres://postgres:<hasło>@127.0.0.1:5432/postgres npm run test:pg`.
 
 *Program stworzony przez Roesner Mateusz dla ResInvest Commodities.*
 

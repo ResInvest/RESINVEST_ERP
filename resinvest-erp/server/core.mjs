@@ -1,6 +1,6 @@
 /* =========================================================================
    ResInvest ERP Serwer — rdzeń: baza SQLite, silnik, komendy, konta, kopie.
-   Silnik bazy (od 3.15): SQLite — plik lokalny (node:sqlite), jak dotychczas — albo PostgreSQL — tryb firmowy,
+   Silnik bazy: SQLite — plik lokalny (node:sqlite), jak dotychczas — albo PostgreSQL — tryb firmowy,
    centralna baza (sterownik `pg`); wybór: DB_DRIVER w server.env, warstwa: server/db/*. Logika poniżej jest wspólna.
 
    Trwałość (od 3.10 — zapis przyrostowy):
@@ -175,7 +175,7 @@ export class Store {
     if (cfg.scansDir) { try { mkdirSync(cfg.scansDir, { recursive: true }); } catch (e) { (log || (() => {}))("WARN", "Folder skanów: " + e.message); } }
     mkdirSync(cfg.backupDir, { recursive: true });
     this.file = join(cfg.dataDir, "resinvest.sqlite");
-    // 3.15: silnik bazy — cfg.database (testy, narzędzia) albo DB_DRIVER z server.env; domyślnie SQLite jak dotychczas
+    // silnik bazy — cfg.database (testy, narzędzia) albo DB_DRIVER z server.env; domyślnie SQLite jak dotychczas
     this.dbCfg = cfg.database || databaseConfig(loadEnv(cfg.dataDir).env);
     this.db = openDatabase(this.dbCfg, { file: this.file, log: this.log });
     this.pg = this.db.dialect === "postgres";
@@ -394,7 +394,7 @@ export class Store {
 
 
   /**
-   * 3.15 (PostgreSQL): po zapisie o nieznanym wyniku albo po wykryciu zmiany danych przez inny proces stan w pamięci
+   * PostgreSQL: po zapisie o nieznanym wyniku albo po wykryciu zmiany danych przez inny proces stan w pamięci
    * jest wczytywany z bazy przed kolejną operacją — serwer nigdy nie pracuje na stanie innym niż zapisany.
    * Zwraca null (stan aktualny) albo odpowiedź z błędem (baza nadal niedostępna).
    */
@@ -406,7 +406,7 @@ export class Store {
   /** Odpowiedź po nieudanym zapisie; przy nieznanym wyniku (zerwane połączenie w chwili zatwierdzania) — prośba o sprawdzenie. */
   saveError(label, e) {
     this.log("ERROR", `Zapis nieudany (${label}): ${e.message}`);
-    if (e && e.uncertain) return { ok: false, code: "DB_UNCERTAIN", error: "Połączenie z bazą danych zostało przerwane w chwili zapisu. Odśwież program i sprawdź, czy operacja została zapisana, zanim wprowadzisz ją ponownie." };
+    if (e && e.uncertain) return { ok: false, code: "DB_UNCERTAIN", error: t("Połączenie z bazą danych zostało przerwane w chwili zapisu. Odśwież program i sprawdź, czy operacja została zapisana, zanim wprowadzisz ją ponownie.") };
     return { ok: false, error: t("Zapis w bazie nieudany — nic nie zapisano: {m}", { m: e.message }), code: "DB" };
   }
   /** Komenda usługi: silnik na kopii → zapis atomowy → stan w pamięci. */

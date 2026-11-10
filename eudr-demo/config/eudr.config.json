@@ -1,0 +1,13 @@
+{
+  "_opis": "Konfiguracja modułu EUDR (ResInvest ERP 3.12 demo). Sekcja engine trafia do programu przy budowie (tools/build.mjs). Wartości można zmienić także w programie: EUDR → Ustawienia (zapis w danych, z audytem).",
+  "engine": {
+    "applyFrom": "2026-12-30",
+    "applyFromSmall": "2027-06-30",
+    "lookbackDays": 90,
+    "refPattern": "^\\d{2}[A-Z]{2}[A-Z0-9]{8,12}$"
+  },
+  "_zrodla": {
+    "rozporzadzenie": "Rozporządzenie (UE) 2023/1115 (EUDR) zmienione rozporządzeniem (UE) 2025/2650 — stosowanie od 30.12.2026",
+    "refPattern": "Wzorzec numeru referencyjnego DDS jest kontrolą ostrzegawczą (nie blokuje zapisu) — format do potwierdzenia z dokumentacją systemu informacyjnego UE (TRACES)"
+  }
+}
