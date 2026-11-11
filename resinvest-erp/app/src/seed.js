@@ -280,6 +280,7 @@
     const readBefore = RIW.Dates.addDays(today, -7);
     for (const n of s.notices) if (n.ts.slice(0, 10) < readBefore) { n.read = true; n.readAt = n.ts; }
     s.plans = samplePlans(s);
+    sampleYard(s, today);
     s.meta.createdAt = new Date().toISOString();
     s.meta.lastMonthCheck = RIW.Dates.ym(today);
     s.meta.sample = true;
@@ -303,6 +304,30 @@
     add("wh_bra", "2026-09-10", 40, "Rębanie na placu — pryzma P2");
     add("wh_bra", "2026-09-22", 20, "Pryzma P3");
     return out;
+  }
+
+  /**
+   * 3.15: plac RiC Zabrze — infrastruktura wzorcowa, pryzmy zrębki (podział stanu z księgi, nie więcej niż stan)
+   * i trzy pociągi w terminarzu (terminy względem daty danych przykładowych).
+   */
+  function sampleYard(s, today) {
+    const Y = RIW.YardPlan; if (!Y) return;
+    const wh = "wh_zab", ts = today + "T08:00:00.000Z"; let n = 0;
+    s.yard = Y.templateObjects(wh, () => "yi_s" + (++n), ts);
+    const left = new Map(RIW.Stock.byProduct(s, wh));
+    const pile = (no, name, productId, want, x, y, w, h, rot, extra) => {
+      const q = RIW.rq(Math.max(0, Math.min(want, left.get(productId) || 0))); left.set(productId, RIW.rq((left.get(productId) || 0) - q));
+      s.yard.push(Object.assign({ id: "yp_s" + no, kind: "pile", whId: wh, no: "P-00" + no, name, productId, supplierId: "", pzNo: "", receivedDate: "2026-09-15", qty: q, shape: "pryzma", hei: 5, topW: null, status: "AVAILABLE", moisture: 42, qualityNote: "", trainId: "", x, y, w, h, rot, createdAt: ts, updatedAt: ts, updatedBy: "Dane przykładowe" }, extra || {}));
+    };
+    pile(1, "Fortum F1", "pr_zr_lesna", 2250, 125, 52, 60, 15, 0);
+    pile(2, "Fortum F2", "pr_zr_lesna", 1800, 125, 76, 60, 15, 0);
+    pile(3, "RiC — zapas", "pr_zr_lesna", 2600, 150, 118, 90, 30, 0, { shape: "kopula", hei: 6 });
+    pile(4, "Zrębka towar", "pr_zr_tow", 200, 60, 112, 24, 12, 0, { shape: "stozek", hei: 4 });
+    pile(5, "Do przesiania", "pr_zr_inw", 120, 205, 70, 20, 10, 90, { status: "BLOCKED", qualityNote: "zanieczyszczenia — do przesiania", moisture: 58 });
+    const tr = (i, days, reqQty, status) => ({ id: "tr_s" + i, whId: wh, no: "FORTUM/" + String(i).padStart(2, "0"), buyerId: "pa_ec_zab", recipient: (RIW.byId(s.partners, "pa_ec_zab") || {}).name || "", arrivalDate: RIW.Dates.addDays(today, days), arrivalTime: "06:00", loadDate: RIW.Dates.addDays(today, days), loadStart: "07:00", loadEnd: "15:00",
+      reqQty, reqT: RIW.rq(reqQty * s.config.mp_t), productId: "pr_zr_lesna", orderNo: "ZAM/2026/" + (410 + i), notes: "", status, createdAt: ts, createdBy: "Dane przykładowe", updatedAt: ts, updatedBy: "Dane przykładowe" });
+    s.trains = [tr(1, 2, 2400, "PREPARING"), tr(2, 5, 2400, "PLANNED"), tr(3, 8, 2400, "PLANNED")];
+    s.loadPlans = [];
   }
 
   /**

@@ -19,7 +19,7 @@ dotyczy wyłącznie struktury kodu i każdorazowo jest sprawdzane pełnym zestaw
             ├─────────────────────────────────────────────────────────────┤
             │ DOMENA (silnik — czysty JavaScript, bez I/O)                │
             │ app/src/engine.js · planner.js · trade.js · fleetrep.js ·    │
-            │ notify.js · opening.js                                       │
+            │ notify.js · opening.js · yardplan.js                         │
             ├─────────────────────────────────────────────────────────────┤
             │ INFRASTRUKTURA                                              │
             │ server/db/* (SQLite | PostgreSQL) · server/mail.mjs ·        │
@@ -104,6 +104,7 @@ resinvest-erp/
 | `server/env-file.mjs` — jeden zapis `server.env` | usunięta kopia kodu (poczta z programu i instalator) |
 | jeden ogranicznik zamiast dwóch + okresowe czyszczenie | pamięć nie rośnie z liczbą adresów IP |
 | `opening.js` / `opening-view.js` — nowa funkcja jako osobny moduł domeny i osobny ekran | brak zmian w `engine.js` poza eksportem modułu |
+| `yardplan.js` / `yardplan-view.js` — plan placu, terminarz pociągów, symulacja i realizacja załadunku jako osobny moduł domeny i osobne ekrany; kolekcje `yard`, `trains`, `loadPlans` w `ROWS` | silnik magazynowy bez zmian: stan zmienia tylko `commitOperation` (WZ) wywołane przy zakończeniu załadunku |
 | optymalizacje: szybka ścieżka zapisu (`core.mjs`), indeks sum stanów i raporty (`engine.js`), jedno odświeżenie na klatkę (`core.js`) | wyniki identyczne bajt w bajt — [WYDAJNOSC.md](WYDAJNOSC.md) |
 
 Weryfikacja każdej zmiany: `npm run check`, `npm run i18n`, testy jednostkowe (216), serwerowe (85), e2e,

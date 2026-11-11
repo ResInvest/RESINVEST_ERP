@@ -6,7 +6,7 @@ import json, os, zipfile
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 version = json.load(open(os.path.join(ROOT, "package.json"), encoding="utf-8"))["version"]
-TESTS = ["engine", "features311", "features312", "editions312", "mail313", "features314", "features315", "server-modules315", "scans314", "smtp", "server", "storage", "auth"]
+TESTS = ["engine", "features311", "features312", "editions312", "mail313", "features314", "features315", "server-modules315", "yardplan315", "yardplan-server315", "scans314", "smtp", "server", "storage", "auth"]
 INCLUDE = ["app/src", "server", "config/app.config.json", "config/server.config.json", "tools/make-edition.mjs",
            "installer/editions", ".env.example", "package.json", "ResInvest_ERP.html", "LICENSE"] + [f"tests/{t}.test.mjs" for t in TESTS]
 

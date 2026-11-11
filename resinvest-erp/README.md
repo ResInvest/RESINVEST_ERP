@@ -99,11 +99,35 @@ i wartość). Domyślnie bieżący miesiąc — ekran otwiera się szybko także
 - Android 8.0 lub nowszy; iPhone: Safari → Udostępnij → „Do ekranu początkowego” (ikona RiC, pełny ekran),
 - aktualizacje APK muszą być podpisane tym samym kluczem (`mobile/android/keystore/` — przechowywać w kopii firmy).
 
+**Plan placu, pryzmy i terminarz pociągów** (menu „Plac i kolej”, kod: `app/src/yardplan.js`, `yardplan-view.js`)
+- **Plan placu** — mapa 2D (metry, widok z góry): pryzmy i infrastruktura (tory, miejsce załadunku, drogi, szlaban, waga,
+  kontenery, punkty poboru próbek, tablica, ogrodzenie). „Edytuj układ”: przeciąganie, narożniki zmieniają wymiary, kółko
+  obraca; zoom i przesuwanie widoku. „Układ wzorcowy placu” wstawia infrastrukturę na pusty plac.
+- **Pryzma = podział stanu z księgi** (magazyn + produkt): suma pryzm nie może przekroczyć stanu ewidencyjnego; ekran pokazuje
+  stan w ewidencji, w pryzmach i poza pryzmami. Szczegóły pryzmy: MP, m³ (1 m³ = 4 MP), masa wg przeliczników ERP,
+  wymiary i objętość geometryczna wg kształtu (trójkąt, trapez, kopuła, stożek, boks), dostawca, PZ, wilgotność, status.
+- **Kolory liczone z terminarza**: zielona — najbliższy pociąg, pomarańczowa — kolejny, niebieska — dostępna, czerwona —
+  zablokowana, szara — wyłączona. Kolejność: rezerwacje zatwierdzonych planów → przypisania ręczne → pryzmy najbliżej
+  miejsca załadunku. Ta sama ilość nigdy nie trafia do dwóch pociągów; brak zrębki = komunikat o niedoborze.
+- **Terminarz pociągów** — kalendarz, lista, tabela, panel najbliższego pociągu; 8 statusów; po zapisie pociągu od razu
+  wynik przydziału (pryzmy, niedobór).
+- **Symulacja załadunku** — warianty A (najkrótsza trasa), B (najmniej pryzm), C (najkrótszy czas), D (ręczny); kalkulator:
+  MP, m³, t, wagony, cykle ładowarki, czas — **szacunkowo**, z parametrów do zmiany (łyżka, napełnienie, cykl, prędkość);
+  mapa z kolejnością i trasą; porównanie wariantów; druk i PDF. Symulacja nie zmienia stanów.
+- **Zatwierdzenie = rezerwacja** (kontrola w tej samej transakcji bazy co zapis), cofnięcie zwalnia; przekazanie operatorowi.
+- **Realizacja** — start, pobrane ilości z pryzm, wagony, wstrzymanie / wznowienie, porównanie plan ↔ wykonanie;
+  **zakończenie wystawia zwykły dokument WZ** (cena, tonaż z ważenia) i dopiero wtedy zmniejsza stan księgi i pryzmy.
+- **Panel operatora** (telefon): pociąg, aktualna pryzma i ilość do pobrania, kolejne pryzmy, postęp w %.
+- Uprawnienia: „Plan placu — pryzmy i infrastruktura”, „Terminarz pociągów — planowanie i zatwierdzanie”, „Załadunek
+  pociągu — symulacja i realizacja” (kierownik: wszystkie; magazynier: plac i załadunek). Każda zmiana w dzienniku audytu.
+- Dane w głównej bazie serwera (SQLite / PostgreSQL) — kolekcje `yard`, `trains`, `loadPlans` zapisywane wierszami;
+  w wersji demonstracyjnej i trybie bez serwera — jak pozostałe dane, w przeglądarce.
+
 **Wersja demonstracyjna 2** — `ResInvest_ERP_Demo2.html` (`npm run build:demo2`), dane przykładowe jak w wersji demo,
 osobna przestrzeń przeglądarki (`riw.demo2.*`):
-- **ekran startowy z grafik** (`app/assets/demo2/logowanie.jpg`, `start.jpg`): przyciski narysowane na grafice są aktywne —
-  „Zaloguj się” i „Zarejestruj się / Utwórz konto” otwierają formularz programu w oknie, „Poznaj możliwości” i „Przewiń
-  w dół” przewijają do drugiej grafiki (o firmie, usługach, funkcjach i kontakcie); na telefonie przyciski pod grafiką,
+- **ekran startowy = sama grafika** (`app/assets/demo2/logowanie.jpg`): przyciski narysowane na grafice są aktywne —
+  „Zaloguj się” i „Zarejestruj się / Utwórz konto” otwierają okienko z formularzem programu, „Poznaj możliwości”
+  i „Przewiń w dół” — okienko z opisem systemu; na telefonie przyciski pod grafiką,
 - **plac składowy na pulpicie** (`plac-zabrze.jpg`): zdjęcie placu RiC Zabrze z oznaczeniami — zielony obszar zrębki
   przeznaczonej na pociąg (wypełnienie = ilość przygotowana pod załadunek), **czoło pryzmy** (linia ładowania pociągu),
   punkty poboru próbek P1–P5 i pozostała pryzma RiC; zrębka na placu z księgi magazynowej, pojemność pryzmy

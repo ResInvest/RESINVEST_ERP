@@ -29,7 +29,7 @@ if [ -n "${ANDROID_HOME:-}" ] || [ -d /opt/android-sdk/platforms ]; then node to
 
 if [ "${1:-}" != "--skip-tests" ]; then
   echo "== 2/4 Testy jednostkowe i integracyjne"
-  node --test tests/features315.test.mjs tests/server-modules315.test.mjs tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs tests/mail313.test.mjs tests/features314.test.mjs tests/scans314.test.mjs
+  node --test tests/features315.test.mjs tests/server-modules315.test.mjs tests/yardplan315.test.mjs tests/yardplan-server315.test.mjs tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs tests/mail313.test.mjs tests/features314.test.mjs tests/scans314.test.mjs
 fi
 
 echo "== 3/4 Środowisko Node.js $NODE_VERSION (win-x64) — weryfikacja SHA-256"

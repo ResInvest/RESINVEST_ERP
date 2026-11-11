@@ -25,7 +25,7 @@ const init = () => { try { sessionStorage.setItem("riw.today", "2026-09-23"); lo
     const page = await ctx.newPage(); watch(page);
     await page.goto(URL); await page.waitForSelector("#landing", { timeout: 20000 });
     const imgs = await page.evaluate(() => [...document.querySelectorAll("#landing img")].map(i => ({ ok: i.complete && i.naturalWidth > 1000, w: i.naturalWidth })));
-    check("Ekran startowy: grafika główna i druga grafika (osadzone w programie)", imgs.length === 2 && imgs.every(i => i.ok), imgs);
+    check("Ekran startowy: tylko grafika logowania (osadzona w programie)", imgs.length === 1 && imgs.every(i => i.ok), imgs);
     check("Formularz logowania ukryty do kliknięcia przycisku na grafice", !(await page.isVisible("#lg-login")));
     await page.click('.land-hero .land-hs[aria-label="Zaloguj się"] >> nth=1'); await page.waitForTimeout(150);
     check("„Zaloguj się” na grafice → formularz logowania programu w oknie", await page.isVisible("#land-pop.on #login-form") && await page.evaluate(() => document.activeElement && document.activeElement.id === "lg-login"));
@@ -34,10 +34,9 @@ const init = () => { try { sessionStorage.setItem("riw.today", "2026-09-23"); lo
     await page.click('.land-hero .land-hs[aria-label="Utwórz konto"]'); await page.waitForSelector("#reg-form", { timeout: 5000 });
     check("„Utwórz konto” na grafice → formularz rejestracji", await page.isVisible("#land-pop.on #reg-form") && await page.isVisible("#rg-name"));
     await page.click("#land-x"); await page.waitForTimeout(100);
-    await page.click('.land-hero .land-hs[aria-label="Poznaj możliwości ResInvest ERP"]'); await page.waitForTimeout(900);
-    const moreTop = await page.evaluate(() => Math.round(document.querySelector("#land-more").getBoundingClientRect().top));
-    check("„Poznaj możliwości” → przewinięcie do drugiej grafiki", Math.abs(moreTop) < 40, moreTop);
-    await page.click('.land-more .land-hs[aria-label="Zaloguj się"] >> nth=0'); await page.waitForSelector("#land-pop.on #login-form");
+    await page.click('.land-hero .land-hs[aria-label="Poznaj możliwości ResInvest ERP"]'); await page.waitForSelector("#land-info:not(.hidden)");
+    check("„Poznaj możliwości” → okienko z opisem systemu", await page.isVisible("#land-pop.on #land-info"));
+    await page.click('#land-info [data-land="login"]'); await page.waitForSelector("#land-pop.on #login-form");
     await page.fill("#lg-login", "magazyn@resinvest.group"); await page.fill("#lg-pass", "demo1234"); await page.click("#lg-submit");
     await page.waitForSelector("#yard-card", { timeout: 20000 });
     check("Logowanie z ekranu startowego → pulpit z pasku wersji demonstracyjnej", await page.isVisible("#demo-ribbon"));

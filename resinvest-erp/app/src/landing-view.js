@@ -9,7 +9,7 @@
 (function (root) {
   "use strict";
   const UI = root.RIWUI;
-  const { t, esc, $, $$, ic, Auth, App } = UI;
+  const { t, N_, esc, $, $$, ic, Auth, App } = UI;
   const IMG = root.RIW_IMG || {};
   const ok = k => typeof IMG[k] === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(IMG[k]);
   if (!ok("login") || !Auth || typeof Auth.loginScreen !== "function") return;
@@ -21,7 +21,8 @@
     { a: "login", r: [3.6, 62.5, 16.3, 8.2], l: "Zaloguj się" }, { a: "register", r: [21.5, 62.8, 15.2, 7.6], l: "Utwórz konto" },
     { a: "more", r: [3.5, 72.6, 27.0, 6.4], l: "Poznaj możliwości ResInvest ERP" }, { a: "more", r: [45.0, 93.2, 10.4, 5.4], l: "Przewiń w dół" }
   ];
-  const FEATURES = ["Stany magazynowe, przyjęcia, wydania i produkcja zrębki w jednym miejscu", "Dokumenty PZ / WZ / MM z wydrukiem i PDF, skany dokumentów", "Plan placu: pryzmy zrębki na mapie i terminarz pociągów", "Symulacja i realizacja załadunku pociągu z panelem operatora", "Raporty dzienne, miesięczne i roczne, historia każdej zmiany", "Praca na komputerze, tablecie i telefonie"];
+  const FEATURES = [N_("Stany magazynowe, przyjęcia, wydania i produkcja zrębki w jednym miejscu"), N_("Dokumenty PZ / WZ / MM z wydrukiem i PDF, skany dokumentów"), N_("Plan placu: pryzmy zrębki na mapie i terminarz pociągów"),
+    N_("Symulacja i realizacja załadunku pociągu z panelem operatora"), N_("Raporty dzienne, miesięczne i roczne, historia każdej zmiany"), N_("Praca na komputerze, tablecie i telefonie")];
   const hs = list => list.map(h => `<button type="button" class="land-hs" data-land="${h.a}" style="left:${h.r[0]}%;top:${h.r[1]}%;width:${h.r[2]}%;height:${h.r[3]}%" aria-label="${esc(t(h.l))}" title="${esc(t(h.l))}"></button>`).join("");
 
   const Landing = { open: false };

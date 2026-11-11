@@ -38,7 +38,8 @@ Podgląd telefonu: F12 → ikona telefonu (Toggle device toolbar) → np. 390 ×
 | Logo / ikona RiC (karta przeglądarki, instalator, telefon) | `app/assets/icons/ric.svg` | po zmianie: `NODE_PATH=$(npm root -g) node tools/make-icons.mjs` |
 | Film powitalny i jego pierwsza klatka | `app/assets/intro.mp4`, `intro-poster.jpg` (Premium: `app/assets/premium/`) | |
 | Wydruki i PDF dokumentów | `app/src/pdf.js` | |
-| **Demo ver. 2: ekran startowy** (grafiki logowania) | `app/assets/demo2/logowanie.jpg`, `start.jpg`; aktywne przyciski: `app/src/landing-view.js` (`HS_LOGIN`, `HS_START` — położenie w % grafiki) | po wymianie grafiki popraw położenie przycisków; `npm run dev -- --edition demo2` |
+| **Plan placu, terminarz, symulacja, panel operatora** | `app/src/yardplan-view.js` (mapa SVG: `objInner`, `mapSvg`); kolory i wygląd: `styles.css` → „Plan placu, terminarz pociągów, załadunek” (klasy `.yo-*`, `.c-green` …) | jednostka mapy = 1 m; rozmiar placu: `AREA` w `app/src/yardplan.js` |
+| **Demo ver. 2: ekran startowy** (grafiki logowania) | `app/assets/demo2/logowanie.jpg`; aktywne przyciski: `app/src/landing-view.js` (`HS_LOGIN` — położenie w % grafiki) | po wymianie grafiki popraw położenie przycisków; `npm run dev -- --edition demo2` |
 | **Plac składowy na pulpicie** | zdjęcie `app/assets/demo2/plac-zabrze.jpg`; oznaczenia: `app/src/yard-view.js`; układ domyślny (piksele zdjęcia): `app/src/yard.js` → `DEFAULT`; kolory: `styles.css` → „Plac składowy” | nowe zdjęcie innego rozmiaru: zmień `w`, `h` i współrzędne w `DEFAULT` |
 | Teksty w języku czeskim / angielskim | `app/src/i18n.dNN.js` | nowy tekst polski → tłumaczenie w najnowszym `i18n.d28.js` |
 
