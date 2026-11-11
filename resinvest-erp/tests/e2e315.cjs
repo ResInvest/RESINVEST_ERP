@@ -122,7 +122,7 @@ const api = (BASE, p, body, cookie) => fetch(BASE + p, { method: body ? "POST" :
     await shot(p3, "e2e315-03-telefon");
     check("Konsola przeglądarki bez wyjątków", errors.length === 0, errors.slice(0, 5));
   } catch (e) { check("Przebieg bez wyjątku", false, e.stack || String(e)); console.log(srvLog.slice(-2000)); }
-  finally { await browser.close(); proc.kill(); fs.rmSync(dir, { recursive: true, force: true }); }
+  finally { await browser.close(); proc.kill(); await new Promise(r => proc.once("exit", r).unref ? setTimeout(r, 1500) : r()); try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch (e) {} }
   const ok = results.filter(Boolean).length;
   console.log(`\nWYNIK: ${ok}/${results.length} ${ok === results.length ? "OK" : "BŁĘDY"}`);
   process.exit(ok === results.length ? 0 : 1);
