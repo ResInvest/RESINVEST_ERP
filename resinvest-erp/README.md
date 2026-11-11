@@ -99,6 +99,17 @@ i wartość). Domyślnie bieżący miesiąc — ekran otwiera się szybko także
 - Android 8.0 lub nowszy; iPhone: Safari → Udostępnij → „Do ekranu początkowego” (ikona RiC, pełny ekran),
 - aktualizacje APK muszą być podpisane tym samym kluczem (`mobile/android/keystore/` — przechowywać w kopii firmy).
 
+**Wersja demonstracyjna 2** — `ResInvest_ERP_Demo2.html` (`npm run build:demo2`), dane przykładowe jak w wersji demo,
+osobna przestrzeń przeglądarki (`riw.demo2.*`):
+- **ekran startowy z grafik** (`app/assets/demo2/logowanie.jpg`, `start.jpg`): przyciski narysowane na grafice są aktywne —
+  „Zaloguj się” i „Zarejestruj się / Utwórz konto” otwierają formularz programu w oknie, „Poznaj możliwości” i „Przewiń
+  w dół” przewijają do drugiej grafiki (o firmie, usługach, funkcjach i kontakcie); na telefonie przyciski pod grafiką,
+- **plac składowy na pulpicie** (`plac-zabrze.jpg`): zdjęcie placu RiC Zabrze z oznaczeniami — zielony obszar zrębki
+  przeznaczonej na pociąg (wypełnienie = ilość przygotowana pod załadunek), **czoło pryzmy** (linia ładowania pociągu),
+  punkty poboru próbek P1–P5 i pozostała pryzma RiC; zrębka na placu z księgi magazynowej, pojemność pryzmy
+  (60 × 15 × 5 m, przekrój trójkątny = 2 250 m³), liczba wagonów; administrator przeciąga narożniki i punkty
+  („Edytuj układ”), wpisuje wymiary i ilość pod załadunek — zapis z audytem (`yard.save`, `app/src/yard.js`).
+
 **Zmiany graficzne** — przewodnik [docs/GRAFIKA.md](docs/GRAFIKA.md): gdzie są kolory, motywy, ekrany i ikony;
 `npm run dev` buduje program po każdym zapisie pliku (podgląd w przeglądarce — F5).
 

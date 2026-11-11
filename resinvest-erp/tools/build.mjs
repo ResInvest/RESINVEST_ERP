@@ -19,14 +19,14 @@ const SRC = join(ROOT, "app", "src");
 const noVideo = process.argv.includes("--no-video");
 const edArg = process.argv.indexOf("--edition");
 export const EDITION = edArg >= 0 ? String(process.argv[edArg + 1] || "") : "standard";
-if (!["standard", "premium", "demo"].includes(EDITION)) throw new Error(`Nieznana edycja: ${EDITION} (standard | premium | demo)`);
-const OUT = join(ROOT, { premium: "ResInvest_ERP_Premium.html", demo: "ResInvest_ERP_Demo.html" }[EDITION] || "ResInvest_ERP.html");
+if (!["standard", "premium", "demo", "demo2"].includes(EDITION)) throw new Error(`Nieznana edycja: ${EDITION} (standard | premium | demo | demo2)`);
+const OUT = join(ROOT, { premium: "ResInvest_ERP_Premium.html", demo: "ResInvest_ERP_Demo.html", demo2: "ResInvest_ERP_Demo2.html" }[EDITION] || "ResInvest_ERP.html");
 const ASSETS = join(ROOT, "app", "assets", EDITION === "premium" ? "premium" : "");
 
 /** Kolejność ładowania warstw (zależności: i18n + słowniki → silnik → usługa → interfejs). */
 export const DICTS = readdirSync(SRC).filter(f => /^i18n\.d\d+\.js$/.test(f)).sort();
 // intro.js jako pierwszy — buforowanie filmu rusza, zanim przeglądarka przeczyta resztę programu
-export const SCRIPTS = ["intro.js", "i18n.js", ...DICTS, "engine.js", "planner.js", "trade.js", "fleetrep.js", "notify.js", "opening.js", "service.js", "seed.js", "pdf.js", "office.js", "auth.js", "core.js", "form.js", "quick.js", "views.js", "dashboard.js", "admin.js", "scans.js", "planner-view.js", "notify-view.js", "opening-view.js"];
+export const SCRIPTS = ["intro.js", "i18n.js", ...DICTS, "engine.js", "planner.js", "trade.js", "fleetrep.js", "notify.js", "opening.js", "yard.js", "service.js", "seed.js", "pdf.js", "office.js", "auth.js", "core.js", "form.js", "quick.js", "views.js", "dashboard.js", "admin.js", "scans.js", "planner-view.js", "notify-view.js", "opening-view.js", "yard-view.js", "landing-view.js"];
 
 const read = f => readFileSync(join(SRC, f), "utf8");
 for (const f of SCRIPTS.concat(["styles.css"])) {
@@ -73,13 +73,15 @@ export function loadConfig() {
   }
   cfg.sampleData = raw.sampleData === true;
   cfg.edition = EDITION;
-  if (EDITION === "demo") {
+  if (EDITION === "demo" || EDITION === "demo2") {
     // 3.15: wersja demonstracyjna — dane przykładowe, konta demonstracyjne (hasło demo1234), bez konta startowego
     // i konta testowego, osobna przestrzeń danych przeglądarki (nie miesza się z trybem lokalnym ani z inną wersją)
     cfg.sampleData = true;
     cfg.startup = Object.assign({}, cfg.startup, { adminPassword: "" }); delete cfg.startup.testAdmin;
-    cfg.storageNs = "riw.demo315";
+    cfg.storageNs = EDITION === "demo2" ? "riw.demo2" : "riw.demo315";
   }
+  // 3.15: demo ver. 2 — ekran startowy z grafik (logowanie / zakładanie konta) i plac składowy na pulpicie
+  if (EDITION === "demo2") cfg.landing = true;
   cfg.defaultTheme = EDITION === "premium" ? "aurum" : "pearl";
   return cfg;
 }
@@ -109,6 +111,8 @@ put("@@EDITION@@", EDITION);
 put("@@DEFAULT_THEME@@", cfg.defaultTheme);
 const hero = join(ROOT, "app", "assets", "premium", "hero.jpg");
 put("@@HERO@@", EDITION === "premium" && existsSync(hero) ? "data:image/jpeg;base64," + readFileSync(hero).toString("base64") : "");
+const img = f => { const p = join(ROOT, "app", "assets", "demo2", f); return existsSync(p) ? "data:image/jpeg;base64," + readFileSync(p).toString("base64") : ""; };
+put("@@IMG@@", JSON.stringify(EDITION === "demo2" ? { login: img("logowanie.jpg"), start: img("start.jpg"), yard: img("plac-zabrze.jpg") } : {}));
 put("@@BUILT@@", new Date().toISOString().slice(0, 10));
 
 writeFileSync(OUT, html, "utf8");

@@ -425,6 +425,7 @@
         // pierwsze uruchomienie: czysta baza (administrator, magazyny, katalog produktów); dane przykładowe tylko na życzenie
         const st = this.startup();
         s = sample ? R.Seed.build(App.today()) : R.Seed.minimal({ email: st.adminEmail, name: st.adminName, today: App.today(), allowSelfRegistration: st.allowSelfRegistration !== false });
+        if (sample && root.RIW_CONFIG && root.RIW_CONFIG.landing) s.config.allowSelfRegistration = true;      // 3.15: demo ver. 2 — „Utwórz konto” na ekranie startowym
         fresh = !sample;
       }
       try { if (!this.memoryOnly) this.write(s); } catch (e) { this.memoryOnly = true; }
@@ -439,7 +440,7 @@
     /** Dane przykładowe na start: konfiguracja sampleData albo przełącznik szkoleniowy riw.sample = 1. */
     sampleWanted() { return (root.RIW_CONFIG && root.RIW_CONFIG.sampleData === true) || lsGet("riw.sample", "") === "1"; },
     /** 3.15: wersja demonstracyjna (dane przykładowe, osobna przestrzeń przeglądarki). */
-    demo() { return !!(root.RIW_CONFIG && root.RIW_CONFIG.edition === "demo"); },
+    demo() { return !!(root.RIW_CONFIG && (root.RIW_CONFIG.edition === "demo" || root.RIW_CONFIG.edition === "demo2")); },
     /**
      * Dane demonstracyjne zapisane przez wcześniejsze wersje (albo przez otwartą jeszcze starą kartę programu) →
      * kopia pod osobnym kluczem i start od zera. Nie dotyczy danych firmy ani danych przykładowych wczytanych

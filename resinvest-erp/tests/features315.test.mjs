@@ -185,6 +185,46 @@ test("rola z uprawnieniem warehouses.edit, ale z dostępem do części magazynó
   } finally { R.applyRoles(null); }
 });
 
+test("plac składowy: pojemność pryzmy, zrębka z księgi, ilość pod załadunek, wagony", () => {
+  let s = clean();
+  const y0 = R.Yard.current(s);
+  assert.equal(y0.custom, false); assert.equal(y0.whId, "wh_zab");
+  let st = R.Yard.stats(s);
+  assert.equal(st.capacity, 2250, "60 × 15 × 5 m, przekrój trójkątny");
+  assert.equal(st.stock, 0); assert.equal(st.reserved, 0, "brak zrębki — nic pod załadunek");
+  s = run(s, "u_admin", { whId: "wh_zab", date: "2026-11-01", lines: [{ productId: "pr_zr_lesna", qty: "3000" }, { productId: "pr_zr_tow", qty: "500" }, { productId: "pr_drewno", qty: "100" }] }).state;
+  st = R.Yard.stats(s);
+  assert.equal(st.stock, 3500, "tylko zrębka (MP), bez drewna");
+  assert.equal(st.reserved, 2250); assert.equal(st.fill, 1); assert.equal(st.remaining, 1250);
+  assert.equal(st.wagons, Math.ceil(2250 / s.config.wagonMPDefault));
+  const r = Service.run(s, "yard.save", { reservedMP: "1 200,5", dims: { len: "50", wid: "15", hei: "5" }, trainName: "Pryzma Fortum" }, ctxOf(s, "u_admin"));
+  assert.equal(r.res.ok, true, r.res.error);
+  st = R.Yard.stats(r.state);
+  assert.equal(st.capacity, 1875); assert.equal(st.reserved, 1200.5); assert.equal(st.remaining, 2299.5);
+  assert.equal(r.state.audit[r.state.audit.length - 1].entityId, "yard");
+  assert.equal(r.state.rev, s.rev + 1);
+  const big = Service.run(r.state, "yard.save", { reservedMP: "5000" }, ctxOf(r.state, "u_admin"));
+  const sb = R.Yard.stats(big.state);
+  assert.equal(sb.reserved, 1875, "nie więcej niż pojemność pryzmy"); assert.equal(sb.short, 0);
+});
+
+test("plac składowy: walidacja, uprawnienia, brak zmian, układ domyślny", () => {
+  const s = clean();
+  const bad = Service.run(s, "yard.save", { train: [[0, 0], [1, 1]], front: [[-5, 0], [10, 10]], dims: { len: "0", wid: "15", hei: "5" }, reservedMP: "-1", trainName: "" }, ctxOf(s, "u_admin"));
+  assert.equal(bad.res.ok, false);
+  assert.deepEqual(Object.keys(bad.res.errors).sort(), ["dims.len", "front", "reservedMP", "train", "trainName"]);
+  const b = R.Seed.build(TODAY);
+  for (const uid of ["u_kier", "u_mag", "u_view"]) assert.equal(Service.run(b, "yard.save", { reservedMP: "10" }, ctxOf(b, uid)).res.ok, false, uid);
+  const same = Service.run(s, "yard.save", { reservedMP: "" }, ctxOf(s, "u_admin"));
+  assert.equal(same.res.code, "NOCHANGE");
+  const moved = Service.run(s, "yard.save", { train: [[260, 400], [1050, 300], [1110, 480], [300, 590]] }, ctxOf(s, "u_admin"));
+  assert.equal(moved.res.ok, true, moved.res.error);
+  assert.deepEqual(R.Yard.current(moved.state).train[0], [260, 400]);
+  const reset = Service.run(moved.state, "yard.save", { reset: true }, ctxOf(moved.state, "u_admin"));
+  assert.equal(reset.res.ok, true); assert.equal(reset.state.config.yard, undefined);
+  assert.deepEqual(R.validateStateShape(reset.state), []);
+});
+
 test("wersja demonstracyjna: osobne klucze przeglądarki tylko przy storageNs (program firmowy bez zmian)", () => {
   const src = readFileSync(new URL("../app/src/core.js", import.meta.url), "utf8") + readFileSync(new URL("../app/src/auth.js", import.meta.url), "utf8");
   assert.match(src, /const KEY = nsKey\("riw\.v3\.state"\)/);
