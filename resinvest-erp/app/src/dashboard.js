@@ -190,7 +190,9 @@
       const last = S.operations.filter(o => o.whId === wh.id || o.toWhId === wh.id).slice().sort((a, b) => a.createdAt < b.createdAt ? 1 : -1).slice(0, 8);
       const lastOps = `<div class="card mt4"><div class="card-h"><h3>${th("Ostatnie operacje")}</h3><span class="spacer"></span><a class="btn sm" href="#/operacje">${th("Wszystkie operacje")}</a></div>${opsTable(last, { id: "last-ops", compact: true })}</div>`;
 
+      const yard = root.RIWUI.YardCard && root.RIWUI.YardCard.available() ? root.RIWUI.YardCard.html() : "";   // 3.15: plac składowy (zdjęcie placu)
       return `${hero}${quick}<div class="kpi2-grid" id="kpis">${kpis}</div>
+        ${yard}
         <div class="dash-main">${chart}${turnover}</div>
         ${extrasCard}
         <div class="mt4">${stockCard}</div>
@@ -202,6 +204,7 @@
       bindPeriod(page, f, "dash", () => App.render());
       $$("[data-drill]", page).forEach(el => { if (el.classList.contains("hbar-row")) el.classList.add("drill"); });
       bindDrill(page); bindOps(page); Tip.bind(page);
+      if (root.RIWUI.YardCard) root.RIWUI.YardCard.bind(page);
       $$("[data-stock-product]", page).forEach(b => b.onclick = () => { const S = Store.state; if (root.RIWUI.Views.stany && root.RIWUI.Views.stany.card) root.RIWUI.Views.stany.card(App.user().whId, b.dataset.stockProduct); });
       const xm = $("#xt-month", page);
       if (xm) xm.onchange = () => { if (/^\d{4}-\d{2}$/.test(xm.value)) { App.tabs.dashExtras = { ym: xm.value }; App.render(); } };

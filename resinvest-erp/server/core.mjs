@@ -1,6 +1,7 @@
 /* =========================================================================
    ResInvest ERP Serwer — rdzeń: baza SQLite, silnik, komendy, konta, kopie.
-   Bez zależności zewnętrznych (Node ≥ 22.13: node:sqlite, node:crypto).
+   Silnik bazy: SQLite — plik lokalny (node:sqlite), jak dotychczas — albo PostgreSQL — tryb firmowy,
+   centralna baza (sterownik `pg`); wybór: DB_DRIVER w server.env, warstwa: server/db/*. Logika poniżej jest wspólna.
 
    Trwałość (od 3.10 — zapis przyrostowy):
    * tabela `state`   — „rdzeń” stanu (kartoteki, konfiguracja, numeracja; JSON) + suma SHA-256,
@@ -23,7 +24,8 @@
    Powiadomienia (3.5): kolejka `outbox` ze statusem QUEUED → SENT / FAILED (ponowienia po 1 min,
    5 min, 15 min, 1 h, 6 h) → DEAD; treść usuwana po wysłaniu.
    ========================================================================= */
-import { DatabaseSync } from "node:sqlite";
+import { openDatabase, databaseConfig } from "./db/index.mjs";
+import { exportPgToSqlite } from "./db/transfer.mjs";
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, statSync, unlinkSync, existsSync, appendFileSync, copyFileSync, writeFileSync, renameSync } from "node:fs";
 import { mkdir as mkdirA, writeFile as writeFileA, rename as renameA, copyFile as copyFileA, unlink as unlinkA } from "node:fs/promises";
@@ -57,7 +59,7 @@ const nowIso = () => new Date().toISOString();
 
 /* ---------------- zapis przyrostowy: kolekcje wierszy ---------------- */
 /** Kolekcje stanu przechowywane wiersz po wierszu (rosną z historią). Pozostałe pola = „rdzeń”. */
-export const ROWS = ["operations", "ledger", "audit", "notices", "plans", "drafts", "inventory"];
+export const ROWS = ["operations", "ledger", "audit", "notices", "plans", "drafts", "inventory", "yard", "trains", "loadPlans", "eudrLots", "eudrDocs", "eudrDds", "eudrSuppliers", "eudrAudits", "eudrTraining", "eudrTests"];
 const ROWSET = new Set(ROWS);
 /** Błąd zapisu do zamrożonego rekordu (komenda zmienia istniejący rekord bez kopii). */
 export const FROZEN_WRITE = /read[- ]only|not extensible|Cannot (?:assign|add|delete|define|redefine)|frozen/i;
@@ -97,7 +99,7 @@ export function loadEnv(dataDir) {
   const files = [join(ROOT, ".env"), join(ROOT, "config", "edition.env"), join(ROOT, "config", "server.env"), dataDir ? join(dataDir, "server.env") : null].filter(Boolean);
   const env = {}, used = [];
   for (const f of files) if (existsSync(f)) { Object.assign(env, parseEnv(readFileSync(f, "utf8"))); used.push(f); }
-  for (const [k, v] of Object.entries(process.env)) if (/^(RESEND_|AGENTMAIL_|EMAIL_|SMTP_|APP_URL|SUPABASE_|COMPANY_DOMAINS$|BACKUP_COPY_TO$)/.test(k)) env[k] = v;
+  for (const [k, v] of Object.entries(process.env)) if (/^(RESEND_|AGENTMAIL_|EMAIL_|SMTP_|APP_URL|SUPABASE_|COMPANY_DOMAINS$|BACKUP_COPY_TO$|DB_|DATABASE_URL$|EUDR_)/.test(k)) env[k] = v;
   return { env, files: used };
 }
 
@@ -173,28 +175,12 @@ export class Store {
     if (cfg.scansDir) { try { mkdirSync(cfg.scansDir, { recursive: true }); } catch (e) { (log || (() => {}))("WARN", "Folder skanów: " + e.message); } }
     mkdirSync(cfg.backupDir, { recursive: true });
     this.file = join(cfg.dataDir, "resinvest.sqlite");
-    this.db = new DatabaseSync(this.file);
+    // silnik bazy — cfg.database (testy, narzędzia) albo DB_DRIVER z server.env; domyślnie SQLite jak dotychczas
+    this.dbCfg = cfg.database || databaseConfig(loadEnv(cfg.dataDir).env);
+    this.db = openDatabase(this.dbCfg, { file: this.file, log: this.log });
+    this.pg = this.db.dialect === "postgres";
     this.updateBackup = this.preUpdateBackup();
-    this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
-      CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS state(id INTEGER PRIMARY KEY CHECK(id=1), rev INTEGER NOT NULL, schema INTEGER NOT NULL, json TEXT NOT NULL, sha256 TEXT NOT NULL, updated_at TEXT NOT NULL);
-      CREATE TABLE IF NOT EXISTS rows(coll TEXT NOT NULL, id TEXT NOT NULL, ord REAL NOT NULL, json TEXT NOT NULL, sha TEXT NOT NULL, PRIMARY KEY(coll, id)) WITHOUT ROWID;
-      CREATE INDEX IF NOT EXISTS rows_ord ON rows(coll, ord);
-      CREATE TABLE IF NOT EXISTS journal(seq INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, user_id TEXT, user_login TEXT, cmd TEXT NOT NULL, args TEXT NOT NULL, rev_before INTEGER, rev_after INTEGER, state_sha TEXT, prev_hash TEXT NOT NULL, hash TEXT NOT NULL);
-      CREATE TRIGGER IF NOT EXISTS journal_no_update BEFORE UPDATE ON journal BEGIN SELECT RAISE(ABORT, 'journal is append-only'); END;
-      CREATE TRIGGER IF NOT EXISTS journal_no_delete BEFORE DELETE ON journal BEGIN SELECT RAISE(ABORT, 'journal is append-only'); END;
-      CREATE TABLE IF NOT EXISTS accounts(user_id TEXT PRIMARY KEY, algo TEXT NOT NULL, salt TEXT NOT NULL, hash TEXT NOT NULL, params TEXT, must_change INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0, locked_until TEXT, changed_at TEXT, last_login TEXT);
-      CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, created_at TEXT NOT NULL, last_seen TEXT NOT NULL, expires_at TEXT NOT NULL, ip TEXT, ua TEXT);
-      CREATE TABLE IF NOT EXISTS login_log(id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, login TEXT, user_id TEXT, ok INTEGER NOT NULL, reason TEXT, ip TEXT);
-      CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
-      CREATE TABLE IF NOT EXISTS tokens(token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, kind TEXT NOT NULL, email TEXT, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, created_by TEXT);
-      CREATE INDEX IF NOT EXISTS tokens_user ON tokens(user_id, kind);
-      CREATE TABLE IF NOT EXISTS outbox(id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL, template TEXT NOT NULL, to_addr TEXT NOT NULL, user_id TEXT, status TEXT NOT NULL, error TEXT, provider_id TEXT, transport TEXT);`);
-    // kolejka wysyłki (3.5): kolumny dodawane do istniejącej tabeli — dane bez zmian
-    const cols = new Set(this.db.prepare("PRAGMA table_info(outbox)").all().map(c => c.name));
-    for (const [c, def] of [["kind", "TEXT NOT NULL DEFAULT 'auth'"], ["subject", "TEXT"], ["body", "TEXT"], ["attempts", "INTEGER NOT NULL DEFAULT 0"], ["next_at", "TEXT"], ["notice_id", "TEXT"], ["sent_at", "TEXT"], ["updated_at", "TEXT"]])
-      if (!cols.has(c)) this.db.exec(`ALTER TABLE outbox ADD COLUMN ${c} ${def}`);
-    this.db.exec("CREATE INDEX IF NOT EXISTS outbox_due ON outbox(status, next_at)");
+    this.db.ensureSchema();
     // wysyłka przerwana zatrzymaniem serwera wraca do kolejki
     this.db.prepare("UPDATE outbox SET status = 'QUEUED' WHERE status = 'SENDING'").run();
     this.db.prepare("INSERT OR IGNORE INTO meta(key, value) VALUES ('created_at', ?)").run(nowIso());
@@ -207,7 +193,7 @@ export class Store {
    * zapisuje pełną kopię bazy „resinvest-…-przed-aktualizacja-<stara wersja>.sqlite”. Bez kopii serwer nie startuje.
    */
   preUpdateBackup() {
-    const has = n => !!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(n);
+    const has = n => this.db.hasTable(n);
     if (!has("state") || !this.db.prepare("SELECT 1 FROM state WHERE id = 1").get()) return null;   // nowa, pusta baza
     const prev = has("meta") ? ((this.db.prepare("SELECT value FROM meta WHERE key = 'app_version'").get() || {}).value || "") : "";
     if (prev === R.VERSION) return null;
@@ -235,7 +221,7 @@ export class Store {
   }
   load() {
     const row = this.db.prepare("SELECT rev, json, sha256 FROM state WHERE id = 1").get();
-    this.idx = {}; this.ord = {}; this.deltas = []; this.deltaBase = 0; this.stateSha = "";
+    this.idx = {}; this.ord = {}; this.deltas = []; this.deltaBase = 0; this.stateSha = ""; this.ordStrict = {};
     for (const k of ROWS) { this.idx[k] = new Map(); this.ord[k] = new Map(); }
     if (!row) { this.state = null; this.coreJson = null; return; }
     if (sha256(row.json) !== row.sha256) { this.integrity.ok = false; this.integrity.notes.push("state checksum mismatch"); this.log("ERROR", "Suma kontrolna stanu nie zgadza się — sprawdź bazę / przywróć kopię."); }
@@ -265,6 +251,9 @@ export class Store {
     this.state = m.state;
     for (const k of ROWS) { this.state[k] = this.state[k] || []; for (const el of this.state[k]) { this.idx[k].set(el.id, el); deepFreeze(el); } }
     this.coreJson = coreJsonOf(this.state); this.deltaBase = this.state.rev;
+    // kolejność `ord` ściśle rosnąca wzdłuż tablicy (warunek szybkiej ścieżki zapisu); saveState utrzymuje ją dalej
+    this.ordStrict = {};
+    for (const k of ROWS) { let last = -Infinity, ok = true; for (const el of this.state[k]) { const o = this.ord[k].get(el.id); if (!(o > last)) { ok = false; break; } last = o; } this.ordStrict[k] = ok; }
   }
   /** Łańcuch skrótów dziennika — każdy wpis zawiera skrót poprzedniego. */
   verifyJournal() {
@@ -291,6 +280,38 @@ export class Store {
       const arr = Array.isArray(next[k]) ? next[k] : (next[k] = []);
       if (!full && prev[k] === arr) continue;
       const old = this.idx[k], ordOld = this.ord[k];
+      // szybka ścieżka: poprzednia tablica bez zmian pozycji (te same rekordy albo podmienione rekordy o tym samym id)
+      // + rekordy dopisane na końcu — wynik identyczny jak pętla pełna, koszt O(liczba zmian) zamiast O(historia) Map/Set
+      const pa = full ? null : prev[k];
+      if (!full && this.ordStrict && this.ordStrict[k] && Array.isArray(pa) && arr.length >= pa.length && old.size === pa.length) {
+        const up = []; let ok = true;
+        for (let i = 0; i < pa.length; i++) { const el = arr[i]; if (el === pa[i]) continue; if (!el || el.id == null || el.id !== pa[i].id) { ok = false; break; } up.push(i); }
+        if (ok) {
+          const ords = new Array(arr.length); let last = -Infinity;
+          for (const i of up) ords[i] = ordOld.get(arr[i].id);
+          if (pa.length) last = ordOld.get(pa[pa.length - 1].id);
+          const fresh = new Set();
+          for (let i = pa.length; i < arr.length; i++) {
+            const el = arr[i];
+            if (!el || el.id == null) throw new Error(`Rekord bez identyfikatora w kolekcji ${k}`);
+            if (old.has(el.id) || fresh.has(el.id)) throw new Error(`Powtórzony identyfikator ${el.id} w kolekcji ${k}`);
+            fresh.add(el.id); up.push(i);
+          }
+          let renumber = false;
+          for (let i = pa.length; i < arr.length; i++) {
+            const v = last === -Infinity ? 0 : Math.floor(last) + 1;
+            if (!(v > last)) { renumber = true; break; }
+            ords[i] = v; last = v;
+          }
+          if (!renumber) {
+            const upRows = up.map(i => { const json = JSON.stringify(arr[i]); return { i, id: String(arr[i].id), json, sha: sha256(json) }; });
+            for (const r of upRows) digest.push(r.sha);
+            plan.push({ k, arr, upRows, del: [], ords, renumber: false, from: pa.length });
+            delta.up[k] = upRows.map(r => r.id); delta.del[k] = [];
+            continue;
+          }
+        }
+      }
       const seen = new Set(), up = [];
       for (let i = 0; i < arr.length; i++) {
         const el = arr[i];
@@ -326,10 +347,20 @@ export class Store {
       }
     }
     const sh = sha256([this.stateSha || "", ...digest].join("|"));
-    this.tx(() => {
+    const prevHash = this.journalHead || "0".repeat(64);
+    const rb = revBefore == null ? null : revBefore;
+    const hash = sha256([prevHash, ts, (user && user.id) || "", cmd, argsTxt, rb, next.rev, sh].join("|"));
+    const write = () => this.tx(() => {
       const upsert = this.db.prepare("INSERT INTO rows(coll, id, ord, json, sha) VALUES (?, ?, ?, ?, ?) ON CONFLICT(coll, id) DO UPDATE SET ord = excluded.ord, json = excluded.json, sha = excluded.sha");
       const delStmt = this.db.prepare("DELETE FROM rows WHERE coll = ? AND id = ?");
       const ordStmt = this.db.prepare("UPDATE rows SET ord = ? WHERE coll = ? AND id = ?");
+      // PostgreSQL: wiersz stanu zablokowany na czas transakcji; zapis tylko, gdy baza jest w rewizji znanej temu serwerowi
+      // (inny proces zmienił dane → nic nie zapisujemy; ochrona przed nadpisaniem cudzych zmian)
+      if (this.pg && !full) {
+        const cur = this.db.prepare("SELECT rev FROM state WHERE id = 1 FOR UPDATE").get();
+        if (!cur || cur.rev !== prev.rev) { this.needsReload = true; throw new Error(`stan w bazie (rewizja ${cur ? cur.rev : "brak"}) różni się od stanu serwera (rewizja ${prev.rev}) — dane zmienił inny proces; serwer wczyta stan z bazy przy następnej operacji`); }
+      }
+      if (this.pg) this.db.deferWrites();       // zapisy tej transakcji wysyłane jedną paczką razem z COMMIT
       if (full) this.db.exec("DELETE FROM rows");
       for (const p of plan) {
         const upSet = new Set(p.upRows.map(r => r.i));
@@ -341,21 +372,33 @@ export class Store {
         .run(next.rev, next.schema, coreJson, coreSha, ts);
       const meta = this.db.prepare("INSERT INTO meta(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value");
       meta.run("storage", "rows-1"); meta.run("state_sha", sh);
-      const prevHash = this.journalHead || "0".repeat(64);
-      const rb = revBefore == null ? null : revBefore;
-      const hash = sha256([prevHash, ts, (user && user.id) || "", cmd, argsTxt, rb, next.rev, sh].join("|"));
       this.db.prepare("INSERT INTO journal(ts, user_id, user_login, cmd, args, rev_before, rev_after, state_sha, prev_hash, hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .run(ts, (user && user.id) || null, (user && user.login) || null, cmd, argsTxt, rb, next.rev, sh, prevHash, hash);
       this.pendingHead = hash;
     });
+    try { write(); }
+    catch (e) {
+      // PostgreSQL: połączenie zerwane w trakcie zapisu — wynik zatwierdzenia nieznany. Wpis dziennika o tym skrócie
+      // istnieje tylko wtedy, gdy cała transakcja została zatwierdzona; inaczej baza wycofała wszystko (nic nie zapisano).
+      // Gdy bazy nie da się teraz zapytać, wynik pozostaje nieznany: serwer nie zgaduje — przed następną operacją
+      // wczyta stan z bazy (heal), a użytkownik dostaje informację, że zapis trzeba sprawdzić.
+      if (!(this.pg && e && e.connectionLost) || e.notSent) throw e;      // notSent: polecenie nie dotarło do bazy — na pewno nic nie zapisano
+      let found = null;
+      try { if (this.db.recover()) found = !!this.db.prepare("SELECT 1 AS x FROM journal WHERE hash = ?").get(hash); } catch (x) { if (x && x.fatal) throw x; }
+      if (found === null) { this.needsReload = true; e.uncertain = true; throw e; }
+      if (!found) throw e;
+      this.pendingHead = hash;
+      this.log("WARN", `Zapis ${cmd} (rewizja ${next.rev}) potwierdzony w dzienniku po zerwaniu połączenia z bazą`);
+    }
     // dopiero po udanej transakcji: indeksy, kolejność, zamrożenie nowych rekordów, stan w pamięci
     for (const p of plan) {
       const idx = full ? new Map() : this.idx[p.k], ord = this.ord[p.k];
       if (full || p.renumber) ord.clear();
       for (const id of p.del) { idx.delete(id); ord.delete(id); }
       for (const r of p.upRows) { const el = p.arr[r.i]; idx.set(el.id, el); deepFreeze(el); }
-      for (let i = 0; i < p.arr.length; i++) ord.set(String(p.arr[i].id), p.ords[i]);
+      for (let i = p.from || 0; i < p.arr.length; i++) ord.set(String(p.arr[i].id), p.ords[i]);
       this.idx[p.k] = idx;
+      if (this.ordStrict) this.ordStrict[p.k] = true;
     }
     this.journalHead = this.pendingHead; this.journalCount = (this.journalCount || 0) + 1;
     this.state = next; this.coreJson = coreJson; this.stateSha = sh;
@@ -386,10 +429,27 @@ export class Store {
   }
 
 
+  /**
+   * PostgreSQL: po zapisie o nieznanym wyniku albo po wykryciu zmiany danych przez inny proces stan w pamięci
+   * jest wczytywany z bazy przed kolejną operacją — serwer nigdy nie pracuje na stanie innym niż zapisany.
+   * Zwraca null (stan aktualny) albo odpowiedź z błędem (baza nadal niedostępna).
+   */
+  heal() {
+    if (!this.needsReload) return null;
+    try { this.load(); this.needsReload = false; this.log("WARN", `Stan wczytany ponownie z bazy (rewizja ${this.state ? this.state.rev : "—"})`); return null; }
+    catch (e) { this.log("ERROR", "Ponowne wczytanie stanu z bazy nieudane: " + e.message); return { ok: false, code: "DB", error: t("Zapis w bazie nieudany — nic nie zapisano: {m}", { m: e.message }) }; }
+  }
+  /** Odpowiedź po nieudanym zapisie; przy nieznanym wyniku (zerwane połączenie w chwili zatwierdzania) — prośba o sprawdzenie. */
+  saveError(label, e) {
+    this.log("ERROR", `Zapis nieudany (${label}): ${e.message}`);
+    if (e && e.uncertain) return { ok: false, code: "DB_UNCERTAIN", error: t("Połączenie z bazą danych zostało przerwane w chwili zapisu. Odśwież program i sprawdź, czy operacja została zapisana, zanim wprowadzisz ją ponownie.") };
+    return { ok: false, error: t("Zapis w bazie nieudany — nic nie zapisano: {m}", { m: e.message }), code: "DB" };
+  }
   /** Komenda usługi: silnik na kopii → zapis atomowy → stan w pamięci. */
   execute(userId, cmd, args, lang, meta) {
     if (!Service.has(cmd)) return { ok: false, error: t("Nieznana komenda: {c}", { c: cmd }), code: "UNKNOWN" };
     I18N.setLang(lang || "pl");
+    { const h = this.heal(); if (h) return h; }
     const ctx = Object.assign({ user: { id: userId }, today: this.today() }, meta && { ip: meta.ip || "", ua: String(meta.ua || "").slice(0, 200) });
     const rev0 = this.state.rev;
     const { res, state } = this.runFast(cmd, work => Service.run(this.state, cmd, args, ctx, work));
@@ -397,7 +457,7 @@ export class Store {
       const u = R.byId(state.users, userId) || R.byId(this.state.users, userId);
       const journalArgs = cmd === "data.import" ? { operacje: (args.state && args.state.operations || []).length, rewizja: args.state && args.state.rev } : args;
       try { this.saveState(state, u, cmd, journalArgs, rev0); }
-      catch (e) { this.log("ERROR", `Zapis nieudany (${cmd}): ${e.message}`); return { ok: false, error: t("Zapis w bazie nieudany — nic nie zapisano: {m}", { m: e.message }), code: "DB" }; }
+      catch (e) { return this.saveError(cmd, e); }
       res.__changed = true;
     }
     return res;
@@ -432,11 +492,12 @@ export class Store {
   }
   /** Zmiana stanu przez hosta (bez komendy użytkownika): aktywacja, wpis audytu. Zapis atomowy jak execute. */
   applyChange(label, fn, journalArgs, actor) {
+    { const h = this.heal(); if (h) return h; }
     const rev0 = this.state.rev;
     const { res, state } = this.runFast(label, work => Service.apply(this.state, fn, work));
     if (state) {
       try { this.saveState(state, actor || null, label, journalArgs || {}, rev0); }
-      catch (e) { this.log("ERROR", `Zapis nieudany (${label}): ${e.message}`); return { ok: false, error: t("Zapis w bazie nieudany — nic nie zapisano: {m}", { m: e.message }), code: "DB" }; }
+      catch (e) { return this.saveError(label, e); }
       res.__changed = true;
     }
     return res;
@@ -562,12 +623,13 @@ export class Store {
   register(rec, password, lang, meta) {
     I18N.setLang(lang || "pl");
     const pe = AuthLib.passwordError(password, rec && rec.email); if (pe) return { ok: false, errors: { password: pe }, error: pe };
+    { const h = this.heal(); if (h) return h; }
     const rev0 = this.state.rev;
     // adres potwierdza się linkiem z e-maila; administratorzy dostają powiadomienie po potwierdzeniu
     const { res, state } = this.runFast("auth.register", work => Service.register(this.state, rec, this.today(), meta, { emailUnverified: true }, work));
     if (!state) return res;
     try { this.saveState(state, null, "auth.register", { email: res.rec.login }, rev0); }
-    catch (e) { return { ok: false, error: t("Zapis w bazie nieudany — nic nie zapisano: {m}", { m: e.message }) }; }
+    catch (e) { return this.saveError("auth.register", e); }
     this.setPassword(res.rec.id, password, false);
     this.log("INFO", `Rejestracja: ${res.rec.login} — oczekuje na potwierdzenie adresu i zatwierdzenie`);
     return { ok: true, userId: res.rec.id };
@@ -661,7 +723,9 @@ export class Store {
     const stamp = nowIso().replace(/[-:]/g, "").replace("T", "-").slice(0, 15);
     const name = `resinvest-${stamp}-${reason}.sqlite`, file = join(this.cfg.backupDir, name);
     if (existsSync(file)) return { ok: true, name, file };
-    this.db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+    // SQLite: VACUUM INTO; PostgreSQL: spójny obraz bazy zapisany w tym samym formacie pliku .sqlite
+    // (jedna procedura przywracania i wycofania dla obu silników)
+    if (this.pg) exportPgToSqlite(this.db, file); else this.db.snapshotTo(file);
     try { this.db.prepare("INSERT INTO meta(key, value) VALUES ('last_backup', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(nowIso()); } catch (e) { /* baza sprzed tabeli meta */ }
     this.pruneBackups();
     this.log("INFO", `Kopia zapasowa: ${name}`);

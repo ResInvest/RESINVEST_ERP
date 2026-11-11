@@ -3,6 +3,8 @@
    (ten sam plik działa samodzielnie — tryb lokalny — i jest serwowany przez ResInvest ERP Serwer).
    Użycie:  node tools/build.mjs                     (z katalogu resinvest-erp)
             node tools/build.mjs --no-video          (bez filmu intro — tylko muzyka syntezowana)
+            node tools/build.mjs --edition demo      (wersja demonstracyjna → ResInvest_ERP_Demo.html: dane przykładowe,
+                                                      konta demonstracyjne, osobna przestrzeń danych przeglądarki)
             node tools/build.mjs --edition premium   (edycja Premium: film intro i zdjęcie ekranu startowego
                                                       z app/assets/premium, motyw „Złota biomasa” domyślnie
                                                       → ResInvest_ERP_Premium.html; silnik i dane bez zmian) */
@@ -17,14 +19,14 @@ const SRC = join(ROOT, "app", "src");
 const noVideo = process.argv.includes("--no-video");
 const edArg = process.argv.indexOf("--edition");
 export const EDITION = edArg >= 0 ? String(process.argv[edArg + 1] || "") : "standard";
-if (!["standard", "premium"].includes(EDITION)) throw new Error(`Nieznana edycja: ${EDITION} (standard | premium)`);
-const OUT = join(ROOT, EDITION === "premium" ? "ResInvest_ERP_Premium.html" : "ResInvest_ERP.html");
+if (!["standard", "premium", "demo", "demo2"].includes(EDITION)) throw new Error(`Nieznana edycja: ${EDITION} (standard | premium | demo | demo2)`);
+const OUT = join(ROOT, { premium: "ResInvest_ERP_Premium.html", demo: "ResInvest_ERP_Demo.html", demo2: "ResInvest_ERP_Demo2.html" }[EDITION] || "ResInvest_ERP.html");
 const ASSETS = join(ROOT, "app", "assets", EDITION === "premium" ? "premium" : "");
 
 /** Kolejność ładowania warstw (zależności: i18n + słowniki → silnik → usługa → interfejs). */
 export const DICTS = readdirSync(SRC).filter(f => /^i18n\.d\d+\.js$/.test(f)).sort();
 // intro.js jako pierwszy — buforowanie filmu rusza, zanim przeglądarka przeczyta resztę programu
-export const SCRIPTS = ["intro.js", "i18n.js", ...DICTS, "engine.js", "planner.js", "trade.js", "fleetrep.js", "notify.js", "service.js", "seed.js", "pdf.js", "office.js", "auth.js", "core.js", "form.js", "quick.js", "views.js", "dashboard.js", "admin.js", "scans.js", "planner-view.js", "notify-view.js"];
+export const SCRIPTS = ["intro.js", "i18n.js", ...DICTS, "engine.js", "planner.js", "trade.js", "fleetrep.js", "notify.js", "opening.js", "yard.js", "yardplan.js", "eudr-content.js", "eudr.js", "service.js", "seed.js", "pdf.js", "office.js", "auth.js", "core.js", "form.js", "quick.js", "views.js", "dashboard.js", "admin.js", "scans.js", "planner-view.js", "notify-view.js", "opening-view.js", "yard-view.js", "yardplan-view.js", "landing-view.js", "eudr-view.js"];
 
 const read = f => readFileSync(join(SRC, f), "utf8");
 for (const f of SCRIPTS.concat(["styles.css"])) {
@@ -70,13 +72,33 @@ export function loadConfig() {
     cfg.startup.testAdmin = { email: String(ta.email).trim().toLowerCase(), name: String(ta.name || "Administrator testowy"), password: String(ta.password) };
   }
   cfg.sampleData = raw.sampleData === true;
+  // 3.16: EUDR — adresy oficjalnego systemu EUDR (TRACES) do przycisku „Otwórz oficjalny system” (tylko adresy stron;
+  // dane dostępowe nigdy nie trafiają do programu w przeglądarce)
+  const tr = (raw.eudr && raw.eudr.traces) || {};
+  cfg.eudr = { traces: {} };
+  for (const env of ["ACCEPTANCE", "PRODUCTION"]) {
+    const u = tr[env] && (tr[env].portal || tr[env].base);
+    if (!u || !/^https:\/\/[a-z0-9.-]+\.europa\.eu\//.test(u)) throw new Error(`config/app.config.json: „eudr.traces.${env}” — wymagany adres https systemu Komisji (europa.eu)`);
+    cfg.eudr.traces[env] = { portal: u };
+  }
   cfg.edition = EDITION;
+  if (EDITION === "demo" || EDITION === "demo2") {
+    // 3.15: wersja demonstracyjna — dane przykładowe, konta demonstracyjne (hasło demo1234), bez konta startowego
+    // i konta testowego, osobna przestrzeń danych przeglądarki (nie miesza się z trybem lokalnym ani z inną wersją)
+    cfg.sampleData = true;
+    cfg.startup = Object.assign({}, cfg.startup, { adminPassword: "" }); delete cfg.startup.testAdmin;
+    cfg.storageNs = EDITION === "demo2" ? "riw.demo2" : "riw.demo315";
+  }
+  // 3.15: demo ver. 2 — ekran startowy z grafik (logowanie / zakładanie konta) i plac składowy na pulpicie
+  if (EDITION === "demo2") cfg.landing = true;
   cfg.defaultTheme = EDITION === "premium" ? "aurum" : "pearl";
   return cfg;
 }
 const cfg = loadConfig();
 
 let html = read("index.template.html");
+// 3.15: wersja demonstracyjna — skrypt „przed pierwszym malowaniem” czyta motyw z osobnej przestrzeni przeglądarki
+if (cfg.storageNs) html = html.replace(/localStorage\.getItem\("riw\./g, `localStorage.getItem("${cfg.storageNs}.`);
 const put = (marker, value) => {
   if (!html.includes(marker)) throw new Error("Brak znacznika " + marker);
   html = html.split(marker).join(value);
@@ -98,6 +120,8 @@ put("@@EDITION@@", EDITION);
 put("@@DEFAULT_THEME@@", cfg.defaultTheme);
 const hero = join(ROOT, "app", "assets", "premium", "hero.jpg");
 put("@@HERO@@", EDITION === "premium" && existsSync(hero) ? "data:image/jpeg;base64," + readFileSync(hero).toString("base64") : "");
+const img = f => { const p = join(ROOT, "app", "assets", "demo2", f); return existsSync(p) ? "data:image/jpeg;base64," + readFileSync(p).toString("base64") : ""; };
+put("@@IMG@@", JSON.stringify(EDITION === "demo2" ? { login: img("logowanie.jpg"), yard: img("plac-zabrze.jpg") } : {}));
 put("@@BUILT@@", new Date().toISOString().slice(0, 10));
 
 writeFileSync(OUT, html, "utf8");

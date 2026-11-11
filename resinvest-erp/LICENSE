@@ -1,37 +1,51 @@
-ResInvest ERP 3.1
+ResInvest ERP 3.15
 Program stworzony przez Roesner Mateusz dla ResInvest Commodities.
 
 Copyright (c) 2026 Mateusz Roesner. Wszelkie prawa zastrzeżone.
 
-Autor:           Mateusz Roesner
+                              LICENCJA NIEWYŁĄCZNA
+            na korzystanie z programu komputerowego ResInvest ERP
+
+Licencjodawca:   Mateusz Roesner (Autor) — twórca i właściciel autorskich praw majątkowych
 Licencjobiorca:  ResInvest Commodities
 
+Licencja jest udzielana na podstawie art. 67 ust. 1 oraz art. 74 ustawy z dnia 4 lutego 1994 r.
+o prawie autorskim i prawach pokrewnych. Jest to licencja NIEWYŁĄCZNA: Autor zachowuje autorskie prawa
+majątkowe do oprogramowania oraz prawo do korzystania z niego i do udzielania dalszych licencji
+innym podmiotom.
+
 1. Przedmiot licencji
-   Oprogramowanie ResInvest ERP (program, ResInvest ERP Serwer, instalator), jego kod
-   źródłowy, dokumentacja i materiały towarzyszące (w tym film wprowadzający) zostały
-   wykonane przez Mateusza Roesnera na potrzeby ResInvest Commodities.
+   Oprogramowanie ResInvest ERP — program (plik ResInvest_ERP.html), ResInvest ERP Serwer i
+   instalatory Windows — wraz z kodem źródłowym, dokumentacją i materiałami towarzyszącymi, wykonane
+   przez Autora na potrzeby Licencjobiorcy.
 
 2. Zakres licencji
-   ResInvest Commodities otrzymuje niewyłączną, nieprzenoszalną licencję na korzystanie
-   z oprogramowania w ramach własnej działalności, na dowolnej liczbie stanowisk
-   i serwerów w swojej sieci, w tym na: instalowanie, uruchamianie, wykonywanie kopii
-   zapasowych oraz przetwarzanie własnych danych. Szczegółowe warunki (w tym ewentualne
-   przeniesienie autorskich praw majątkowych, modyfikacje i serwis) określa odrębna umowa
-   między Autorem a Licencjobiorcą — w razie rozbieżności pierwszeństwo ma umowa.
+   Licencjobiorca otrzymuje niewyłączną, nieprzenoszalną licencję na korzystanie z oprogramowania
+   w ramach własnej działalności, na dowolnej liczbie stanowisk i serwerów w swojej sieci, na czas
+   nieoznaczony, na następujących polach eksploatacji:
+     a) instalowanie, uruchamianie, wyświetlanie i stosowanie oprogramowania,
+     b) trwałe i czasowe zwielokrotnianie w zakresie niezbędnym do tych czynności, w tym wykonywanie
+        kopii zapasowych oprogramowania i danych,
+     c) przetwarzanie własnych danych Licencjobiorcy.
+   Licencja nie obejmuje przeniesienia autorskich praw majątkowych. Szczegółowe warunki (w tym
+   wynagrodzenie, ewentualne przeniesienie praw, zakres modyfikacji, serwis, termin i warunki
+   wypowiedzenia) określa odrębna umowa między Autorem a Licencjobiorcą — w razie rozbieżności
+   pierwszeństwo ma umowa.
 
 3. Ograniczenia
    Bez uprzedniej pisemnej zgody Autora zabrania się:
-     a) udostępniania, sprzedaży, sublicencjonowania lub rozpowszechniania oprogramowania
-        osobom trzecim,
-     b) modyfikowania, dekompilacji lub tworzenia utworów zależnych poza zakresem
-        przewidzianym w umowie,
-     c) usuwania lub zmiany oznaczeń autorstwa i praw autorskich, w tym stopki
+     a) udostępniania, sprzedaży, najmu, użyczenia, sublicencjonowania lub rozpowszechniania
+        oprogramowania osobom trzecim,
+     b) przenoszenia licencji na inny podmiot,
+     c) modyfikowania, dekompilacji lub tworzenia utworów zależnych poza zakresem przewidzianym
+        w umowie lub w bezwzględnie obowiązujących przepisach prawa,
+     d) usuwania lub zmiany oznaczeń autorstwa i praw autorskich, w tym stopki
         „Program stworzony przez Roesner Mateusz dla ResInvest Commodities”.
 
 4. Dane
-   Dane wprowadzone do programu (operacje, dokumenty, kartoteki, konta) stanowią
-   własność Licencjobiorcy. Licencjobiorca odpowiada za kopie zapasowe (w trybie serwera
-   program wykonuje je automatycznie) oraz za zabezpieczenie komputera serwera i kont.
+   Dane wprowadzone do programu (operacje, dokumenty, skany, rejestry, kartoteki, konta) stanowią
+   własność Licencjobiorcy. Licencjobiorca odpowiada za kopie zapasowe (w trybie serwera program
+   wykonuje je automatycznie) oraz za zabezpieczenie komputerów, serwera bazy danych i kont.
 
 5. Wyłączenie odpowiedzialności
    Oprogramowanie jest dostarczane „TAKIE, JAKIE JEST”, bez gwarancji wykraczających poza
@@ -39,8 +53,13 @@ Licencjobiorca:  ResInvest Commodities
    z dokumentacją lub z utraty danych, której zapobiegłaby kopia zapasowa.
 
 6. Składniki stron trzecich
+   Składniki wymienione poniżej nie są objęte niniejszą licencją — obowiązują ich własne licencje,
+   które pozostają bez zmian.
    * Czcionka dokumentów ResInvestDocSans — podzbiór Liberation Sans, licencja
-     SIL Open Font License 1.1 (docs/LICENSE-czcionki-OFL.txt).
+     SIL Open Font License 1.1 (w instalacji: docs\LICENSE-czcionki-OFL.txt).
+   * jsQR 1.4.0 — dekoder kodów QR osadzony w programie, licencja Apache-2.0 (app/vendor/jsQR.LICENSE).
    * Node.js — dołączany przez instalator serwera jako runtime\node.exe, licencja MIT
      i licencje składników wymienione w runtime\LICENSE-node.txt.
-   Program nie zawiera innych bibliotek stron trzecich.
+   * node-postgres (pakiet „pg” i jego zależności) — sterownik bazy PostgreSQL dołączany przez instalator
+     serwera w katalogu node_modules, licencja MIT (pliki LICENSE w katalogach pakietów).
+   * PostgreSQL — serwer bazy danych instalowany osobno przez Licencjobiorcę, licencja PostgreSQL License.

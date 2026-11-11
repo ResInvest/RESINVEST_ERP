@@ -164,7 +164,7 @@
     html() {
       const S = Store.state;
       return `<div class="page-head"><div class="titles"><h2>${th("Magazyny")}</h2><p>${th("Magazyny firmy z przypisanymi kierownikami, magazynierami i flotą, stanem i zamkniętymi okresami. Ludzi przydziela się w module Użytkownicy, pojazdy i rębaki — w module Flota.")}</p></div>
-          <div class="actions">${addBtn("warehouses", N_("Nowy magazyn"))}</div></div>
+          <div class="actions"><a class="btn" href="#/stanypoczatkowe">${ic("layers", 15)} ${th("Stany początkowe")}</a>${addBtn("warehouses", N_("Nowy magazyn"))}</div></div>
         <div class="grid g2">${S.warehouses.map(w => {
           const m = Stock.byProduct(S, w.id), per = {};
           for (const [pid, q] of m) { const p = App.product(pid); if (Math.abs(q) > R.EPS) per[p.unit] = R.rq((per[p.unit] || 0) + q); }
@@ -687,7 +687,9 @@
           ${srv ? `<div class="card"><div class="card-h"><h3>${th("Kopie serwera (SQLite)")}</h3><span class="spacer"></span><button class="btn sm" type="button" id="srv-bk" ${App.can("data.backup") ? "" : "disabled"}>${ic("db", 13)} ${th("Utwórz kopię teraz")}</button></div><div id="srv-bk-list"><div class="empty">…</div></div></div>` : ""}
           ${App.can("users.manage") ? `<div class="card" id="clean-card"><div class="card-h"><h3>${th("Start pracy na czysto")}</h3></div><div class="card-b stack">
             <p class="muted">${th("Usuwa operacje, dokumenty, księgę, wersje robocze i okresy inwentaryzacji — zostają magazyny, produkty, kontrahenci, flota i konta użytkowników. Użyj przed rozpoczęciem pracy na prawdziwych danych (po szkoleniu na danych przykładowych). Przed wyczyszczeniem pobierz kopię.")}</p>
-            <div><button class="btn danger" type="button" id="dm-clean">${ic("trash", 15)} ${th("Wyczyść operacje i rozpocznij pracę")}</button></div></div></div>` : ""}
+            <div><button class="btn danger" type="button" id="dm-clean">${ic("trash", 15)} ${th("Wyczyść operacje i rozpocznij pracę")}</button></div>
+            <p class="help">${th("Po przeniesieniu danych wpisz stany magazynów RiC Zabrze, RiC Brąszewice i RiC Rokitki w edytorze stanów początkowych.")}</p>
+            <div><a class="btn" href="#/stanypoczatkowe" id="dm-opening">${ic("layers", 15)} ${th("Stany początkowe magazynów")}</a></div></div></div>` : ""}
           <div class="card"><div class="card-h"><h3>${th("Preferencje programu")}</h3></div><div class="card-b stack">
             <label class="inline-opt"><input type="checkbox" id="pf-intro" ${intro && intro.enabled() ? "checked" : ""}> ${th("Intro przy uruchomieniu")}</label>
             <label class="inline-opt"><input type="checkbox" id="pf-music" ${intro && intro.musicOn() ? "checked" : ""}> ${th("Muzyka w intro (domyślnie włączona)")}</label>

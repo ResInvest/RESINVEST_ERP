@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ResInvest ERP — połączenie</title>
+<style>
+  :root { --bg:#EEF2EF; --surface:#FFFFFF; --border:#D8E0DA; --text:#17241D; --text-2:#46594E; --text-3:#5F7166;
+          --brand:#1E6B45; --brand-2:#237A50; --brand-soft:#E3F1E8; --err:#B3261E; --err-soft:#FCE8E6; --ok:#1E6B45; --gold:#C9A227; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0F1512; --surface:#18201B; --border:#2A352E; --text:#E6EDE8; --text-2:#B7C4BB; --text-3:#93A399;
+            --brand:#3DA370; --brand-2:#48B07C; --brand-soft:#1C3326; --err:#F2B8B5; --err-soft:#3A1E1C; --ok:#7FD3A6; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { min-height: 100vh; padding: max(20px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 12px; margin: 8px 0 22px; }
+  .logo { width: 48px; height: 48px; border-radius: 12px; background: var(--brand); display: grid; place-items: center; color: #fff; font-weight: 800; letter-spacing: .5px; }
+  .logo b { color: var(--gold); }
+  h1 { font-size: 21px; margin: 0; }
+  .sub { color: var(--text-3); font-size: 13.5px; margin: 2px 0 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .opt { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+  .opt input { margin-top: 4px; width: 20px; height: 20px; accent-color: var(--brand); flex: none; }
+  .opt b { display: block; font-size: 16px; }
+  .opt span { color: var(--text-2); font-size: 13.5px; }
+  .card.sel { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+  label.f { display: block; font-size: 13px; color: var(--text-2); margin: 14px 0 6px; font-weight: 600; }
+  input[type=url] { width: 100%; padding: 13px 12px; font-size: 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  input[type=url]:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+  .hint { color: var(--text-3); font-size: 12.5px; margin-top: 6px; }
+  .btn { display: block; width: 100%; padding: 14px; font-size: 16px; font-weight: 700; border-radius: 12px; border: 0; background: var(--brand); color: #fff; margin-top: 10px; }
+  .btn.ghost { background: transparent; color: var(--brand); border: 1px solid var(--border); font-weight: 600; }
+  .btn:disabled { opacity: .55; }
+  .msg { border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-top: 12px; display: none; }
+  .msg.err { display: block; background: var(--err-soft); color: var(--err); }
+  .msg.ok { display: block; background: var(--brand-soft); color: var(--ok); }
+  .hidden { display: none; }
+  footer { color: var(--text-3); font-size: 12px; text-align: center; margin-top: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><div class="logo">Ri<b>C</b></div><div><h1>ResInvest ERP</h1><p class="sub" id="ver">Aplikacja na telefon</p></div></div>
+
+  <div class="msg err" id="err-top"></div>
+
+  <label class="card opt" id="c-server"><input type="radio" name="mode" value="server" checked>
+    <div><b>Serwer firmy</b><span>Wspólne dane wszystkich stanowisk (zalecane). Telefon musi być w sieci firmy albo mieć dostęp do serwera.</span></div></label>
+  <div class="card" id="srv-box">
+    <label class="f" for="url">Adres serwera</label>
+    <input type="url" id="url" inputmode="url" autocomplete="url" autocapitalize="off" spellcheck="false" placeholder="http://192.168.1.10:8080">
+    <div class="hint">Adres podaje okno serwera na komputerze firmy — wiersz „w sieci: …”, np. <b>http://192.168.1.10:8080</b>. Można też otworzyć ten adres w przeglądarce telefonu, aby sprawdzić dostęp.</div>
+    <button class="btn ghost" type="button" id="test">Sprawdź połączenie</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <label class="card opt" id="c-local"><input type="radio" name="mode" value="local">
+    <div><b>Bez serwera (dane w telefonie)</b><span>Program działa samodzielnie, dane tylko na tym telefonie — kopie zapasowe w Administracji.</span></div></label>
+  <label class="card opt" id="c-demo"><input type="radio" name="mode" value="demo">
+    <div><b>Wersja demonstracyjna</b><span>Dane przykładowe (hasło kont: demo1234) — do sprawdzenia programu, oddzielnie od danych firmy.</span></div></label>
+
+  <button class="btn" type="button" id="go">Uruchom program</button>
+  <footer>Ustawienie można zmienić później: menu użytkownika → „Aplikacja — adres serwera”.</footer>
+</div>
+<script>
+(function () {
+  var N = window.RIWSetup || null;
+  var $ = function (id) { return document.getElementById(id); };
+  var q = new URLSearchParams(location.search);
+  var cfg = {}; try { cfg = JSON.parse(N ? N.config() : "{}"); } catch (e) {}
+  if (cfg.version) $("ver").textContent = "Aplikacja na telefon · wersja " + cfg.version;
+  $("url").value = cfg.serverUrl || "";
+  if (q.get("error")) { $("err-top").textContent = q.get("error"); $("err-top").style.display = "block"; }
+  var mode = cfg.mode || "server";
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll('input[name=mode]').forEach(function (r) { r.checked = r.value === m; });
+    ["server", "local", "demo"].forEach(function (k) { $("c-" + k).classList.toggle("sel", k === m); });
+    $("srv-box").classList.toggle("hidden", m !== "server");
+  }
+  document.querySelectorAll('input[name=mode]').forEach(function (r) { r.onchange = function () { setMode(r.value); }; });
+  setMode(mode);
+  function norm(u) {
+    u = String(u || "").trim(); if (!u) return "";
+    if (!/^https?:\/\//i.test(u)) u = "http://" + u;
+    try { var x = new URL(u); return x.protocol + "//" + x.host; } catch (e) { return ""; }
+  }
+  function say(el, ok, text) { el.className = "msg " + (ok ? "ok" : "err"); el.textContent = text; }
+  // wynik sprawdzenia z aplikacji: window.riwTestResult(ok, tekst)
+  var pending = null;
+  window.riwTestResult = function (ok, text) { $("test").disabled = false; $("go").disabled = false; say($("msg"), ok, text); if (pending) { var p = pending; pending = null; if (ok) p(); } };
+  function test(then) {
+    var u = norm($("url").value);
+    if (!u) { say($("msg"), false, "Wpisz adres serwera, np. http://192.168.1.10:8080"); return; }
+    $("url").value = u; $("test").disabled = true; $("go").disabled = true; say($("msg"), true, "Łączenie z " + u + "…");
+    pending = then || null;
+    if (N) N.test(u); else window.riwTestResult(false, "Brak połączenia z aplikacją.");
+  }
+  $("test").onclick = function () { test(null); };
+  $("go").onclick = function () {
+    if (mode === "server") test(function () { N.save("server", norm($("url").value)); });
+    else if (N) N.save(mode, "");
+  };
+})();
+</script>
+</body>
+</html>

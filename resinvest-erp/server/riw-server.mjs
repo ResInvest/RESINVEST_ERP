@@ -6,6 +6,8 @@
    Opcje:         --port 8080  --data <katalog>  --open (otwórz przeglądarkę)
                   --backup-now                      (kopia i zakończenie)
                   --restore <plik.sqlite>           (przywrócenie kopii; serwer zatrzymany)
+   Baza danych:   DB_DRIVER=sqlite (domyślnie, plik lokalny) albo DB_DRIVER=postgres (tryb firmowy) — server.env;
+                  migracja SQLite → PostgreSQL i wycofanie: tools/db-migrate.mjs (docs/POSTGRESQL.md)
                   --reset-password <login>          (nowe hasło tymczasowe; serwer zatrzymany)
                   --check                           (kontrola spójności bazy i dziennika)
                   --mail-test <adres>               (wiadomość próbna — sprawdzenie poczty)
@@ -16,12 +18,18 @@ import { createServer as createHttp } from "node:http";
 import { createServer as createHttps } from "node:https";
 import { readFileSync, writeFileSync, existsSync, copyFileSync, createReadStream, statSync, renameSync, mkdirSync, unlinkSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { gzipSync, gzip } from "node:zlib";
 import { spawn } from "node:child_process";
 import { randomBytes, createHash } from "node:crypto";
 import { networkInterfaces } from "node:os";
 import { ROOT, Store, ROWS, loadConfig, loadEnv, parseDomains, makeLogger, verifyPassword, I18N, R, AuthLib, Service } from "./core.mjs";
 import { mailConfig, mailInfo, mailHint, sendMail, compose, sendRaw } from "./mail.mjs";
+import { databaseConfig } from "./db/index.mjs";
+import { gzipSync } from "node:zlib";
+import { SEC_HEADERS, createResponder, readBody, readRaw, cookies, ipOf } from "./http/respond.mjs";
+import { createStateViews, sinceOf } from "./http/state-view.mjs";
+import { createWindowLimiter } from "./http/rate-limit.mjs";
+import { envValue, setEnvLine } from "./env-file.mjs";
+import { createEudrRoutes } from "./eudr-routes.mjs";
 
 const [major, minor] = process.versions.node.split(".").map(Number);
 if (major < 22 || (major === 22 && minor < 13)) { console.error(`ResInvest ERP Serwer wymaga Node.js 22.13 lub nowszego (jest ${process.versions.node}).`); process.exit(1); }
@@ -39,7 +47,49 @@ let mailCfg = mailConfig(env, cfg.dataDir);           // 3.13: przeładowywane p
 cfg.backup.copyTo = String(env.BACKUP_COPY_TO || "").split(";").map(x => x.trim()).filter(Boolean);
 const HOURS = { invite: Number(env.INVITE_HOURS) || 72, reset: Number(env.RESET_HOURS) || 1, confirm: Number(env.CONFIRM_HOURS) || 48 };
 
+/* ---------------- przygotowanie bazy PostgreSQL z instalatora (strona „Baza danych”) ---------------- */
+// --db-setup <plik.json>: konto i baza programu, połączenie, zapis do server.env, przeniesienie danych z SQLite.
+// Wykonywane przed otwarciem bazy (błędna konfiguracja w server.env nie blokuje jej poprawienia). Szczegóły: server/db-setup.mjs
+if (arg("--db-setup")) {
+  let b = {};
+  const out = (code, lines) => {
+    const text = lines.join("\r\n");
+    console.log(text);
+    if (b.resultFile) { try { writeFileSync(String(b.resultFile), "\uFEFF" + text + "\r\n"); } catch (e) { /* tylko konsola */ } }
+    process.exit(code);
+  };
+  try { b = JSON.parse(readFileSync(String(arg("--db-setup")), "utf8").replace(/^\uFEFF/, "")); }
+  catch (e) { console.log("Błąd: nie można odczytać ustawień bazy (" + e.message + ")"); process.exit(2); }
+  const { dbSetup } = await import("./db-setup.mjs");
+  let r;
+  try { r = dbSetup(cfg, b, log); } catch (e) { r = { code: 2, lines: ["Błąd przygotowania bazy: " + e.message] }; }
+  log(r.code === 0 ? "INFO" : "ERROR", "Baza danych z instalatora: " + r.lines.join(" | "));
+  out(r.code, r.lines);
+}
+// silnik bazy z server.env (DB_DRIVER) — błąd konfiguracji zatrzymuje start z czytelnym komunikatem (bez hasła)
+try { cfg.database = databaseConfig(env); }
+catch (e) { console.error("Konfiguracja bazy danych: " + e.message); process.exit(1); }
+const openStore = (c, l) => {
+  try { return new Store(c, l); }
+  catch (e) {
+    if (c.database.driver !== "postgres" || !(e && (e.name === "PgError" || /PostgreSQL/.test(String(e.message))))) throw e;
+    log("ERROR", "Baza PostgreSQL niedostępna — serwer nie został uruchomiony: " + e.message);
+    console.error("Sprawdź DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD (albo DATABASE_URL) w server.env oraz czy usługa PostgreSQL działa.");
+    process.exit(3);
+  }
+};
+
 /* ---------------- polecenia administracyjne (bez uruchamiania serwera) ---------------- */
+if (arg("--restore") && cfg.database.driver === "postgres") {
+  // PostgreSQL: kopia (.sqlite w formacie serwera) jest sprawdzana, bieżąca baza zachowana jako „pre-restore”,
+  // a dane zastępowane w jednej transakcji — szczegóły: server/migrate.mjs
+  const { restoreToPostgres } = await import("./migrate.mjs");
+  const r = restoreToPostgres(cfg, String(arg("--restore")), (lvl, m) => console.log(`[restore] ${m}`));
+  if (!r.ok) { console.error("Przywracanie przerwane — baza bez zmian: " + r.error); process.exit(1); }
+  if (r.kept) console.log("Poprzednia baza zachowana: " + r.kept);
+  console.log(r.integrity.ok ? `Przywrócono: rewizja ${r.rev == null ? "—" : r.rev}.` : "UWAGA: " + r.integrity.notes.join("; "));
+  process.exit(r.integrity.ok ? 0 : 2);
+}
 if (arg("--restore")) {
   const src = String(arg("--restore"));
   if (!existsSync(src)) { console.error("Brak pliku: " + src); process.exit(1); }
@@ -53,7 +103,7 @@ if (arg("--restore")) {
   console.log(s.integrity.ok ? `Przywrócono: rewizja ${s.state ? s.state.rev : "—"}.` : "UWAGA: " + s.integrity.notes.join("; "));
   s.close(); process.exit(0);
 }
-const store = new Store(cfg, log);
+const store = openStore(cfg, log);
 if (arg("--check")) { console.log(JSON.stringify({ ok: store.integrity.ok, notes: store.integrity.notes, rev: store.state && store.state.rev, journal: store.journalCount }, null, 1)); store.close(); process.exit(store.integrity.ok ? 0 : 2); }
 if (arg("--backup-now")) { const r = store.backup("manual"); console.log(r.file); store.close(); process.exit(0); }
 if (arg("--reset-password")) {
@@ -74,142 +124,32 @@ if (arg("--mail-test")) {
 }
 
 /* ---------------- HTTP ---------------- */
-// connect-src data: — intro zamienia osadzony film na Blob przez fetch(data:) (bez połączeń sieciowych; 3.13)
-const SEC_HEADERS = {
-  "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer",
-  "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
-};
 const tls = cfg.tls && cfg.tls.cert && cfg.tls.key && existsSync(cfg.tls.cert) && existsSync(cfg.tls.key);
 const COOKIE = "riw_sid";
 const clients = new Set();   // SSE
-const ipHits = new Map();
+const limiter = createWindowLimiter();     // logowania z adresu IP i wysyłka e-mail (okno przesuwne)
 
-function send(req, res, status, body, type = "application/json; charset=utf-8", extra = {}) {
-  const view = body && typeof body === "object" && !Buffer.isBuffer(body) ? body[VIEW] : null;
-  const wantGz = /\bgzip\b/.test(req.headers["accept-encoding"] || "");
-  let data;
-  if (view) {
-    const rest = JSON.stringify(Object.assign({}, body)).slice(1, -1);          // pola odpowiedzi poza stanem (ok, res, mail…)
-    if (rest === '"ok":true' && wantGz) {                                          // odczyt stanu — gotowa, zapamiętana kompresja
-      if (view.gz) data = view.gz;
-      else {
-        // 3.14: pełny stan (MB) kompresowany w wątku roboczym — serwer w tym czasie obsługuje innych; równoczesne prośby
-        // o ten sam widok czekają na jedną kompresję (wcześniej gzipSync blokował serwer przy otwieraniu programu przez wiele osób)
-        if (!view.gzWait) view.gzWait = new Promise((ok, fail) => gzip(Buffer.from("{" + rest + "," + view.body + "}"), { level: 1 }, (e, out) => e ? fail(e) : ok(out)));
-        view.gzWait.then(out => { view.gz = out; send(req, res, status, body, type, extra); }, e => {
-          log("ERROR", "Kompresja stanu: " + e.message); view.gzWait = null;
-          const raw = "{" + rest + "," + view.body + "}";               // bez kompresji (awaryjnie)
-          res.writeHead(status, Object.assign({ "Content-Type": type, "Cache-Control": "no-store" }, SEC_HEADERS, extra, { "Content-Length": Buffer.byteLength(raw) })); res.end(raw);
-        });
-        return;
-      }
-    } else data = "{" + (rest ? rest + "," : "") + view.body + "}";
-  } else data = typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body);
-  const headers = Object.assign({ "Content-Type": type, "Cache-Control": "no-store" }, SEC_HEADERS, extra);
-  if (data === (view && view.gz)) headers["Content-Encoding"] = "gzip";
-  else if (data.length > 2048 && wantGz) { data = gzipSync(data, { level: 1 }); headers["Content-Encoding"] = "gzip"; }
-  headers["Content-Length"] = Buffer.byteLength(data);
-  res.writeHead(status, headers); res.end(data);
-}
-const json = (req, res, status, obj, extra) => send(req, res, status, obj, "application/json; charset=utf-8", extra);
-function readBody(req, limit = 60 * 1024 * 1024) {
-  return new Promise((resolve, reject) => {
-    if (Number(req.headers["content-length"] || 0) > limit) { reject(new Error("too large")); req.resume(); return; }
-    const chunks = []; let n = 0;
-    req.on("data", c => { n += c.length; if (n > limit) { reject(new Error("too large")); req.destroy(); } else chunks.push(c); });
-    req.on("end", () => { try { resolve(chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {}); } catch (e) { reject(e); } });
-    req.on("error", reject);
-  });
-}
-/** 3.14: surowa treść żądania (pliki skanów) z limitem rozmiaru; przekroczenie → błąd „too large”. */
-function readRaw(req, limit) {
-  return new Promise((resolve, reject) => {
-    const declared = Number(req.headers["content-length"] || 0);
-    if (declared > limit) { reject(Object.assign(new Error("too large"), { code: "TOO_LARGE" })); req.resume(); return; }
-    const chunks = []; let n = 0, done = false;
-    req.on("data", c => { if (done) return; n += c.length; if (n > limit) { done = true; reject(Object.assign(new Error("too large"), { code: "TOO_LARGE" })); req.resume(); } else chunks.push(c); });
-    req.on("end", () => { if (!done) { done = true; resolve(Buffer.concat(chunks)); } });
-    req.on("error", e => { if (!done) { done = true; reject(e); } });
-  });
-}
-const cookies = req => Object.fromEntries(String(req.headers.cookie || "").split(";").map(x => x.trim().split("=")).filter(x => x[0]).map(([k, ...v]) => [k, decodeURIComponent(v.join("="))]));
-const ipOf = req => (req.socket.remoteAddress || "").replace(/^::ffff:/, "");
+const { send, json } = createResponder((lvl, m) => log(lvl, m));
 const langOf = (req, user) => (user && user.lang && I18N.has(user.lang)) ? user.lang : (String(req.headers["accept-language"] || "").slice(0, 2).toLowerCase().replace(/[^a-z]/g, "") || "pl");
 const sessionCookie = token => `${COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/${tls ? "; Secure" : ""}`;
 const clearCookie = `${COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${tls ? "; Secure" : ""}`;
-function rateLimited(ip) {
-  const now = Date.now(), win = 15 * 60000, arr = (ipHits.get(ip) || []).filter(x => now - x < win);
-  arr.push(now); ipHits.set(ip, arr);
-  return arr.length > cfg.security.ipAttemptsPer15Min;
-}
+const rateLimited = ip => limiter.hit("ip:" + ip, cfg.security.ipAttemptsPer15Min, 15);
 function broadcast(rev, by) {
   const msg = `event: rev\ndata: ${JSON.stringify({ rev, by })}\n\n`;
   for (const c of clients) { try { c.write(msg); } catch (e) { clients.delete(c); } }
 }
-/**
- * Stan wysyłany do przeglądarki — WYŁĄCZNIE widok użytkownika (izolacja magazynów, Service.project).
- * Konta i hasła nie są częścią stanu.
- */
-/**
- * Widok stanu dla użytkownika (tylko jego magazyny). Wynik jest zapamiętywany dla bieżącej rewizji: wielu pracowników
- * odczytujących ten sam stan nie powoduje ponownego liczenia, zamiany na JSON ani kompresji (test obciążeniowy 3.9.1; od 3.10 — także synchronizacja samymi zmianami).
- * Każda zmiana stanu (nowa rewizja) unieważnia pamięć.
- */
-const viewCache = { rev: -1, today: "", map: new Map() };
-function viewEntry(userId) {
-  const rev = store.state.rev, today = store.today();
-  if (viewCache.rev !== rev || viewCache.today !== today) { R.applyRoles(store.state); viewCache.rev = rev; viewCache.today = today; viewCache.map.clear(); }
-  let v = viewCache.map.get(userId);
-  if (!v) { v = { proj: Service.project(store.state, { id: userId }), body: null, gz: null }; viewCache.map.set(userId, v); }
-  return v;
-}
-function stateView(userId) {
-  const v = viewEntry(userId);
-  if (v.body === null) v.body = JSON.stringify({ state: v.proj, today: viewCache.today, rev: viewCache.rev }).slice(1, -1);   // wnętrze obiektu — doklejane bez ponownej serializacji
-  return v;
-}
-/**
- * Synchronizacja samymi zmianami (3.10): przeglądarka podaje rewizję, którą ma (`since`); serwer odsyła rdzeń widoku
- * (kartoteki, konfiguracja — kilkanaście kB) i w kolekcjach tylko rekordy nowe / zmienione z ich pozycją w widoku
- * oraz identyfikatory usuniętych lub już niewidocznych. `n` — liczba rekordów kolekcji (kontrola po stronie klienta).
- * Brak historii zmian, zmiana kont / uprawnień / kolejności → null (pełny stan).
- */
-function deltaView(userId, since) {
-  if (!Number.isInteger(since) || since < 0) return null;
-  const ch = store.changesSince(since);
-  if (!ch) return null;
-  const v = viewEntry(userId), P = v.proj;
-  if (!P) return null;
-  const core = {}, colls = {};
-  for (const k of Object.keys(P)) if (!ROWS.includes(k)) core[k] = P[k];
-  for (const k of ROWS) {
-    const up = ch.up[k], del = ch.del[k];
-    if (!(up && up.size) && !(del && del.size)) continue;
-    const arr = P[k] || [], ins = [], seen = new Set();
-    if (up && up.size) for (let i = 0; i < arr.length; i++) { const id = String(arr[i].id); if (up.has(id)) { ins.push([i, arr[i]]); seen.add(id); } }
-    const gone = del ? [...del] : [];
-    if (up) for (const id of up) if (!seen.has(id)) gone.push(id);        // zmieniony, ale poza widokiem użytkownika
-    colls[k] = { up: ins, del: gone, n: arr.length };
-  }
-  return { body: JSON.stringify({ delta: { since, core, colls }, today: viewCache.today, rev: viewCache.rev }).slice(1, -1), gz: null };
-}
-/** Znacznik: obiekt odpowiedzi z gotowym fragmentem stanu (pełny widok albo same zmiany od `since`) — patrz send(). */
-const statePayload = (userId, since) => ({ [VIEW]: (since != null && deltaView(userId, since)) || stateView(userId) });
-const sinceOf = v => { const n = Number(v); return v !== undefined && v !== null && v !== "" && Number.isInteger(n) && n >= 0 ? n : null; };
-const VIEW = Symbol("stateView");
+/* widok stanu dla użytkownika (izolacja magazynów, pamięć na rewizję, synchronizacja zmianami) — server/http/state-view.mjs */
+const { statePayload } = createStateViews({ store, R, Service, ROWS });
 const metaOf = req => ({ ip: ipOf(req), ua: String(req.headers["user-agent"] || "").slice(0, 200) });
+// 3.16: moduł EUDR — pliki dokumentów i system informacyjny EUDR (TRACES); dane dostępowe wyłącznie z server.env
+const eudrRoutes = createEudrRoutes({ store, R, cfg, env, log, json, readRaw, readBody, broadcast, statePayload: (...a) => statePayload(...a), sinceOf, metaOf, SEC_HEADERS });
 /** Adres programu w linkach e-mail: APP_URL; bez niego — adres wyznaczony przez serwer (nigdy z nagłówka Host). */
 const appUrl = () => {
   if (env.APP_URL) return String(env.APP_URL).replace(/\/+$/, "");
   const ip = Object.values(networkInterfaces()).flat().find(n => n && n.family === "IPv4" && !n.internal);
   return `${tls ? "https" : "http"}://${cfg.host === "127.0.0.1" || !ip ? "localhost" : ip.address}:${cfg.port}`;
 };
-const mailHits = new Map();
-function mailLimited(key, max, minutes) {
-  const now = Date.now(), win = minutes * 60000, arr = (mailHits.get(key) || []).filter(x => now - x < win);
-  arr.push(now); mailHits.set(key, arr);
-  return arr.length > max;
-}
+const mailLimited = (key, max, minutes) => limiter.hit("mail:" + key, max, minutes);
 const whName = id => (R.byId(store.state.warehouses, id) || {}).name || "";
 
 /* ---------------- 3.13: konfiguracja poczty z programu (zapis w <dane>/server.env, bez restartu) ---------------- */
@@ -219,23 +159,6 @@ function mailSettings() {
   return { transport: mailCfg.transport, host: mailCfg.smtp.host, port: mailCfg.smtp.port, secure: mailCfg.smtp.secure, user: mailCfg.smtp.user, hasPass: !!mailCfg.smtp.pass,
     from: String(env.EMAIL_FROM || ""), replyTo: String(env.EMAIL_REPLY_TO || ""), appUrl: String(env.APP_URL || ""), appUrlEffective: appUrl(),
     envFile: join(cfg.dataDir, "server.env"), overridden: MAIL_KEYS.filter(k => process.env[k] !== undefined && process.env[k] !== "") };
-}
-/** Wartość dla pliku .env — w cudzysłowie, gdy zawiera spację, # albo cudzysłów (parser server.env zdejmuje cudzysłowy). */
-function envValue(v) {
-  const x = String(v == null ? "" : v);
-  if (/[\r\n]/.test(x)) return null;
-  if (!/[\s#"']/.test(x)) return x;
-  if (!x.includes('"')) return `"${x}"`;
-  if (!x.includes("'")) return `'${x}'`;
-  return null;
-}
-function setEnvLine(text, key, value) {
-  const re = new RegExp(`^[ \\t]*(?:#[ \\t]*)?${key}[ \\t]*=.*$`, "m");
-  const active = new RegExp(`^[ \\t]*${key}[ \\t]*=.*$`, "m");
-  const line = `${key}=${value}`;
-  if (active.test(text)) return text.replace(active, () => line);              // funkcja: „$” w haśle bez specjalnego znaczenia
-  if (re.test(text)) return text.replace(re, () => line);
-  return `${text.replace(/\s*$/, "")}\r\n${line}\r\n`;
 }
 function saveMailConfig(b) {
   const transport = ["smtp", "resend", "agentmail", "file"].includes(b.transport) ? b.transport : "smtp";
@@ -295,6 +218,15 @@ if (arg("--mail-setup")) {
   if (store.state) store.logMail("test", to, null, sent, mailCfg.transport);
   say(sent.ok ? `Zapisano konfigurację poczty. Wiadomość testowa wysłana na ${to}.` : `Zapisano konfigurację, ale wiadomość testowa nie wyszła: ${sent.error}${sent.hint ? "\n" + sent.hint : ""}`);
   store.close(); process.exit(sent.ok ? 0 : 3);
+}
+// PostgreSQL: jeden serwer zapisujący na bazę — druga instancja na tej samej bazie nie startuje
+// (każdy serwer trzyma stan w pamięci; dwa naraz nadpisywałyby sobie zmiany). SQLite: bez zmian.
+{
+  const lock = store.db.acquireWriterLock();
+  if (!lock.ok) {
+    log("ERROR", `Bazę ${store.db.describe()} obsługuje już inny serwer ResInvest ERP${lock.holder ? ` (${lock.holder})` : ""}. Ten serwer nie został uruchomiony.`);
+    store.close(); process.exit(2);
+  }
 }
 /** Wysyłka z szablonu + zapis w kolejce `outbox`. Komunikat dla użytkownika bez szczegółów technicznych. */
 async function mailTo(template, u, data, email) {
@@ -437,7 +369,7 @@ async function handleApi(req, res, url) {
     const origin = req.headers.origin;
     if (origin && origin !== `${tls ? "https" : "http"}://${req.headers.host}`) return json(req, res, 403, { ok: false, error: t("Żądanie odrzucone (inne pochodzenie)") });
   }
-  if (path === "/api/health") return json(req, res, 200, { ok: true, app: "resinvest-erp", mode: "server", version: VERSION, setup: !store.hasAccounts(), integrity: store.integrity.ok, host: req.headers.host, selfRegistration: !!(store.state && store.state.config.allowSelfRegistration), mailReady: !mailInfo(mailCfg).problem && mailCfg.transport !== "file", companyDomains: store.state ? (store.state.config.companyDomains || []) : ((globalThis.RIW_CONFIG && globalThis.RIW_CONFIG.companyDomains) || []) });
+  if (path === "/api/health") return json(req, res, 200, { ok: true, app: "resinvest-erp", mode: "server", version: VERSION, db: store.db.dialect, setup: !store.hasAccounts(), integrity: store.integrity.ok, host: req.headers.host, selfRegistration: !!(store.state && store.state.config.allowSelfRegistration), mailReady: !mailInfo(mailCfg).problem && mailCfg.transport !== "file", companyDomains: store.state ? (store.state.config.companyDomains || []) : ((globalThis.RIW_CONFIG && globalThis.RIW_CONFIG.companyDomains) || []) });
   if (path === "/api/setup" && method === "POST") {
     if (store.hasAccounts()) return json(req, res, 409, { ok: false, error: t("Serwer jest już skonfigurowany") });
     const b = await readBody(req, 64 * 1024);                                    // 3.14: bez sesji — mały limit treści
@@ -578,6 +510,7 @@ async function handleApi(req, res, url) {
     clients.add(res); req.on("close", () => clients.delete(res));
     return;
   }
+  if (path.startsWith("/api/eudr/") && await eudrRoutes(req, res, path, method, url, user)) return;
   /* ---- 3.14: skany dokumentów i zdjęcia operacji ---- */
   if (path === "/api/scans" && method === "POST") {
     R.applyRoles(store.state);
@@ -627,6 +560,9 @@ async function handleApi(req, res, url) {
     const b = await readBody(req);
     const cmd = String(b.cmd || ""), args = b.args || {};
     // 3.14: skan dołącza wyłącznie serwer po zapisaniu pliku (/api/scans) — nie z polecenia przeglądarki
+    // 3.16: plik dokumentu EUDR dołącza wyłącznie serwer po zapisaniu (/api/eudr/files); wyniki testów sieciowych zapisuje serwer
+    if (cmd === "eudr.doc.save" && args.file) return json(req, res, 403, { ok: true, res: { ok: false, code: "FORBIDDEN", error: "Pliki dokumentów EUDR wysyła się przez /api/eudr/files" }, today: store.today() });
+    if (cmd === "eudr.tests.record") args.mode = "local";
     if (cmd === "scan.attach") return json(req, res, 403, { ok: true, res: { ok: false, code: "FORBIDDEN", error: t("Skany dodaje się przez wysłanie pliku") }, today: store.today() });
     // nowe konto w trybie FIRMOWYM tylko przez zaproszenie (/api/users/invite) albo z hasłem tymczasowym (/api/users)
     if (cmd === "user.save" && !(args.rec && args.rec.id)) return json(req, res, 403, { ok: true, res: { ok: false, code: "FORBIDDEN", error: t("Nowe konto dodaje się przez zaproszenie e-mail") }, today: store.today() });
@@ -838,6 +774,14 @@ async function handler(req, res) {
       return res.end(data);
     }
     if (url.pathname === "/favicon.ico") { res.writeHead(204); return res.end(); }
+    // 3.15: aplikacja na telefon (Android) do pobrania z serwera firmy — plik z instalatora ({app}\aplikacja) albo z budowy
+    if (req.method === "GET" && url.pathname === "/aplikacja/ResInvestERP_Android.apk") {
+      const apk = [join(ROOT, "aplikacja", "ResInvestERP_Android.apk"), join(ROOT, "installer", "Output", "ResInvestERP_Android.apk")].find(f => existsSync(f));
+      if (!apk) return send(req, res, 404, t("Aplikacja na telefon nie jest dołączona do tej instalacji."), "text/plain; charset=utf-8");
+      const st = statSync(apk);
+      res.writeHead(200, Object.assign({}, SEC_HEADERS, { "Content-Type": "application/vnd.android.package-archive", "Content-Length": st.size, "Content-Disposition": 'attachment; filename="ResInvestERP_Android.apk"', "Cache-Control": "no-cache" }));
+      return createReadStream(apk).pipe(res);
+    }
     send(req, res, 404, "Not found", "text/plain; charset=utf-8");
   } catch (e) {
     log("ERROR", `${req.method} ${url.pathname}: ${e.stack || e.message}`);
@@ -875,6 +819,7 @@ server.listen(cfg.port, cfg.host, () => {
   const proto = tls ? "https" : "http";
   const ips = Object.values(networkInterfaces()).flat().filter(n => n && n.family === "IPv4" && !n.internal).map(n => n.address);
   log("INFO", `ResInvest ERP Serwer ${VERSION} — ${proto}://localhost:${cfg.port}` + (cfg.host === "0.0.0.0" && ips.length ? ` · w sieci: ${ips.map(ip => `${proto}://${ip}:${cfg.port}`).join(", ")}` : ""));
+  log("INFO", `Baza danych: ${store.db.describe()}`);
   log("INFO", `Dane: ${cfg.dataDir} · kopie: ${cfg.backupDir}${cfg.backup.copyTo.length ? " + folder firmy: " + cfg.backup.copyTo.join("; ") : ""} · spójność: ${store.integrity.ok ? "OK" : store.integrity.notes.join("; ")}`);
   const mi = mailInfo(mailCfg);
   log("INFO", `Poczta: ${mi.transport}${mi.smtp ? ` ${mi.smtp.host}:${mi.smtp.port} (${mi.smtp.secure})` : ""}${mi.configured ? "" : ` (NIEPEŁNA KONFIGURACJA: ${mi.problem} — wysyłka nie zadziała)`} · nadawca: ${mi.from} · linki: ${appUrl()}${env.APP_URL ? "" : " (ustaw APP_URL)"}${mi.outDir ? " · wiadomości zapisywane w: " + mi.outDir : ""}${envFiles.length ? " · środowisko: " + envFiles.join(", ") : ""}`);
@@ -885,7 +830,7 @@ server.listen(cfg.port, cfg.host, () => {
   try { store.autoBackup(true); } catch (e) { log("ERROR", "Kopia przy starcie: " + e.message); }
 });
 const timers = [
-  setInterval(() => { try { store.autoBackup(false); store.purgeSessions(); } catch (e) { log("ERROR", "Kopia automatyczna: " + e.message); } }, 10 * 60000),
+  setInterval(() => { try { store.autoBackup(false); store.purgeSessions(); limiter.prune(); } catch (e) { log("ERROR", "Kopia automatyczna: " + e.message); } }, 10 * 60000),
   setInterval(() => { for (const c of clients) { try { c.write(": ping\n\n"); } catch (e) { clients.delete(c); } } }, 25000),
   // kolejka poczty: ponowienia według terminów (1 min, 5 min, 15 min, 1 h, 6 h)
   setInterval(() => { drainMail().catch(e => log("ERROR", "Kolejka poczty: " + e.message)); }, 5000)

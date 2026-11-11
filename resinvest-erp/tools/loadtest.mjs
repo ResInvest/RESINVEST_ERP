@@ -193,7 +193,8 @@ async function main() {
     await stop();
     const chk = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", join(ROOT, "server/riw-server.mjs"), "--check"], { env, encoding: "utf8" });
     let check = null; try { check = JSON.parse(chk.stdout); } catch (e) { check = { ok: false, raw: chk.stdout + chk.stderr }; }
-    const dbFile = join(dir, "data", "resinvest.sqlite"), dbMb = statSync(dbFile).size / 1048576;
+    // tryb PostgreSQL (DB_DRIVER=postgres): lokalnego pliku bazy nie ma — rozmiar 0
+    const dbFile = join(dir, "data", "resinvest.sqlite"), dbMb = existsSync(dbFile) ? statSync(dbFile).size / 1048576 : 0;
     const walFiles = readdirSync(join(dir, "data")).filter(f => f.startsWith("resinvest.sqlite"));
 
     const total = Object.values(stats).reduce((s, x) => s + x.n, 0), errs = Object.values(stats).reduce((s, x) => s + x.err, 0);

@@ -25,8 +25,10 @@
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const fid = key => "f-" + key.replace(/\./g, "-");
   const str = v => String(v == null ? "" : v).trim();
-  const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
-  const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} };
+  /** 3.15: wersja demonstracyjna — klucze „riw.*” w osobnej przestrzeni (storageNs); program firmowy: klucze bez zmian. */
+  const lsKey = k => root.RIW_CONFIG && root.RIW_CONFIG.storageNs && /^riw\./.test(k) ? k.replace(/^riw\./, root.RIW_CONFIG.storageNs + ".") : k;
+  const lsGet = (k, d) => { try { const v = localStorage.getItem(lsKey(k)); return v === null ? d : v; } catch (e) { return d; } };
+  const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(lsKey(k)); else localStorage.setItem(lsKey(k), v); } catch (e) {} };
   const ssGet = (k, d) => { try { const v = sessionStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
   const ssSet = (k, v) => { try { if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) {} };
   const initials = name => String(name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase();
@@ -69,8 +71,25 @@
   };
   const ic = (n, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${IC[n] || ""}"/></svg>`;
 
+  /** 3.15: aplikacja na telefon (Android) — most do systemu: zapis plików w „Pobrane”, drukowanie, adres serwera.
+      W przeglądarce `root.RIWNative` nie istnieje i wszystkie funkcje działają jak dotąd. */
+  const Native = {
+    get on() { return !!(root.RIWNative && typeof root.RIWNative.saveFile === "function"); },
+    /** Zapis pliku (Blob) w folderze „Pobrane” telefonu; open = od razu otwórz w aplikacji systemowej. */
+    saveBlob(name, blob, open) {
+      const fr = new FileReader();
+      fr.onload = () => { const s = String(fr.result || ""); try { root.RIWNative.saveFile(String(name), blob.type || "application/octet-stream", s.slice(s.indexOf(",") + 1), !!open); } catch (e) {} };
+      fr.readAsDataURL(blob);
+    },
+    /** Plik spod adresu (blob: albo adres serwera — z ciasteczkiem sesji) → „Pobrane”. */
+    async saveUrl(url, name, open) {
+      if (/^blob:/.test(url)) { const b = await (await fetch(url)).blob(); return this.saveBlob(name, b, open); }
+      try { root.RIWNative.download(new URL(url, location.href).href, String(name || ""), !!open); } catch (e) {}
+    }
+  };
   function download(name, data, mime) {
     const blob = data instanceof Blob ? data : new Blob([data], { type: mime || "text/plain;charset=utf-8" });
+    if (Native.on) return Native.saveBlob(name, blob, false);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click();
@@ -356,9 +375,11 @@
   /* ------------------------------------------------------------------ */
   /* Dane: tryb lokalny i serwerowy                                      */
   /* ------------------------------------------------------------------ */
-  const KEY = "riw.v3.state";
+  /** 3.15: wersja demonstracyjna (build --edition demo) trzyma dane w osobnej przestrzeni przeglądarki — nie miesza się z danymi trybu lokalnego. */
+  const nsKey = k => root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? k.replace(/^riw\./, root.RIW_CONFIG.storageNs + ".") : k;
+  const KEY = nsKey("riw.v3.state");
   const OLD_KEYS = ["riw.demo.state.v3", "riw.demo.state.v2", "riw.demo.state.v1"];
-  const DRAFT_KEY = "riw.v3.form";
+  const DRAFT_KEY = nsKey("riw.v3.form");
 
   /** Tryb lokalny: dane i konta w przeglądarce (jedno stanowisko / pokaz). */
   const LocalBackend = {
@@ -404,6 +425,7 @@
         // pierwsze uruchomienie: czysta baza (administrator, magazyny, katalog produktów); dane przykładowe tylko na życzenie
         const st = this.startup();
         s = sample ? R.Seed.build(App.today()) : R.Seed.minimal({ email: st.adminEmail, name: st.adminName, today: App.today(), allowSelfRegistration: st.allowSelfRegistration !== false });
+        if (sample && root.RIW_CONFIG && root.RIW_CONFIG.landing) s.config.allowSelfRegistration = true;      // 3.15: demo ver. 2 — „Utwórz konto” na ekranie startowym
         fresh = !sample;
       }
       try { if (!this.memoryOnly) this.write(s); } catch (e) { this.memoryOnly = true; }
@@ -417,6 +439,8 @@
     startup() { const c = (root.RIW_CONFIG && root.RIW_CONFIG.startup) || {}; return { adminEmail: String(c.adminEmail || R.Seed.ADMIN_EMAIL).trim().toLowerCase(), adminName: c.adminName || "Administrator", adminPassword: c.adminPassword || "", allowSelfRegistration: c.allowSelfRegistration }; },
     /** Dane przykładowe na start: konfiguracja sampleData albo przełącznik szkoleniowy riw.sample = 1. */
     sampleWanted() { return (root.RIW_CONFIG && root.RIW_CONFIG.sampleData === true) || lsGet("riw.sample", "") === "1"; },
+    /** 3.15: wersja demonstracyjna (dane przykładowe, osobna przestrzeń przeglądarki). */
+    demo() { return !!(root.RIW_CONFIG && (root.RIW_CONFIG.edition === "demo" || root.RIW_CONFIG.edition === "demo2")); },
     /**
      * Dane demonstracyjne zapisane przez wcześniejsze wersje (albo przez otwartą jeszcze starą kartę programu) →
      * kopia pod osobnym kluczem i start od zera. Nie dotyczy danych firmy ani danych przykładowych wczytanych
@@ -665,6 +689,13 @@
     { id: "mm", label: N_("MM"), icon: "swap" },
     { id: "transport", label: N_("Transport"), icon: "truck" },
     { id: "planer", label: N_("Planer zakupów"), icon: "calendar", perm: "report.view" },
+    { group: N_("Plac i kolej") },
+    { id: "plac", label: N_("Plan placu"), icon: "layers", perm: "report.view" },
+    { id: "pociagi", label: N_("Terminarz pociągów"), icon: "calendar", perm: "report.view" },
+    { id: "zaladunek", label: N_("Symulacja załadunku"), icon: "play", perm: "report.view" },
+    { id: "operator", label: N_("Panel operatora"), icon: "phone", perm: "load.run" },
+    { group: N_("EUDR") },
+    { id: "eudr", label: N_("EUDR — drewno surowe"), icon: "shieldCheck", test: () => !!(R.Eudr && R.Eudr.allowed(Store.state, App.user(), "view")) },
     { group: N_("Ewidencja") },
     { id: "stany", label: N_("Stany magazynowe"), icon: "layers" },
     { id: "dokumenty", label: N_("Dokumenty"), icon: "file" },
@@ -677,6 +708,7 @@
     { id: "dodatkowe", label: N_("Dodatkowe operacje"), icon: "layers" },
     { id: "kontrahenci", label: N_("Kontrahenci"), icon: "users" },
     { id: "magazyny", label: N_("Magazyny"), icon: "building" },
+    { id: "stanypoczatkowe", label: N_("Stany początkowe"), icon: "layers", perm: "report.view" },
     { group: N_("Ustawienia") },
     { id: "wyglad", label: N_("Wygląd i język"), icon: "drop" },
     { id: "uzytkownicy", label: N_("Użytkownicy"), icon: "key", perm: "users.read" },
@@ -807,9 +839,17 @@
         } catch (x) {}
       }
     },
+    /** Zmiana danych z zewnątrz (inny użytkownik / karta). 3.15: kilka zmian w jednej klatce = jedno odświeżenie ekranu
+        (wcześniej każda rewizja SSE przebudowywała cały widok osobno). */
     onExternalChange() {
-      if (!Store.userId) return;
-      if ((this.route === "nowa" || this.route === "korekta") && $("#opf") && root.RIWForm) root.RIWForm.refresh(); else this.render({ keepForm: true });
+      if (this._extPending) return;
+      this._extPending = true;
+      const run = () => {
+        this._extPending = false;
+        if (!Store.userId) return;
+        if ((this.route === "nowa" || this.route === "korekta") && $("#opf") && root.RIWForm) root.RIWForm.refresh(); else this.render({ keepForm: true });
+      };
+      if (root.requestAnimationFrame && !document.hidden) root.requestAnimationFrame(run); else setTimeout(run, 0);
     },
 
     /* ---------- powłoka ---------- */
@@ -842,6 +882,7 @@
               <button class="icon-btn bell-btn" id="bell-btn" type="button" aria-haspopup="menu" aria-label="${esc(t("Powiadomienia"))}"></button>
               <button class="user-btn" id="user-btn" type="button" aria-haspopup="menu"></button>
             </header>
+            ${LocalBackend.demo() ? `<div class="demo-ribbon" id="demo-ribbon" role="note"><b>${esc(t("Wersja demonstracyjna"))}</b><span>${esc(t("Dane przykładowe — zapisywane tylko w tej przeglądarce. Konta: hasło demo1234."))}</span><button class="btn sm" type="button" id="demo-guide">${ic("list", 13)} ${esc(t("Co sprawdzić"))}</button></div>` : ""}
             <main class="page" id="page" tabindex="-1"></main>
             <footer class="app-foot">${Auth.credit()}</footer>
           </div>
@@ -855,6 +896,7 @@
       $("#intro-btn").onclick = () => root.Intro && root.Intro.play({ force: true });
       $("#user-btn").onclick = e => this.userMenu(e.currentTarget);
       $("#bell-btn").onclick = e => root.RIWUI.Bell && root.RIWUI.Bell.open(e.currentTarget);
+      const dg = $("#demo-guide"); if (dg) dg.onclick = () => Auth.demoGuide();
       $("#wh-chip").onclick = e => this.whMenu(e.currentTarget);
       document.addEventListener("keydown", this._keys || (this._keys = e => {
         if (!Store.userId) return;
@@ -890,12 +932,14 @@
         <button class="dd-item" type="button" data-pw><span class="ic">${ic("key", 16)}</span>${esc(t("Zmiana hasła"))}</button>
         ${this.myWarehouses().length > 1 ? `<button class="dd-item" type="button" data-whsw><span class="ic">${ic("building", 16)}</span>${esc(t("Magazyn"))}: ${esc(this.whName(u.whId))}</button>` : ""}
         ${this.can("users.read") ? `<a class="dd-item" href="#/uzytkownicy" data-go><span class="ic">${ic("users", 16)}</span>${esc(t("Użytkownicy"))}</a>` : ""}
+        ${Native.on ? `<button class="dd-item" type="button" data-appsrv><span class="ic">${ic("settings", 16)}</span>${esc(t("Aplikacja — adres serwera"))}</button>` : ""}
         <div class="dd-sep"></div>
         <button class="dd-item danger" type="button" data-logout id="logout-btn"><span class="ic">${ic("logout", 16)}</span>${esc(t("Wyloguj"))}</button>`, el => {
         $$("[data-go]", el).forEach(a => a.onclick = () => Dropdown.close());
         $("[data-pw]", el).onclick = () => { Dropdown.close(); Auth.changePasswordDialog(); };
         const sw = $("[data-whsw]", el); if (sw) sw.onclick = () => { Dropdown.close(); this.whMenu($("#wh-chip")); };
         $("[data-logout]", el).onclick = () => this.logout();
+        const as = $("[data-appsrv]", el); if (as) as.onclick = () => { Dropdown.close(); try { root.RIWNative.settings(); } catch (e) {} };
       });
     },
     /** Przełączenie magazynu roboczego — tylko magazyny przydzielone (role globalne: wszystkie). */
@@ -935,7 +979,7 @@
       document.body.classList.remove("nav-open");
       const active = HIDDEN_ROUTES[route] ? HIDDEN_ROUTES[route].parent : route;
       // grupa bez żadnej pozycji dostępnej dla roli (np. „Ustawienia” u magazyniera) nie jest pokazywana
-      const visible = NAV.filter(n => !n.perm || this.can(n.perm)).filter((n, i, a) => !n.group || (a[i + 1] && !a[i + 1].group));
+      const visible = NAV.filter(n => (!n.perm || this.can(n.perm)) && (!n.test || n.test())).filter((n, i, a) => !n.group || (a[i + 1] && !a[i + 1].group));
       $("#nav").innerHTML = visible.map(n => n.group ? `<div class="sb-group">${esc(t(n.group))}</div>` :
         `<a class="nav-item" href="#/${n.id}" data-nav="${n.id}" title="${esc(t(n.label))}" ${n.id === active ? 'aria-current="page"' : ""}><span class="ic">${ic(n.icon, 17)}</span><span class="nl">${esc(t(n.label))}</span>${this.navBadge(n.id)}</a>`).join("");
       this.refreshChrome();
@@ -1109,6 +1153,27 @@
           <ul class="auth-feat">${feat.map(([i, x]) => `<li><span class="fi">${ic(i, 16)}</span>${esc(x)}</li>`).join("")}</ul></div>
         <div class="auth-facts"><div><b>3</b><span>${esc(t("języki: PL · CS · EN"))}</span></div><div><b>${THEME_LIST.length}</b><span>${esc(t("motywy kolorystyczne"))}</span></div><div><b>100%</b><span>${esc(t("operacji w dzienniku audytu"))}</span></div><div><b>24/7</b><span>${esc(t("kopie zapasowe bazy i skanów"))}</span></div></div></section>`;
     },
+    /** 3.15: wersja demonstracyjna — lista rzeczy do sprawdzenia (silnik, dokumenty, skany, motywy, role). */
+    demoGuide() {
+      const items = [
+        ["#/nowa?preset=wz", N_("Sprzedaż z magazynu — dokument WZ, wydruk i PDF (Dokumenty)")],
+        ["#/nowa", N_("Zakup z produkcją i transportem — PZ, RW, PW, kursy (Nowa operacja)")],
+        ["#/operacje", N_("Korekta, anulowanie i skany dokumentów w szczegółach operacji (Operacje)")],
+        ["#/mm", N_("Przesunięcie MM: wysłanie, „W drodze”, przyjęcie na magazynie docelowym")],
+        ["#/stanypoczatkowe", N_("Stany początkowe magazynów — edytor przy przenoszeniu danych")],
+        ["#/stany", N_("Stany magazynowe i kartoteka produktu")],
+        ["#/raporty", N_("Raporty: dzień, tydzień, miesiąc, rok; eksport CSV / XLSX / PDF")],
+        ["#/historia", N_("Historia operacji z filtrami")],
+        ["#/inwentaryzacja", N_("Inwentaryzacja i zamknięcie miesiąca")],
+        ["#/wyglad", N_("Motywy, kolory, język (PL / CS / EN) i rozdzielczość")],
+        ["#/administracja", N_("Przywrócenie danych przykładowych i zmiana daty systemowej (Administracja)")]
+      ];
+      const m = Modal.open({ title: t("Wersja demonstracyjna — co sprawdzić"), id: "demo-guide-dialog", wide: true,
+        body: `<p class="muted">${esc(t("Wszystkie funkcje działają na tym samym silniku co program firmowy. Dane przykładowe: magazyny RiC Zabrze, RiC Brąszewice i RiC Rokitki, operacje od sierpnia 2026. Zaloguj się innym kontem demonstracyjnym (hasło demo1234), aby sprawdzić role: kierownik, magazynier, obserwator, audytor."))}</p>
+          <ol class="demo-list">${items.map(([href, label]) => `<li><a href="${esc(href)}" data-close>${esc(t(label))}</a></li>`).join("")}</ol>`,
+        footer: `<button class="btn" type="button" data-close>${esc(t("Zamknij"))}</button>` });
+      m.el.querySelectorAll("[data-close]").forEach(x => x.addEventListener("click", () => m.close()));
+    },
     /** Edycja Premium (build --edition premium): ekran startowy ze zdjęciem i panelem logowania. */
     premium() { return !!(root.RIW_CONFIG && root.RIW_CONFIG.edition === "premium"); },
     premiumLogo() {
@@ -1147,6 +1212,8 @@
       const prem = this.premium();
       const tabsP = !this.selfRegistration() ? "" : `<div class="prem-tabs" role="tablist"><button type="button" role="tab" data-auth-tab="login" aria-pressed="${!reg}">${esc(t("Zaloguj się"))}</button><button type="button" role="tab" data-auth-tab="register" aria-pressed="${reg}">${esc(t("Rejestracja"))}</button></div>`;
       const remembered = lsGet("riw.lastLogin", "");
+      // 3.15: telefon z Androidem w przeglądarce (tryb serwera) — aplikacja do pobrania z serwera firmy
+      const appLink = !local && !Native.on && /Android/i.test((root.navigator && navigator.userAgent) || "") ? `<a class="btn ghost block mt2" href="/aplikacja/ResInvestERP_Android.apk" id="lg-android" download>${ic("dl", 15)} ${esc(t("Aplikacja na telefon (Android)"))}</a>` : "";
       const loginFormP = `<form id="login-form" novalidate autocomplete="on">
               <div class="field"><label for="lg-login">${esc(t("E-mail"))}</label><input class="ctrl" id="lg-login" type="email" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="${esc(t("uzytkownik@resinvest.group"))}" value="${esc(opts.login || remembered)}"></div>
               ${pwField("lg-pass", t("Hasło"), "current-password")}
@@ -1157,6 +1224,7 @@
               <div class="auth-err hidden" id="lg-err" role="alert"></div>
               <button class="btn primary lg block" type="submit" id="lg-submit">${esc(t("Zaloguj się do systemu"))}</button>
               ${this.selfRegistration() ? `<button type="button" class="prem-reg" id="lg-register">${esc(t("Zarejestruj nowe konto"))}</button>` : ""}
+              ${appLink}
             </form>`;
       const loginForm = prem ? loginFormP : `<form id="login-form" novalidate autocomplete="on">
               <div class="field"><label for="lg-login">${esc(t("E-mail służbowy"))}</label><input class="ctrl" id="lg-login" type="email" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="${esc(t("imie.nazwisko@resinvest.group"))}" value="${esc(opts.login || lsGet("riw.lastLogin", ""))}"></div>
@@ -1166,6 +1234,7 @@
               <button class="btn primary lg block" type="submit" id="lg-submit">${ic("lock", 16)} ${esc(t("Zaloguj się"))}</button>
               ${local ? `<p class="help mt2">${esc(t("Nie pamiętasz hasła? W trybie OFFLINE nowe hasło tymczasowe nadaje administrator ({e}).", { e: R.Seed ? R.Seed.ADMIN_EMAIL : "" }))}</p>`
                 : `<a class="btn ghost block mt2" href="#/forgot-password" id="lg-forgot">${esc(t("Nie pamiętam hasła"))}</a>`}
+              ${appLink}
             </form>`;
       const regForm = `<form id="reg-form" novalidate autocomplete="on">
               <p class="help">${esc(t("Rejestracja wyłącznie adresem firmowym ({d}). Konto aktywuje administrator — nadaje rolę i magazyn.", { d: domains }))}</p>
@@ -1347,7 +1416,7 @@
   const Views = {};
   const statusBadge = st => `<span class="badge st-${esc(st)}" data-status="${esc(st)}">${esc(t(R.STATUS[st] || st))}</span>`;
 
-  root.RIWUI = { R, I18N, t, tp, N_, esc, $, $$, ic, fid, str, lsGet, lsSet, ssGet, ssSet, initials, download, csvNum, toCSV, Toast, Modal, Dropdown, Store, LocalBackend, ServerBackend, App, Auth, Prefs, THEME_LIST, Clr, customThemeVars, gradientThemeVars, uiZoomFor, uiZoom, Views, statusBadge, KEY, DRAFT_KEY, NAV, pwField, bindEyes, pwMeter, bindMeter };
+  root.RIWUI = { R, I18N, t, tp, N_, esc, $, $$, ic, fid, str, lsGet, lsSet, ssGet, ssSet, initials, download, Native, csvNum, toCSV, Toast, Modal, Dropdown, Store, LocalBackend, ServerBackend, App, Auth, Prefs, THEME_LIST, Clr, customThemeVars, gradientThemeVars, uiZoomFor, uiZoom, Views, statusBadge, KEY, DRAFT_KEY, NAV, pwField, bindEyes, pwMeter, bindMeter };
   root.App = App;
   root.Dropdown = Dropdown;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Buduje instalatory Windows ResInvest ERP Serwer 3.14 (warianty: firma, gmail, otwarta) na Linuksie (Wine + Inno Setup 6.4 z pakietu npm „innosetup”).
+# Buduje instalatory Windows ResInvest ERP Serwer 3.15 (warianty: firma, gmail, otwarta) na Linuksie (Wine + Inno Setup 6.4 z pakietu npm „innosetup”).
 # Wynik: installer/Output/ResInvestERP_SerwerFirma.exe, ResInvestERP_GoogleSerwer.exe, ResInvestERP_SerwerNoLimit.exe
 # Odpowiednik installer\build-installer.ps1 dla serwera budowania bez Windows.
 # Wymagania: Node.js >= 22.13, wine64 + wine32 (Ubuntu: dpkg --add-architecture i386; apt install wine64 wine32:i386),
@@ -19,13 +19,17 @@ EDITIONS="${EDITIONS:-firma gmail otwarta}"
 command -v wine >/dev/null 2>&1 || export PATH="/usr/lib/wine:$PATH"
 
 echo "== 1/4 Budowanie ResInvest_ERP.html i danych przykładowych"
+# sterownik PostgreSQL (jedyna zależność; czysty JavaScript) — trafia do instalatora z node_modules
+npm ci --omit=dev --silent
 node tools/build.mjs
 node tools/export-sample-data.mjs
 node tools/i18n-extract.mjs
+# 3.15: aplikacja na telefon (Android) — dołączana do instalatora, gdy jest Android SDK (inaczej instalator bez APK)
+if [ -n "${ANDROID_HOME:-}" ] || [ -d /opt/android-sdk/platforms ]; then node tools/build-android.mjs --skip-html; else echo "(brak Android SDK — instalator bez aplikacji na telefon)"; fi
 
 if [ "${1:-}" != "--skip-tests" ]; then
   echo "== 2/4 Testy jednostkowe i integracyjne"
-  node --test tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs tests/mail313.test.mjs tests/features314.test.mjs tests/scans314.test.mjs
+  node --test tests/features315.test.mjs tests/server-modules315.test.mjs tests/yardplan315.test.mjs tests/yardplan-server315.test.mjs tests/eudr316.test.mjs tests/eudr-server316.test.mjs tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs tests/mail313.test.mjs tests/features314.test.mjs tests/scans314.test.mjs
 fi
 
 echo "== 3/4 Środowisko Node.js $NODE_VERSION (win-x64) — weryfikacja SHA-256"

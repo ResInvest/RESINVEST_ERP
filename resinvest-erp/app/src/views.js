@@ -7,7 +7,7 @@
 (function (root) {
   "use strict";
   const UI = root.RIWUI;
-  const { R, t, tp, N_, esc, $, $$, ic, download, csvNum, toCSV, Toast, Modal, Store, ServerBackend, App, Views, statusBadge, transportText, CANCEL_REASONS } = UI;
+  const { R, t, tp, N_, esc, $, $$, ic, download, Native, csvNum, toCSV, Toast, Modal, Store, ServerBackend, App, Views, statusBadge, transportText, CANCEL_REASONS } = UI;
   const { fmt, fmtQ, money, Units, Dates, Stock } = R;
   const PDF = root.RIW_PDF;
   const OFFICE = root.RIW_OFFICE;
@@ -72,7 +72,8 @@
       if (whId && l.whId !== whId) continue;
       if (l.kind !== "BO" && l.kind !== "INW") continue;
       const r = extra.get(l.docNo) || { type: l.kind === "BO" ? "BO" : "IN", no: l.docNo, date: l.date, whId: l.whId, productId: null, qty: null, unit: null, value: 0, partner: "", place: App.whName(l.whId), stock: l.kind === "BO" ? "+" : "±", status: "POSTED", lines: 0, userName: l.userName };
-      r.lines++; extra.set(l.docNo, r);
+      r.lines++; if (l.kind === "BO" && l.qty < 0) r.stock = "±";   // 3.15: korekta stanu początkowego (różnica ujemna)
+      extra.set(l.docNo, r);
     }
     rows.push(...extra.values());
     return rows.sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : String(b.no).localeCompare(String(a.no)));
@@ -100,6 +101,11 @@
       return Object.assign({}, model, { number: model.number || no, generatedAt: nowText(), generatedBy: `${u.name} (${App.roleLabel(u.role)})`, system: `ResInvest ERP ${R.VERSION}`, labels: PDF.labels() });
     },
     async print(model, kind) {
+      if (Native.on && typeof root.RIWNative.printHtml === "function") {           // aplikacja na telefon: systemowe drukowanie Androida
+        const no = await this.register(model, kind, "print");
+        try { root.RIWNative.printHtml(PDF.toHTML(this.finish(model, no)), String(model.title || "ResInvest ERP")); } catch (e) {}
+        return;
+      }
       const w = root.open("", "_blank");
       if (!w) { Toast.warn(t("Okno wydruku zablokowane"), t("Zezwól na wyskakujące okna dla tego pliku.")); return; }
       const no = await this.register(model, kind, "print");
@@ -139,7 +145,7 @@
   const splitMails = s => [...new Set(String(s || "").split(/[\s,;]+/).map(x => x.trim().toLowerCase()).filter(Boolean))];
   function bytesToB64(bytes) { let s = ""; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s); }
   const MailDialog = {
-    LAST: "riw.mail.lastTo",
+    LAST: root.RIW_CONFIG && root.RIW_CONFIG.storageNs ? root.RIW_CONFIG.storageNs + ".mail.lastTo" : "riw.mail.lastTo",
     lastTo() { try { return localStorage.getItem(this.LAST) || ""; } catch (e) { return ""; } },
     open({ m, bytes, name }, kind) {
       const server = Store.mode === "server", u = App.user();
@@ -624,14 +630,31 @@
   /* ------------------------------------------------------------------ */
   /* Wspólne: rejestr operacji i okno drill-down                          */
   /* ------------------------------------------------------------------ */
-  function opsTable(ops, { id = "ops-table", showWh = false, compact = false } = {}) {
+  /** 3.15: nagłówek grupy (dzień / miesiąc) w rejestrze operacji — liczba operacji i wartość (bez anulowanych i usuniętych). */
+  const WEEKDAYS = [N_("Niedziela"), N_("Poniedziałek"), N_("Wtorek"), N_("Środa"), N_("Czwartek"), N_("Piątek"), N_("Sobota")];
+  const opsGroupKey = (o, by) => by === "month" ? o.date.slice(0, 7) : o.date;
+  const opsGroupLabel = (k, by) => by === "month" ? Dates.label(k) : `${Dates.pl(k)} · ${t(WEEKDAYS[new Date(k + "T00:00:00Z").getUTCDay()])}`;
+  function opsGroupRow(k, list, by, cols) {
+    const live = list.filter(o => o.status !== "CANCELLED" && !o.deleted);
+    const val = live.reduce((a, o) => a + (Number(opValue(o)) || 0), 0);
+    return `<tr class="ops-grp" data-ops-group="${esc(k)}"><td colspan="${cols}"><span class="ops-grp-l">${ic("calendar", 13)} ${esc(opsGroupLabel(k, by))}</span><span class="ops-grp-s">${esc(tp("{n} operacja|{n} operacje|{n} operacji", list.length))} · ${esc(money(val))}</span></td></tr>`;
+  }
+  function opsTable(ops, { id = "ops-table", showWh = false, compact = false, groupBy = "" } = {}) {
     if (!ops.length) return `<div class="empty">${th("Brak operacji dla wybranych filtrów.")}</div>`;
     if (compact) return `<div class="tbl-wrap"><table class="tbl" id="${id}"><thead><tr><th>${th("Nr")}</th><th>${th("Data")}</th><th>${th("Rodzaj / produkt")}</th><th>${th("Status")}</th><th class="r">${th("Ilość")}</th><th class="r">${th("Wartość")}</th></tr></thead><tbody>
       ${ops.map(o => `<tr class="clickable ${o.status === "CANCELLED" ? "void" : ""}" data-opid="${esc(o.id)}"><td class="mono nowrap">${esc(o.no)}</td><td class="nowrap">${esc(Dates.pl(o.date))}</td><td>${TYPE_BADGE(o)}<br><small class="dim">${esc(opProduct(o))}</small></td><td>${opStatusBadge(o)}${o.type === "MM" ? " " + mmBadge(o) : ""}</td><td class="r nowrap">${esc(opQty(o))}</td><td class="r nowrap">${esc(money(opValue(o)))}</td></tr>`).join("")}</tbody></table></div>`;
-    return `<div class="tbl-wrap"><table class="tbl" id="${id}"><thead><tr><th>${th("Nr")}</th><th>${th("Data")}</th><th>${th("Rodzaj")}</th><th>${th("Status")}</th>${showWh ? `<th>${th("Magazyn")}</th>` : ""}<th>${th("Produkt")}</th><th class="r">${th("Ilość")}</th><th>${th("Kontrahent")}</th><th class="r">${th("Wartość")}</th><th>${th("Użytkownik")}</th><th></th></tr></thead><tbody>
-      ${ops.map(o => `<tr class="clickable ${o.status === "CANCELLED" ? "void" : ""}" data-opid="${esc(o.id)}"><td class="mono nowrap">${esc(o.no)}</td><td class="nowrap">${esc(Dates.pl(o.date))}</td><td>${TYPE_BADGE(o)}</td><td>${opStatusBadge(o)}${o.type === "MM" ? " " + mmBadge(o) : ""}</td>${showWh ? `<td>${esc(App.whName(o.whId))}${o.toWhId ? ` → ${esc(App.whName(o.toWhId))}` : ""}</td>` : ""}
+    const row = o => `<tr class="clickable ${o.status === "CANCELLED" ? "void" : ""}" data-opid="${esc(o.id)}"><td class="mono nowrap">${esc(o.no)}</td><td class="nowrap">${esc(Dates.pl(o.date))}</td><td>${TYPE_BADGE(o)}</td><td>${opStatusBadge(o)}${o.type === "MM" ? " " + mmBadge(o) : ""}</td>${showWh ? `<td>${esc(App.whName(o.whId))}${o.toWhId ? ` → ${esc(App.whName(o.toWhId))}` : ""}</td>` : ""}
         <td>${esc(opProduct(o))}</td><td class="r nowrap">${esc(opQty(o))}</td><td>${esc(partnerName(opPartnerId(o)) || (o.mm ? o.mm.toWhName : ""))}</td><td class="r nowrap">${esc(money(opValue(o)))}</td><td>${esc(o.userName)}</td>
-        <td class="r"><button class="btn sm" type="button">${th("Szczegóły")}</button></td></tr>`).join("")}</tbody></table></div>`;
+        <td class="r"><button class="btn sm" type="button">${th("Szczegóły")}</button></td></tr>`;
+    const cols = showWh ? 11 : 10;
+    let body;
+    if (groupBy) {
+      const groups = new Map();
+      for (const o of ops) { const k = opsGroupKey(o, groupBy); const a = groups.get(k); if (a) a.push(o); else groups.set(k, [o]); }
+      body = [...groups].map(([k, list]) => opsGroupRow(k, list, groupBy, cols) + list.map(row).join("")).join("");
+    } else body = ops.map(row).join("");
+    return `<div class="tbl-wrap"><table class="tbl${groupBy ? " ops-grouped" : ""}" id="${id}"><thead><tr><th>${th("Nr")}</th><th>${th("Data")}</th><th>${th("Rodzaj")}</th><th>${th("Status")}</th>${showWh ? `<th>${th("Magazyn")}</th>` : ""}<th>${th("Produkt")}</th><th class="r">${th("Ilość")}</th><th>${th("Kontrahent")}</th><th class="r">${th("Wartość")}</th><th>${th("Użytkownik")}</th><th></th></tr></thead><tbody>
+      ${body}</tbody></table></div>`;
   }
   function bindOps(scope) { $$("[data-opid]", scope).forEach(tr => tr.onclick = () => OpDetail.open(tr.dataset.opid)); }
   function drill(ids, title) {
@@ -663,20 +686,37 @@
   /* ================================================================== */
   /* OPERACJE — rejestr, wersje robocze                                   */
   /* ================================================================== */
+  /** 3.15: okres rejestru operacji — jak w „Kwit produkcji dnia”: wybór dnia / tygodnia / miesiąca / roku i przewijanie ← →. */
+  const OPS_MODES = [["day", N_("Dzień")], ["week", N_("Tydzień")], ["month", N_("Miesiąc")], ["year", N_("Rok")], ["all", N_("Cały okres")]];
+  const opsTab = () => App.tabs.ops || (App.tabs.ops = { type: "", status: "", mode: "month", date: App.today(), q: "", scope: "active", showDeleted: false });
+  function opsRange(f) {
+    const d = f.date || App.today();
+    if (f.mode === "all") return { from: "", to: "", label: t("cały okres") };
+    return Dates.range({ mode: f.mode, date: d, ym: d.slice(0, 7), year: d.slice(0, 4) }, App.today());
+  }
+  function opsShift(f, dir) {
+    const d = f.date || App.today();
+    f.date = f.mode === "day" ? Dates.addDays(d, dir) : f.mode === "week" ? Dates.addDays(d, 7 * dir) : f.mode === "month" ? Dates.addMonths(d.slice(0, 7), dir) + "-01"
+      : f.mode === "year" ? `${Number(d.slice(0, 4)) + dir}-01-01` : d;
+  }
   Views.operacje = {
     filtered() {
-      const f = App.tabs.ops || (App.tabs.ops = { type: "", status: "", ym: "", q: "", scope: "active", showDeleted: false });
+      const f = opsTab(), rg = opsRange(f);
       const q = f.q.trim().toLowerCase(), wh = App.user().whId;
       return Store.state.operations.filter(o => (f.scope === "all" || o.whId === wh || o.toWhId === wh) &&
         (f.showDeleted || f.status === "DELETED" || !o.deleted) &&
         (!f.type || (f.type === "DIRECT" ? o.direct : f.type === "SPRZEDAZ" ? o.type === "SPRZEDAZ" && !o.direct : o.type === f.type)) &&
-        (!f.status || (f.status === "DELETED" ? !!o.deleted : o.status === f.status && !o.deleted)) && (!f.ym || o.date.startsWith(f.ym)) &&
+        (!f.status || (f.status === "DELETED" ? !!o.deleted : o.status === f.status && !o.deleted)) && (!rg.from || (o.date >= rg.from && o.date <= rg.to)) &&
         (!q || [o.no, o.place, o.userName, opProduct(o), partnerName(opPartnerId(o)), o.extDoc, o.notes, ...o.documents.map(d => d.no)].join(" ").toLowerCase().includes(q)))
         .slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : a.createdAt < b.createdAt ? 1 : -1);
     },
     html() {
-      const S = Store.state, f = App.tabs.ops || (App.tabs.ops = { type: "", status: "", ym: "", q: "", scope: "active", showDeleted: false });
+      const S = Store.state, f = opsTab(), rg = opsRange(f);
       const rows = this.filtered();
+      const groupBy = f.mode === "day" ? "" : f.mode === "year" || f.mode === "all" ? "month" : "day";
+      const dateField = f.mode === "all" ? "" : f.mode === "month" ? `<input class="ctrl" type="month" id="o-ym" value="${esc((f.date || App.today()).slice(0, 7))}">`
+        : f.mode === "year" ? `<input class="ctrl" type="number" min="2000" max="2100" id="o-year" value="${esc((f.date || App.today()).slice(0, 4))}">`
+        : `<input class="ctrl" type="date" id="o-date" value="${esc(f.date || App.today())}">`;
       const me = App.user();
       const queue = S.drafts.filter(d => d.status === "PENDING" && (R.canApprove(me, d.whId) || d.userId === me.id))
         .sort((a, b) => (a.submittedAt || "") < (b.submittedAt || "") ? -1 : 1);
@@ -694,11 +734,14 @@
         <div class="card"><div class="toolbar">
           <div class="field"><label for="o-type">${th("Rodzaj")}</label><select class="ctrl" id="o-type">${[["", N_("Wszystkie")], ["ZAKUP", N_("Zakup")], ["SPRZEDAZ", N_("Sprzedaż (WZ)")], ["DIRECT", N_("Sprzedaż bezpośrednia")], ["PRODUKCJA", N_("Produkcja na magazynie")], ["MM", "MM"]].map(([v, l]) => `<option value="${v}" ${f.type === v ? "selected" : ""}>${th(l)}</option>`).join("")}</select></div>
           <div class="field"><label for="o-status">${th("Status")}</label><select class="ctrl" id="o-status"><option value="">${th("Wszystkie")}</option>${["POSTED", "CORRECTED", "CANCELLED", "DELETED"].map(s => `<option value="${s}" ${f.status === s ? "selected" : ""}>${esc(statusText(s))}</option>`).join("")}</select></div>
-          <div class="field"><label for="o-ym">${th("Miesiąc")}</label><input class="ctrl" type="month" id="o-ym" value="${esc(f.ym)}"></div>
+          <div class="field"><label for="o-mode">${th("Okres")}</label><select class="ctrl" id="o-mode">${OPS_MODES.map(([v, l]) => `<option value="${v}" ${f.mode === v ? "selected" : ""}>${th(l)}</option>`).join("")}</select></div>
+          ${dateField ? `<div class="field"><label for="${f.mode === "month" ? "o-ym" : f.mode === "year" ? "o-year" : "o-date"}">${f.mode === "week" ? th("Dowolny dzień tygodnia") : f.mode === "month" ? th("Miesiąc") : f.mode === "year" ? th("Rok") : th("Dzień")}</label>${dateField}</div>
+          <div class="field ops-nav"><span class="lbl-spacer">&nbsp;</span><div class="btn-row"><button class="btn ghost" type="button" id="o-prev" title="${esc(t("Poprzedni okres"))}">←</button><button class="btn ghost" type="button" id="o-today">${th("Dziś")}</button><button class="btn ghost" type="button" id="o-next" title="${esc(t("Następny okres"))}">→</button></div></div>` : ""}
           <div class="field"><label for="o-scope">${th("Magazyn")}</label><select class="ctrl" id="o-scope"><option value="active" ${f.scope === "active" ? "selected" : ""}>${th("Aktywny")}</option><option value="all" ${f.scope === "all" ? "selected" : ""}>${th("Wszystkie")}</option></select></div>
           ${searchInput("o-q", f.q, t("numer, kontrahent, produkt, uwagi…"))}
           <label class="inline-opt"><input type="checkbox" id="o-deleted" ${f.showDeleted ? "checked" : ""}> ${th("Pokaż usunięte")}</label></div>
-          ${opsTable(rows, { showWh: f.scope === "all" })}
+          <div class="ops-period" id="ops-period">${ic("calendar", 14)} <b>${esc(rg.label)}</b></div>
+          ${opsTable(rows, { showWh: f.scope === "all", groupBy })}
           <div class="toolbar" style="border:0"><span class="dim">${esc(tp("{n} operacja|{n} operacje|{n} operacji", rows.length))} · ${esc(t("{n} anulowanych", { n: rows.filter(o => o.status === "CANCELLED" && !o.deleted).length }))} · ${esc(t("{n} usuniętych (ukryte: {h})", { n: S.operations.filter(o => o.deleted).length, h: f.showDeleted ? t("nie") : t("tak") }))} · ${esc(t("{n} skorygowanych", { n: rows.filter(o => o.status === "CORRECTED").length }))}</span></div></div>`;
     },
     bind(page, params) {
@@ -707,7 +750,14 @@
       if (params && params.op && R.byId(Store.state.operations, params.op) && this._opened !== params.op) { this._opened = params.op; setTimeout(() => OpDetail.open(params.op), 0); }
       else if (!params || !params.op) this._opened = null;
       const on = (id, k) => { const el = $(id, page); if (el) el.onchange = e => { f[k] = e.target.value; App.render(); }; };
-      on("#o-type", "type"); on("#o-status", "status"); on("#o-ym", "ym"); on("#o-scope", "scope");
+      on("#o-type", "type"); on("#o-status", "status"); on("#o-scope", "scope");
+      const om = $("#o-mode", page); if (om) om.onchange = e => { f.mode = e.target.value; App.render(); };
+      const od1 = $("#o-date", page); if (od1) od1.onchange = e => { f.date = e.target.value || App.today(); App.render(); };
+      const oy = $("#o-ym", page); if (oy) oy.onchange = e => { if (e.target.value) f.date = e.target.value + "-01"; App.render(); };
+      const oyr = $("#o-year", page); if (oyr) oyr.onchange = e => { const y = String(e.target.value || "").slice(0, 4); if (/^\d{4}$/.test(y)) f.date = y + "-01-01"; App.render(); };
+      const op = $("#o-prev", page); if (op) op.onclick = () => { opsShift(f, -1); App.render(); };
+      const on2 = $("#o-next", page); if (on2) on2.onclick = () => { opsShift(f, 1); App.render(); };
+      const ot = $("#o-today", page); if (ot) ot.onclick = () => { f.date = App.today(); App.render(); };
       const od = $("#o-deleted", page); if (od) od.onchange = e => { f.showDeleted = e.target.checked; App.render(); };
       const ox = $("#ops-xlsx", page); if (ox) ox.onclick = () => xlsxTable(`operacje_${App.today()}`, t("Operacje"), [t("Nr"), t("Data"), t("Rodzaj"), t("Status"), t("Magazyn"), t("Produkt"), t("Ilość"), t("Kontrahent"), t("Wartość zł"), t("Operacje dodatkowe zł"), t("Wynik zł"), t("Użytkownik"), t("Utworzono"), t("Dokumenty")],
         this.filtered().map(o => [o.no, o.date, opTypeLabel(o), statusText(o.deleted ? "DELETED" : o.status), App.whName(o.whId), opProduct(o), opQty(o), partnerName(opPartnerId(o)), num(opValue(o)), num(extrasTotal(o)), num(o.totals.result), o.userName, Dates.ts(o.createdAt, true), o.documents.map(d => d.no).join(" ")]), App.whName(App.user().whId));

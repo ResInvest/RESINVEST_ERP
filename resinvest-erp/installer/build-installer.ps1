@@ -18,10 +18,12 @@ if ($LASTEXITCODE -ne 0) { throw "Budowanie nieudane" }
 node tools/export-sample-data.mjs
 node tools/i18n-extract.mjs
 if ($LASTEXITCODE -ne 0) { throw "Niekompletne tłumaczenia (tools/i18n-extract.mjs)" }
+# 3.15: aplikacja na telefon (Android) — gdy jest Android SDK (ANDROID_HOME); inaczej instalator bez APK
+if ($env:ANDROID_HOME) { node tools/build-android.mjs --skip-html; if ($LASTEXITCODE -ne 0) { throw "Budowa aplikacji Android nie powiodła się" } } else { Write-Host "(brak Android SDK — instalator bez aplikacji na telefon)" }
 
 if (-not $SkipTests) {
   Write-Host "== 2/4 Testy jednostkowe i integracyjne"
-  node --test tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs tests/mail313.test.mjs tests/features314.test.mjs tests/scans314.test.mjs
+  node --test tests/features315.test.mjs tests/server-modules315.test.mjs tests/yardplan315.test.mjs tests/yardplan-server315.test.mjs tests/eudr316.test.mjs tests/eudr-server316.test.mjs tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs tests/mail313.test.mjs tests/features314.test.mjs tests/scans314.test.mjs
   if ($LASTEXITCODE -ne 0) { throw "Testy nie przeszły — instalator nie zostanie zbudowany" }
 }
 
@@ -68,6 +70,9 @@ foreach ($k in @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inno
 $iscc = $cands | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 if (-not $iscc) { throw "Nie znaleziono ISCC.exe (Inno Setup 7 lub 6). Pobierz: https://jrsoftware.org/isdl.php" }
 Write-Host "Kompilator: $iscc"
+# sterownik PostgreSQL (jedyna zależność; czysty JavaScript) — trafia do instalatora z node_modules
+npm ci --omit=dev --silent
+if ($LASTEXITCODE -ne 0) { throw "npm ci nieudane" }
 foreach ($ed in $Editions) {
   Write-Host "-- wariant: $ed"
   node tools/make-edition.mjs $ed

@@ -5,7 +5,7 @@
  Uruchomienie: dwuklik Uruchom-test.cmd (prosi o uprawnienia administratora) albo
    PowerShell jako administrator:  C:\ResInvest-test\Test-ResInvestERP.ps1
  W C:\ResInvest-test muszą być: 3 instalatory ResInvestERP_GoogleSerwer.exe, ResInvestERP_SerwerNoLimit.exe,
- ResInvestERP_SerwerFirma.exe i paczka ResInvestERP-testy-3.14.0.zip.
+ ResInvestERP_SerwerFirma.exe i paczka ResInvestERP-testy-3.15.0.zip.
 
  Dla każdego wariantu (kolejność: Gmail → Bez ograniczeń → Firma, Firma zostaje zainstalowana na końcu):
    1. instalacja cicha jak na czystym komputerze (ustawienia poprzedniej instalacji odsunięte na czas testu),
@@ -123,7 +123,7 @@ foreach ($ed in $Editions) {
   for ($i = 0; $i -lt 60 -and -not $health; $i++) { Start-Sleep -Milliseconds 500; try { $health = Invoke-RestMethod "$base/api/health" -TimeoutSec 3 } catch { } }
   Check "Serwer uruchomiony z instalacji" ([bool]$health) $out
   if ($health) {
-    Check "Wersja 3.14.0" ($health.version -eq "3.14.0") $health.version
+    Check "Wersja 3.15.0" ($health.version -eq "3.15.0") $health.version
     Check "Folder skanów dokumentów i zdjęć (3.14)" (Test-Path (Join-Path $data "skany")) (Join-Path $data "skany")
     Check "Domeny w /api/health: $(if ($X.domains) { $X.domains } else { 'dowolne' })" ((@($health.companyDomains) -join ",") -eq $X.domains) (@($health.companyDomains) -join ",")
     $script:ws = New-Object Microsoft.PowerShell.Commands.WebRequestSession
@@ -174,7 +174,7 @@ foreach ($ed in $Editions) {
 $script:edition = "testy"
 if (-not $SkipTests -and (Test-Path $node)) {
   $pack = Get-ChildItem -Path $Root, $PSScriptRoot -Filter "ResInvestERP-testy-*.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
-  Check "Paczka testów znaleziona" ([bool]$pack) $(if ($pack) { $pack.FullName } else { "skopiuj ResInvestERP-testy-3.14.0.zip do $Root" })
+  Check "Paczka testów znaleziona" ([bool]$pack) $(if ($pack) { $pack.FullName } else { "skopiuj ResInvestERP-testy-3.15.0.zip do $Root" })
   if ($pack) {
     $tdir = Join-Path $Root "testy-$stamp"
     Expand-Archive -Path $pack.FullName -DestinationPath $tdir -Force

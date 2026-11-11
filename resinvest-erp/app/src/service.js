@@ -16,6 +16,10 @@
   const R = root.RIW || (typeof require === "function" ? require("./engine.js") : null);
   if (!R.Planner && typeof require === "function") require("./planner.js");
   if (!R.Notify && typeof require === "function") require("./notify.js");
+  if (!R.Opening && typeof require === "function") require("./opening.js");
+  if (!R.Yard && typeof require === "function") require("./yard.js");
+  if (!R.YardPlan && typeof require === "function") require("./yardplan.js");
+  if (!R.Eudr && typeof require === "function") require("./eudr.js");
   const t = (s, p) => R.I18N.t(s, p);
   const N_ = s => s;
   const str = v => String(v == null ? "" : v).trim();
@@ -92,6 +96,48 @@
     "me.prefs": { run: (s, a, c) => R.Users.setPrefs(s, { lang: a.lang, theme: a.theme, themeColors: a.themeColors, themeGradient: a.themeGradient, uiRes: a.uiRes }, c) },
     "me.warehouse": { run: (s, a, c) => R.Users.setMyWarehouse(s, a.whId, c) },
     /* ---- 3.14: skany dokumentów i zdjęcia operacji (plik zapisuje serwer / magazyn przeglądarki) ---- */
+    /* ---- 3.15: stany początkowe magazynów (edytor; dokument BO z różnicami) ---- */
+    "stock.opening": { perm: "warehouses.edit", run: (s, a, c) => R.Opening.save(s, a, c) },
+    "yard.save": { perm: "warehouses.edit", run: (s, a, c) => R.Yard.save(s, a, c) },
+    // 3.15: plan placu (pryzmy, infrastruktura), terminarz pociągów, symulacja i realizacja załadunku
+    "pile.save": { perm: "yard.edit", run: (s, a, c) => R.YardPlan.savePile(s, a, c) },
+    "yardobj.move": { perm: "yard.edit", run: (s, a, c) => R.YardPlan.moveObject(s, a, c) },
+    "yardobj.save": { perm: "yard.edit", run: (s, a, c) => R.YardPlan.saveInfra(s, a, c) },
+    "yardobj.remove": { perm: "yard.edit", run: (s, a, c) => R.YardPlan.removeObject(s, a, c) },
+    "yardobj.template": { perm: "yard.edit", run: (s, a, c) => R.YardPlan.template(s, a, c) },
+    "train.save": { perm: "trains.edit", run: (s, a, c) => R.YardPlan.saveTrain(s, a, c) },
+    "train.remove": { perm: "trains.edit", run: (s, a, c) => R.YardPlan.removeTrain(s, a, c) },
+    "load.save": { perm: "load.run", run: (s, a, c) => R.YardPlan.savePlan(s, a, c) },
+    "load.remove": { perm: "load.run", run: (s, a, c) => R.YardPlan.removePlan(s, a, c) },
+    "load.action": { perm: "report.view", run: (s, a, c) => R.YardPlan.planAction(s, a, c) },
+    "load.record": { perm: "load.run", run: (s, a, c) => R.YardPlan.record(s, a, c) },
+    "load.finish": { perm: "load.run", run: (s, a, c) => R.YardPlan.finish(s, a, c) },
+    /* ---- EUDR — drewno surowe (uprawnienia według ról EUDR — sprawdza silnik R.Eudr) ---- */
+    "eudr.lot.save": { run: (s, a, c) => R.Eudr.saveLot(s, a, c) },
+    "eudr.lot.fromOp": { run: (s, a, c) => R.Eudr.lotFromOp(s, a, c) },
+    "eudr.lot.link": { run: (s, a, c) => R.Eudr.linkOp(s, a, c) },
+    "eudr.lot.unlink": { run: (s, a, c) => R.Eudr.unlinkOp(s, a, c) },
+    "eudr.lot.split": { run: (s, a, c) => R.Eudr.splitLot(s, a, c) },
+    "eudr.lot.merge": { run: (s, a, c) => R.Eudr.mergeLots(s, a, c) },
+    "eudr.lot.process": { run: (s, a, c) => R.Eudr.processLots(s, a, c) },
+    "eudr.lot.archive": { run: (s, a, c) => R.Eudr.archiveLot(s, a, c) },
+    "eudr.lot.status": { run: (s, a, c) => R.Eudr.setLotStatus(s, a, c) },
+    "eudr.supplier.save": { run: (s, a, c) => R.Eudr.saveSupplier(s, a, c) },
+    "eudr.doc.save": { run: (s, a, c) => R.Eudr.saveDoc(s, a, c) },
+    "eudr.doc.verify": { run: (s, a, c) => R.Eudr.verifyDoc(s, a, c) },
+    "eudr.dd.stage": { run: (s, a, c) => R.Eudr.ddStage(s, a, c) },
+    "eudr.dd.approve": { run: (s, a, c) => R.Eudr.ddApprove(s, a, c) },
+    "eudr.dds.save": { run: (s, a, c) => R.Eudr.saveDds(s, a, c) },
+    "eudr.config.save": { run: (s, a, c) => R.Eudr.saveConfig(s, a, c) },
+    "eudr.env.set": { run: (s, a, c) => R.Eudr.setEnv(s, a, c) },
+    "eudr.access.set": { run: (s, a, c) => R.Eudr.setAccess(s, a, c) },
+    "eudr.audit.save": { run: (s, a, c) => R.Eudr.saveAudit(s, a, c) },
+    "eudr.train.assign": { run: (s, a, c) => R.Eudr.trainAssign(s, a, c) },
+    "eudr.train.lesson": { run: (s, a, c) => R.Eudr.trainLesson(s, a, c) },
+    "eudr.train.quiz": { run: (s, a, c) => R.Eudr.trainQuiz(s, a, c) },
+    "eudr.train.confirm": { run: (s, a, c) => R.Eudr.trainConfirm(s, a, c) },
+    "eudr.train.exercise": { run: (s, a, c) => R.Eudr.trainExercise(s, a, c) },
+    "eudr.tests.record": { run: (s, a, c) => R.Eudr.recordTests(s, a, c) },
     "scan.attach": { perm: "scans.add", run: (s, a, c) => R.Scans.attach(s, a, c) },
     "scan.remove": { perm: "scans.delete", run: (s, a, c) => R.Scans.remove(s, a, c) },
     /* ---- role, uprawnienia, konfiguracja (administrator) ---- */
@@ -138,6 +184,13 @@
     out.drafts = state.drafts.filter(d => d.userId === u.id || (d.status === "PENDING" && inA(d.whId)));
     out.inventory = state.inventory.filter(p => inA(p.whId));
     out.plans = (state.plans || []).filter(p => inA(p.whId));
+    for (const k of ["yard", "trains", "loadPlans"]) out[k] = (state[k] || []).filter(x => inA(x.whId));
+    // EUDR: partie z dostępnych magazynów; dokumenty i wpisy DDS powiązane z tymi partiami albo tylko z dostawcą
+    out.eudrLots = (state.eudrLots || []).filter(l => !l.whId || inA(l.whId));
+    const lotIds = new Set(out.eudrLots.map(l => l.id)), lotOk = x => !(x.lotIds || []).length || x.lotIds.some(id => lotIds.has(id));
+    out.eudrDocs = (state.eudrDocs || []).filter(lotOk);
+    out.eudrDds = (state.eudrDds || []).filter(lotOk);
+    out.eudrTraining = R.Eudr && R.Eudr.allowed(state, u, "train.manage") ? state.eudrTraining || [] : (state.eudrTraining || []).filter(x => x.userId === u.id);
     out.audit = state.audit.filter(a => a.userId === u.id || (a.whId && inA(a.whId) && a.entity !== "user" && a.entity !== "role" && a.entity !== "system"));
     const fl = state.fleet || {};
     out.fleet = Object.fromEntries(Object.entries(fl).map(([k, v]) => [k, Array.isArray(v) ? v.filter(x => !x.whId || inA(x.whId)) : v]));

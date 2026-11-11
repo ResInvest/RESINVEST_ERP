@@ -25,7 +25,7 @@
   /** Tekst do zapisania w danych: struktura {k, p} (tłumaczona przy wyświetlaniu). */
   const Lx = (k, p) => ({ k, p: p || {} });
 
-  const VERSION = "3.14.0";
+  const VERSION = "3.16.0";
   const SCHEMA = 9;
   const Q = 6;                 // precyzja wewnętrzna ilości
   const EPS = 1e-6;
@@ -236,13 +236,15 @@
     "settings.edit": N_("Konfiguracja systemu"), "data.backup": N_("Kopia zapasowa"), "data.import": N_("Import kopii"),
     "planner.edit": N_("Planer zakupów — wpisywanie planu dnia"), "notifications.manage": N_("Powiadomienia i poczta — zgody, dziennik wysyłki"),
     "factors.edit": N_("Przeliczniki miesiąca — pozostawienie albo zmiana po zamknięciu okresu"),
-    "scans.add": N_("Skany dokumentów i zdjęcia — dodawanie do operacji"), "scans.delete": N_("Skany dokumentów i zdjęcia — usuwanie")
+    "scans.add": N_("Skany dokumentów i zdjęcia — dodawanie do operacji"), "scans.delete": N_("Skany dokumentów i zdjęcia — usuwanie"),
+    "yard.edit": N_("Plan placu — pryzmy i infrastruktura"), "trains.edit": N_("Terminarz pociągów — planowanie i zatwierdzanie"),
+    "load.run": N_("Załadunek pociągu — symulacja i realizacja")
   };
   const CREATE_PERMS = ["receipts.create", "issues.create", "production.create", "mm.create"];
   const ROLE_DEFAULTS = {
     admin: ["*"],
-    kierownik: [...CREATE_PERMS, "mm.receive", "op.approve", "documents.cancel", "documents.delete", "documents.correct", "inventory.correct", "production.correct", "sales.correct", "purchases.correct", "inv.open", "inv.count", "inv.close", "factors.edit", "fleet.edit", "master.edit", "planner.edit", "report.view", "reports.export", "history.read", "users.read", "scans.add", "scans.delete"],
-    magazynier: [...CREATE_PERMS, "mm.receive", "inv.count", "report.view", "history.read", "scans.add"],
+    kierownik: [...CREATE_PERMS, "mm.receive", "op.approve", "documents.cancel", "documents.delete", "documents.correct", "inventory.correct", "production.correct", "sales.correct", "purchases.correct", "inv.open", "inv.count", "inv.close", "factors.edit", "fleet.edit", "master.edit", "planner.edit", "report.view", "reports.export", "history.read", "users.read", "scans.add", "scans.delete", "yard.edit", "trains.edit", "load.run"],
+    magazynier: [...CREATE_PERMS, "mm.receive", "inv.count", "report.view", "history.read", "scans.add", "yard.edit", "load.run"],
     obserwator: ["report.view", "history.read"],
     audytor: ["report.view", "reports.export", "history.read", "audit.read", "users.read"]
   };
@@ -519,7 +521,7 @@
       config: Object.assign({ m3_mp: 4, mp_t: 0.33, woodTPerM3: 0.952, t_gj: 8.5, currency: "zł", kmRateDefault: 5, chipRateDefault: 10, wagonMPDefault: 120, maxWagons: 60, companyDomains: ["resinvest.group"], requireApproval: false, allowSelfRegistration: false, mmMode: "two", docNumbering: "wz", factorHistory: [] }, config || {}),
       warehouses: [], users: [], products: [], partners: [], carriers: [], extraTypes: [],
       fleet: { vehicles: [], drivers: [], chippers: [], operators: [] },
-      operations: [], drafts: [], ledger: [], inventory: [], audit: [], seq: {}, rolePerms: {}, plans: [], notices: [], templates: [],
+      operations: [], drafts: [], ledger: [], inventory: [], audit: [], seq: {}, rolePerms: {}, plans: [], notices: [], templates: [], yard: [], trains: [], loadPlans: [], eudrLots: [], eudrDocs: [], eudrDds: [], eudrSuppliers: [], eudrAudits: [], eudrTraining: [], eudrTests: [],
       meta: { lastMonthCheck: null, createdAt: null }
     };
   }
@@ -631,6 +633,8 @@
     if (s.schema !== SCHEMA) return { error: t("Nieobsługiwana wersja schematu: {a} (oczekiwano {b})", { a: from, b: SCHEMA }) };
     // 3.11: szablony operacji — kolekcja opcjonalna (bez zmiany schematu; starsze dane i kopie zapasowe — pusta lista)
     if (!Array.isArray(s.templates)) s.templates = [];
+    // 3.15: plan placu, terminarz pociągów i plany załadunku — kolekcje opcjonalne (bez zmiany schematu)
+    for (const k of ["yard", "trains", "loadPlans", "eudrLots", "eudrDocs", "eudrDds", "eudrSuppliers", "eudrAudits", "eudrTraining", "eudrTests"]) if (!Array.isArray(s[k])) s[k] = [];
     // 3.12: historia przeliczników miesięcznych (bez zmiany schematu); rola zamykająca okresy decyduje o przelicznikach
     if (s.config && !Array.isArray(s.config.factorHistory)) s.config.factorHistory = [];
     for (const [role, list] of Object.entries(s.rolePerms || {})) if (Array.isArray(list) && list.includes("inv.close") && !list.includes("factors.edit")) s.rolePerms[role] = list.concat("factors.edit");
@@ -654,8 +658,43 @@
   /* ------------------------------------------------------------------ */
   /* Stany                                                               */
   /* ------------------------------------------------------------------ */
+  /**
+   * Sumy księgi bez daty granicznej: magazyn → produkt → suma (dodawanie w kolejności księgi — wynik bit w bit jak pętla).
+   * Księga jest wyłącznie dopisywana; indeks dolicza nowe wpisy, a skrócenie / podmiana pierwszego lub ostatniego wpisu
+   * przebudowuje go od zera.
+   */
+  const LEDGER_SUMS = typeof WeakMap === "function" ? new WeakMap() : null;
+  let lastSums = null;
+  function ledgerSums(ledger) {
+    let c = LEDGER_SUMS.get(ledger);
+    if (c && (ledger.length < c.n || (c.n && (ledger[c.n - 1] !== c.snap[c.n - 1] || ledger[0] !== c.snap[0])))) c = null;
+    if (!c) {
+      // nowa tablica (np. kopia robocza komendy = poprzednia księga + nowe wpisy): sumy poprzedniej, jeśli jej wpisy
+      // są początkiem tej tablicy (porównanie wskaźników), inaczej od zera
+      const p = lastSums;
+      let ok = !!p && p.n <= ledger.length;
+      for (let i = 0; ok && i < p.n; i++) if (ledger[i] !== p.snap[i]) ok = false;
+      c = ok ? { n: p.n, snap: p.snap, wh: new Map([...p.wh].map(([w, m]) => [w, new Map(m)])), all: new Map(p.all) } : { n: 0, snap: [], wh: new Map(), all: new Map() };
+      LEDGER_SUMS.set(ledger, c);
+    }
+    if (c.n < ledger.length) {
+      for (let i = c.n; i < ledger.length; i++) {
+        const l = ledger[i];
+        let m = c.wh.get(l.whId); if (!m) c.wh.set(l.whId, m = new Map());
+        m.set(l.productId, (m.has(l.productId) ? m.get(l.productId) : 0) + l.qty);
+        c.all.set(l.productId, (c.all.has(l.productId) ? c.all.get(l.productId) : 0) + l.qty);
+      }
+      c.n = ledger.length; c.snap = ledger.slice();
+    }
+    lastSums = c;
+    return c;
+  }
   const Stock = {
     balance(state, whId, productId, to) {
+      if (!to && LEDGER_SUMS && Array.isArray(state.ledger)) {
+        const c = ledgerSums(state.ledger), m = whId ? c.wh.get(whId) : c.all;
+        return rq(m && m.has(productId) ? m.get(productId) : 0);
+      }
       let n = 0;
       for (const l of state.ledger) {
         if ((whId && l.whId !== whId) || l.productId !== productId) continue;
@@ -3099,9 +3138,13 @@
       const wh = id => (byId(state.warehouses, id) || {}).name || id || "";
       const pr = id => byId(state.products, id);
       const run = new Map(), rows = [];
+      // wiersz poza zakresem dat / magazynem / produktem i tak odpadnie w filtrze końcowym (te pola wiersz kopiuje z wpisu) —
+      // saldo bieżące liczone dla wszystkich wpisów, wiersz budowany tylko dla pasujących
+      const skip = (date, whId, productId) => (f.from && !(date >= f.from)) || (f.to && !(date <= f.to)) || (f.whId && whId !== f.whId) || (f.productId && productId !== f.productId);
       for (const l of Stock.sorted(state.ledger)) {
         const k = `${l.whId}|${l.productId}`, before = run.get(k) || 0, after = rq(before + l.qty);
         run.set(k, after);
+        if (skip(l.date, l.whId, l.productId)) continue;
         const op = l.opId ? byId(state.operations, l.opId) : null;
         const ty = l.kind === "ZAKUP" ? "ZAKUP" : l.kind === "PRODUKCJA" ? (l.direct ? "SPRZEDAZ_BEZP" : "PRZYJECIE") : l.kind === "ZUZYCIE" ? "ZUZYCIE"
           : l.kind === "SPRZEDAZ" ? (l.direct ? "SPRZEDAZ_BEZP" : "WZ") : l.kind;
@@ -3118,11 +3161,13 @@
           status: op ? op.status : "POSTED", userId: op ? (l.kind === "KOREKTA" ? ((op.corrections.find(c => c.no === l.docNo) || {}).userId) : l.kind === "ANULOWANIE" ? (op.cancel || {}).userId : op.userId) : null
         });
       }
-      for (const op of state.operations) {
+      for (let oi = 0; oi < state.operations.length; oi++) {
+        const op = state.operations[oi];
+        if (skip(op.date, op.whId, null)) continue;
         const tr = op.documents.find(d => d.type === "TR");
         if (!tr) continue;
         const T = op.transport;
-        rows.push({ id: "tr_" + op.id, seq: 1e12 + state.operations.indexOf(op), date: op.date, time: (op.createdAt || "").slice(11, 16), user: op.userName, type: "TRANSPORT", typeLabel: t(HISTORY_TYPES.TRANSPORT), cat: "TRANSPORT", docNo: tr.no, whId: op.whId, whName: wh(op.whId), productId: null, productName: t(TRANSPORT_MODES[T.mode]), qty: null, change: null, unit: "", before: null, after: null, partnerId: opPartner(op), partnerIds: opPartners(op), partner: T.company || T.carrier || T.driverName || "", related: op.no, opId: op.id, opNo: op.no, notes: `${fmtQ(T.km || 0)} km · ${money(T.cost)}${T.mode === "train" ? " · " + t("{n} wag.", { n: T.wagonCount }) + ` · ${fmtQ(T.totalT)} t` : ""}`, status: op.status, userId: op.userId });
+        rows.push({ id: "tr_" + op.id, seq: 1e12 + oi, date: op.date, time: (op.createdAt || "").slice(11, 16), user: op.userName, type: "TRANSPORT", typeLabel: t(HISTORY_TYPES.TRANSPORT), cat: "TRANSPORT", docNo: tr.no, whId: op.whId, whName: wh(op.whId), productId: null, productName: t(TRANSPORT_MODES[T.mode]), qty: null, change: null, unit: "", before: null, after: null, partnerId: opPartner(op), partnerIds: opPartners(op), partner: T.company || T.carrier || T.driverName || "", related: op.no, opId: op.id, opNo: op.no, notes: `${fmtQ(T.km || 0)} km · ${money(T.cost)}${T.mode === "train" ? " · " + t("{n} wag.", { n: T.wagonCount }) + ` · ${fmtQ(T.totalT)} t` : ""}`, status: op.status, userId: op.userId });
       }
       const q = str(f.q).toLowerCase();
       return rows.filter(r =>
@@ -3138,8 +3183,10 @@
       const cfg = state.config, from = f.from, to = f.to, whId = f.whId || null;
       const inR = d => d >= from && d <= to;
       const pr = id => byId(state.products, id);
+      // operacje z zapisem księgi danego produktu — jeden przebieg zamiast przeszukiwania księgi dla każdej operacji
+      const prodOps = f.productId ? new Set(state.ledger.filter(l => l.productId === f.productId).map(l => l.opId)) : null;
       const opOk = op => (!whId || op.whId === whId || op.toWhId === whId) && (!f.partnerId || opPartners(op).includes(f.partnerId)) &&
-        (!f.productId || state.ledger.some(l => l.opId === op.id && l.productId === f.productId) || (op.purchase && op.purchase.productId === f.productId) || (op.sale && op.sale.productId === f.productId));
+        (!f.productId || prodOps.has(op.id) || (op.purchase && op.purchase.productId === f.productId) || (op.sale && op.sale.productId === f.productId));
       const L = state.ledger.filter(l => (!whId || l.whId === whId) && (!f.productId || l.productId === f.productId) &&
         (!f.partnerId || (l.opId && opPartners(byId(state.operations, l.opId)).includes(f.partnerId))));
       const LR = L.filter(l => inR(l.date));
@@ -3212,8 +3259,10 @@
         for (const l of LR) if (l.cat === "ZUZYCIE") { const k = `${l.productId}|${l.whId}`; const c = m.get(k) || { productId: l.productId, name: pr(l.productId).name, unit: pr(l.productId).unit, whName: (byId(state.warehouses, l.whId) || {}).name, qty: 0, opIds: new Set() }; c.qty = rq(c.qty - l.qty); c.opIds.add(l.opId); m.set(k, c); }
         return [...m.values()].map(x => Object.assign(x, { opIds: [...x.opIds] }));
       })();
-      const mm = ops.filter(op => op.type === "MM" && LR.some(l => l.opId === op.id)).map(op => {
-        const ins = LR.filter(l => l.opId === op.id && l.cat === "MM");
+      const lrByOp = new Map();
+      for (const l of LR) if (l.opId != null) { const a = lrByOp.get(l.opId); if (a) a.push(l); else lrByOp.set(l.opId, [l]); }
+      const mm = ops.filter(op => op.type === "MM" && lrByOp.has(op.id)).map(op => {
+        const ins = lrByOp.get(op.id).filter(l => l.cat === "MM");
         const moved = rq(ins.filter(l => l.whId === op.toWhId).reduce((a, l) => a + l.qty, 0));
         const sent = rq(-ins.filter(l => l.whId === op.whId).reduce((a, l) => a + l.qty, 0));
         const st = mmState(op), rc = op.mm.receipt;

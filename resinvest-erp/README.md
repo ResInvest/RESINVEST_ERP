@@ -1,4 +1,9 @@
-# ResInvest ERP 3.14 (3.14.0)
+# ResInvest ERP 3.15 (3.15.0)
+
+> Wersja 3.15.0 przenosi tryb firmowy na **PostgreSQL** — centralną bazę dla wielu użytkowników, dużej historii operacji,
+> rejestrów i dokumentów. Instalator ma nową stronę **Baza danych**: tworzy konto i bazę programu, a przy aktualizacji
+> przenosi dotychczasowe dane z SQLite z kontrolą zgodności każdej tabeli. Silnik, operacje, rejestry, poczta i interfejs
+> działają **bez zmian**. SQLite pozostaje jako tryb awaryjny i punkt powrotu. Szczegóły: [docs/POSTGRESQL.md](docs/POSTGRESQL.md).
 
 *Program stworzony przez Roesner Mateusz dla ResInvest Commodities.*
 
@@ -39,12 +44,120 @@ Jeden interfejs — plik **`ResInvest_ERP.html`** — działa w dwóch trybach:
 
 | Tryb | Dla kogo | Dane | Logowanie |
 |---|---|---|---|
-| **Serwer — FIRMOWY** (zalecany do pracy) | wiele stanowisk w sieci firmy, także telefon / tablet | baza **SQLite** na serwerze (transakcje, dziennik zmian z łańcuchem skrótów SHA-256, kopie codzienne) | konta na serwerze, hasła **scrypt**, sesja w ciasteczku HttpOnly, blokada po 5 próbach |
+| **Serwer — FIRMOWY** (zalecany do pracy) | wiele stanowisk w sieci firmy, także telefon / tablet | baza **PostgreSQL** (od 3.15; awaryjnie SQLite) na serwerze (transakcje, dziennik zmian z łańcuchem skrótów SHA-256, kopie codzienne) | konta na serwerze, hasła **scrypt**, sesja w ciasteczku HttpOnly, blokada po 5 próbach |
 | **Lokalny — OFFLINE** | jedno stanowisko, szkolenie, pokaz | przeglądarka (`localStorage`), kopia JSON na żądanie | konta lokalne, hasła **PBKDF2-SHA256**, wylogowanie po bezczynności |
 
 Program nie korzysta z bibliotek zewnętrznych pobieranych z sieci (CDN) — wszystko jest w pliku HTML
 (dołączony dekoder kodów QR jsQR 1.4.0, licencja Apache-2.0: `app/vendor/jsQR.LICENSE`). Internet jest potrzebny tylko
 serwerowi do wysyłki e-maili (Resend); bez poczty zaproszenia zapisują się jako pliki `.eml`.
+
+## Nowe w 3.16.0
+
+**Moduł EUDR — drewno surowe / TRACES** (rozporządzenie (UE) 2023/1115 zmienione rozporządzeniem (UE) 2025/2650) — menu **EUDR → EUDR — drewno surowe**. Szczegóły: [`docs/EUDR.md`](docs/EUDR.md).
+- **Pulpit EUDR**: partie, dostawcy, kompletne, braki, do weryfikacji, dopuszczone, aktywne DDS, partie z numerem referencyjnym; alerty i ostatnie operacje; kolory: zielony — kompletna i zweryfikowana, żółty — oczekuje, czerwony — braki / niezgodność, szary — archiwum.
+- **Rejestr drewna**: partia z dokumentu przyjęcia (PZ) bez ponownego wpisywania, gatunek (nazwa polska i łacińska), kod CN, m³ / t, okres i miejsce pozyskania, pochodzenie (nadleśnictwo / właściciel, działka, GPS, polygon GIS, klasyfikacja kraju); powiązania z MM, produkcją i WZ, podział, łączenie i przetwarzanie z zachowaniem pochodzenia; partie się archiwizuje, nie kasuje.
+- **Obowiązki zależne od roli firmy w transakcji** (operator / pierwszy podmiot niższego szczebla / handlowiec), kodu CN i daty stosowania (30.12.2026 / 30.06.2027). Brak numeru DDS dostawcy nie blokuje automatycznie dostawy — blokada wydania dotyczy partii, za które firma odpowiada jako operator, po dacie stosowania (tryb „ostrzegaj” w Administracji). Reguły prawne są wersjonowane i zmieniane w Administracji bez przebudowy programu.
+- **Dokumentacja**: 16 rodzajów dokumentów, pliki PDF / JPG / PNG / GeoJSON / XML (typ rozpoznawany po treści, treść aktywna odrzucana), podgląd, pobieranie, zastąpienie pliku nową wersją, sprawdzenie przez kontrolera; pliki na serwerze w folderze skanów z kopią w `backups/skany`.
+- **Należyta staranność**: etap 1 (art. 9), ocena ryzyka (art. 10), ograniczanie ryzyka (art. 11); dopuszczenie partii wyłącznie decyzją Osoby odpowiedzialnej z uzasadnieniem i potwierdzeniem osobistego sprawdzenia — nigdy automatycznie.
+- **EUDR TRACES**: rejestr DDS / numerów referencyjnych i weryfikacyjnych rozdzielony na **ACCEPTANCE** i **PRODUCTION**, przycisk „OTWÓRZ OFICJALNY SYSTEM EUDR TRACES”, zestaw danych JSON / GeoJSON / XML (SubmitDdsRequest V4), kontrolowany proces w 6 krokach; na serwerze firmy — klient SOAP V4 z WS-Security (UsernameToken PasswordDigest, WebServiceClientId), złożenie DDS i odczyt statusu. Dane dostępowe tylko w `server.env` serwera (`EUDR_ACC_*`, `EUDR_PROD_*`).
+- **Tryb pracy**: pomarańczowy pasek „TRYB TESTOWY – DANE NIE MAJĄ MOCY PRAWNEJ” (domyślnie) albo czerwony „TRYB PRODUKCYJNY – OPERACJE MOGĄ WYWOŁYWAĆ SKUTKI PRAWNE”; przełączenie tylko przez Administratora EUDR po wpisaniu PRODUKCJA. Numery testowe i symulowane (SYM-…) nie przechodzą do ewidencji produkcyjnej.
+- **Centrum testów EUDR**: 10 testów (konfiguracja, adres, dane dostępowe, WS-Security, zegar, Echo, GeoJSON, kompletność DDS, rozdzielenie środowisk, odczyt DDS), historia, ponowienie nieudanych, raport PDF. Tryb bez serwera nie udaje połączenia z Komisją Europejską.
+- **Audyt** (13 obszarów, raport PDF; wynik procentowy to wskaźnik wewnętrzny, nie certyfikat), **Szkolenia** (5 modułów, test wiedzy, 4 ćwiczenia na danych fikcyjnych, wewnętrzne potwierdzenie — nie certyfikat Komisji), **Instrukcje** (11), **Raporty** (9, PDF i Excel), **Historia zmian**, **Administracja** (profil firmy, kody CN produktów, reguły, role EUDR: Administrator EUDR, Osoba odpowiedzialna, Magazynier, Kontroler dokumentacji, Podgląd).
+- Dane w bazie serwera (SQLite / PostgreSQL) w 7 nowych kolekcjach wierszy, ta sama transakcja i dziennik (łańcuch SHA-256) co reszta programu. Dane przykładowe i demonstracyjne EUDR są fikcyjne i oznaczone.
+- Testy: `tests/eudr316.test.mjs` (silnik, 14), `tests/eudr-server316.test.mjs` (serwer i klient SOAP na lokalnej atrapie usługi, 4), `tests/e2e316eudr.cjs` (przeglądarka, 30).
+
+## Nowe w 3.15.0
+
+**Baza danych PostgreSQL (tryb firmowy)**
+- Serwer pracuje na centralnej bazie **PostgreSQL 14+** (`DB_DRIVER=postgres` w `server.env`). Silnik programu, operacje,
+  rejestry, numeracja dokumentów, korekty, inwentaryzacja, raporty, poczta, uprawnienia i API — bez zmian.
+- **Instalator → strona „Baza danych”**: adres serwera PostgreSQL, konto i baza programu. Z hasłem administratora
+  PostgreSQL instalator sam tworzy konto programu (bez uprawnień administratora) i bazę; hasło administratora nie jest zapisywane.
+- **Aktualizacja = migracja danych**: kopia bazy przed aktualizacją, przeniesienie wszystkich tabel do PostgreSQL w jednej
+  transakcji, porównanie każdej tabeli (liczba wierszy i SHA-256) przed zatwierdzeniem, kontrola rdzeniem serwera
+  (rewizja, stan, łańcuch dziennika). Plik SQLite pozostaje nietknięty jako punkt powrotu. Błąd = serwer zostaje na SQLite.
+- Ochrona danych przy pracy wielu użytkowników: jeden serwer zapisujący na bazę, kontrola rewizji przy każdym zapisie,
+  ponowne połączenie po restarcie bazy, rozstrzyganie zapisu przerwanego zerwaniem połączenia.
+- Kopie zapasowe bez zmian w obsłudze (codziennie, przy starcie, ręcznie, folder firmy); kopia z PostgreSQL to spójny plik
+  `.sqlite` w formacie serwera. `--restore` działa dla obu silników. Skany dokumentów — jak dotąd w `<dane>\skany`.
+- Narzędzie `ResInvestERP-Migracja.cmd` (`plan` / `migrate --confirm` / `verify` / `rollback`) — migracja ręczna,
+  kontrola zgodności i powrót do SQLite z danymi wprowadzonymi w PostgreSQL.
+- Pierwsza zależność npm: sterownik `pg` (dołączany przez instalator). Tryb SQLite działa bez niej.
+- Licencja: `LICENSE` — licencja niewyłączna (pola eksploatacji, wersja 3.15).
+
+**Stany początkowe magazynów (edytor)**
+- Nowy ekran **Kartoteki → Stany początkowe** (także z ekranów Magazyny i Administracja): administrator wpisuje stan każdego
+  produktu w RiC Zabrze, RiC Brąszewice i RiC Rokitki przy przenoszeniu danych z dotychczasowego systemu albo ze spisu.
+- Zapis tworzy dokument **Bilans otwarcia** (ta sama numeracja i księga co dotychczas) z samymi różnicami — poprawka nie
+  kasuje historii. Kontrola: data nie w przyszłości i nie w zamkniętym okresie, brak stanów ujemnych, audyt „przed → po”.
+- Uprawnienie „Magazyny — dodawanie i edycja” (Administrator); pozostałe role — podgląd.
+
+**Trzy wersje programu**
+- **Firmowa** — `ResInvestERP_SerwerFirma.exe` (konta @resinvest.group, poczta Microsoft 365),
+- **Bez ograniczeń** — `ResInvestERP_SerwerNoLimit.exe` (dowolna domena e-mail),
+- **Demonstracyjna** — `ResInvest_ERP_Demo.html` (`npm run build:demo`): jeden plik, bez instalacji i bez serwera;
+  dane przykładowe, konta demonstracyjne (hasło `demo1234`), pasek „Wersja demonstracyjna” z listą „Co sprawdzić”
+  (WZ i PDF, skany, motywy, MM, korekty, raporty, stany początkowe). Dane zapisuje w osobnej przestrzeni przeglądarki —
+  nie miesza się z danymi trybu lokalnego. Wariant Gmail (`ResInvestERP_GoogleSerwer.exe`) pozostaje bez zmian.
+
+**Operacje wg okresu** — rejestr operacji jak „Kwit produkcji dnia”: **Dzień / Tydzień / Miesiąc / Rok / Cały okres**,
+przewijanie ← → i „Dziś”; w tygodniu i miesiącu nagłówki dni, w roku i całym okresie nagłówki miesięcy (liczba operacji
+i wartość). Domyślnie bieżący miesiąc — ekran otwiera się szybko także przy kilkuletniej historii.
+
+**Aplikacja na telefon (Android)** — `ResInvestERP_Android.apk` (`npm run build:android`, kod: `mobile/android/`)
+- ten sam program co na komputerze; tryby: **Serwer firmy** (adres sprawdzany przed zapisem), **Bez serwera** (dane w telefonie),
+  **Wersja demonstracyjna**; zmiana: menu użytkownika → „Aplikacja — adres serwera”,
+- skany z aparatu i z plików, kody QR aparatem, PDF / CSV / XLSX / kopie zapisywane w „Pobrane/ResInvest ERP”,
+  drukowanie systemowe Androida (drukarka albo „Zapisz jako PDF”),
+- instalacja: plik APK z serwera firmy — `http://<serwer>:8080/aplikacja/ResInvestERP_Android.apk` (na ekranie logowania
+  w przeglądarce telefonu z Androidem: „Aplikacja na telefon (Android)”) — w telefonie zezwól na instalację z tego źródła,
+- Android 8.0 lub nowszy; iPhone: Safari → Udostępnij → „Do ekranu początkowego” (ikona RiC, pełny ekran),
+- aktualizacje APK muszą być podpisane tym samym kluczem (`mobile/android/keystore/` — przechowywać w kopii firmy).
+
+**Plan placu, pryzmy i terminarz pociągów** (menu „Plac i kolej”, kod: `app/src/yardplan.js`, `yardplan-view.js`)
+- **Plan placu** — mapa 2D (metry, widok z góry): pryzmy i infrastruktura (tory, miejsce załadunku, drogi, szlaban, waga,
+  kontenery, punkty poboru próbek, tablica, ogrodzenie). „Edytuj układ”: przeciąganie, narożniki zmieniają wymiary, kółko
+  obraca; zoom i przesuwanie widoku. „Układ wzorcowy placu” wstawia infrastrukturę na pusty plac.
+- **Pryzma = podział stanu z księgi** (magazyn + produkt): suma pryzm nie może przekroczyć stanu ewidencyjnego; ekran pokazuje
+  stan w ewidencji, w pryzmach i poza pryzmami. Szczegóły pryzmy: MP, m³ (1 m³ = 4 MP), masa wg przeliczników ERP,
+  wymiary i objętość geometryczna wg kształtu (trójkąt, trapez, kopuła, stożek, boks), dostawca, PZ, wilgotność, status.
+- **Kolory liczone z terminarza**: zielona — najbliższy pociąg, pomarańczowa — kolejny, niebieska — dostępna, czerwona —
+  zablokowana, szara — wyłączona. Kolejność: rezerwacje zatwierdzonych planów → przypisania ręczne → pryzmy najbliżej
+  miejsca załadunku. Ta sama ilość nigdy nie trafia do dwóch pociągów; brak zrębki = komunikat o niedoborze.
+- **Terminarz pociągów** — kalendarz, lista, tabela, panel najbliższego pociągu; 8 statusów; po zapisie pociągu od razu
+  wynik przydziału (pryzmy, niedobór).
+- **Symulacja załadunku** — warianty A (najkrótsza trasa), B (najmniej pryzm), C (najkrótszy czas), D (ręczny); kalkulator:
+  MP, m³, t, wagony, cykle ładowarki, czas — **szacunkowo**, z parametrów do zmiany (łyżka, napełnienie, cykl, prędkość);
+  mapa z kolejnością i trasą; porównanie wariantów; druk i PDF. Symulacja nie zmienia stanów.
+- **Zatwierdzenie = rezerwacja** (kontrola w tej samej transakcji bazy co zapis), cofnięcie zwalnia; przekazanie operatorowi.
+- **Realizacja** — start, pobrane ilości z pryzm, wagony, wstrzymanie / wznowienie, porównanie plan ↔ wykonanie;
+  **zakończenie wystawia zwykły dokument WZ** (cena, tonaż z ważenia) i dopiero wtedy zmniejsza stan księgi i pryzmy.
+- **Panel operatora** (telefon): pociąg, aktualna pryzma i ilość do pobrania, kolejne pryzmy, postęp w %.
+- Uprawnienia: „Plan placu — pryzmy i infrastruktura”, „Terminarz pociągów — planowanie i zatwierdzanie”, „Załadunek
+  pociągu — symulacja i realizacja” (kierownik: wszystkie; magazynier: plac i załadunek). Każda zmiana w dzienniku audytu.
+- Dane w głównej bazie serwera (SQLite / PostgreSQL) — kolekcje `yard`, `trains`, `loadPlans` zapisywane wierszami;
+  w wersji demonstracyjnej i trybie bez serwera — jak pozostałe dane, w przeglądarce.
+
+**Wersja demonstracyjna 2** — `ResInvest_ERP_Demo2.html` (`npm run build:demo2`), dane przykładowe jak w wersji demo,
+osobna przestrzeń przeglądarki (`riw.demo2.*`):
+- **ekran startowy = sama grafika** (`app/assets/demo2/logowanie.jpg`): przyciski narysowane na grafice są aktywne —
+  „Zaloguj się” i „Zarejestruj się / Utwórz konto” otwierają okienko z formularzem programu, „Poznaj możliwości”
+  i „Przewiń w dół” — okienko z opisem systemu; na telefonie przyciski pod grafiką,
+- **plac składowy na pulpicie** (`plac-zabrze.jpg`): zdjęcie placu RiC Zabrze z oznaczeniami — zielony obszar zrębki
+  przeznaczonej na pociąg (wypełnienie = ilość przygotowana pod załadunek), **czoło pryzmy** (linia ładowania pociągu),
+  punkty poboru próbek P1–P5 i pozostała pryzma RiC; zrębka na placu z księgi magazynowej, pojemność pryzmy
+  (60 × 15 × 5 m, przekrój trójkątny = 2 250 m³), liczba wagonów; administrator przeciąga narożniki i punkty
+  („Edytuj układ”), wpisuje wymiary i ilość pod załadunek — zapis z audytem (`yard.save`, `app/src/yard.js`).
+
+**Zmiany graficzne** — przewodnik [docs/GRAFIKA.md](docs/GRAFIKA.md): gdzie są kolory, motywy, ekrany i ikony;
+`npm run dev` buduje program po każdym zapisie pliku (podgląd w przeglądarce — F5).
+
+**Wydajność** (wyniki identyczne jak dotąd — sprawdzone porównaniem bajt w bajt na bazach 3 i 15 tys. operacji)
+- zapis operacji przy dużej bazie ok. 4 razy szybszy (15 tys. operacji: 34 → 8 ms), raporty z filtrem produktu
+  i raporty roczne do kilkudziesięciu razy szybsze, jedno odświeżenie ekranu przy serii zmian innych użytkowników.
+  Szczegóły i dalsze propozycje: [docs/WYDAJNOSC.md](docs/WYDAJNOSC.md).
+
+**Architektura** — opis warstw i struktury folderów: [docs/ARCHITEKTURA.md](docs/ARCHITEKTURA.md).
 
 ## Nowe w 3.14.0
 * **Trzy instalatory pod nowymi nazwami**, każdy wielostanowiskowy (serwer SQLite + praca w przeglądarce na wielu komputerach i telefonach):

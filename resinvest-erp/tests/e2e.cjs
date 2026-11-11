@@ -1115,8 +1115,8 @@ async function fillForestDirect(page) {
         check("3.10.1 Powtórz: kopia na dziś — ten sam rodzaj, dzisiejsza data, nowy klucz, bez numerów kwitów i dokumentów", d.type === src.type && d.date === TODAY && d.idemKey !== (src.input.idemKey || "") && runs.every(r => !r.kwit && !r.weightT) && Object.values(d.docNos).every(v => !v) && JSON.stringify(d.purchase.productId) === JSON.stringify(src.input.purchase.productId), { type: d.type, date: d.date });
         await page.click("#form-reset").catch(() => {}); await page.click(".modal [data-yes]").catch(() => {}); await page.waitForTimeout(200);
       }
-      await go(page, "operacje"); await page.waitForSelector("#ops-table tbody tr");
-      await page.click("#ops-table tbody tr:first-child"); await page.waitForSelector("#op-detail");
+      await go(page, "operacje"); await page.waitForSelector("#ops-table tbody tr[data-opid]");
+      await page.click("#ops-table tbody tr[data-opid]"); await page.waitForSelector("#op-detail");
       const rep = await page.$("#op-detail [data-repeat]");
       check("3.10.1 Szczegóły operacji: przycisk „Powtórz”", !!rep);
       if (rep) { await rep.click(); await page.waitForSelector("#repeat-info", { timeout: 4000 }).catch(() => {}); check("3.10.1 „Powtórz” z rejestru otwiera kopię w Nowej operacji", await page.evaluate(() => location.hash === "#/nowa" && !!document.querySelector("#repeat-info"))); await page.click("#form-reset").catch(() => {}); await page.click(".modal [data-yes]").catch(() => {}); await page.waitForTimeout(200); }

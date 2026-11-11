@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ResInvest ERP</string>
+    <string name="no_app">Brak aplikacji do otwarcia tego elementu</string>
+    <string name="choose_file">Wybierz plik albo zrób zdjęcie</string>
+    <string name="no_server">Nie można połączyć z serwerem %1$s (%2$s). Sprawdź, czy telefon jest w sieci firmy i czy serwer ResInvest ERP jest uruchomiony.</string>
+    <string name="not_erp">Pod tym adresem nie działa serwer ResInvest ERP.</string>
+    <string name="server_ok">Połączono: serwer ResInvest ERP %1$s (baza: %2$s).</string>
+    <string name="saved">Zapisano w Pobrane/ResInvest ERP: %1$s</string>
+    <string name="downloading">Pobieranie: %1$s</string>
+    <string name="save_failed">Nie udało się zapisać pliku</string>
+    <string name="no_storage">Bez uprawnienia nie można zapisać plików w Pobrane</string>
+    <string name="retry_after_perm">Zezwól na zapis plików i spróbuj ponownie</string>
+    <string name="back_again">Naciśnij ponownie, aby zamknąć program</string>
+</resources>
