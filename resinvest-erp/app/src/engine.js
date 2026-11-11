@@ -25,7 +25,7 @@
   /** Tekst do zapisania w danych: struktura {k, p} (tłumaczona przy wyświetlaniu). */
   const Lx = (k, p) => ({ k, p: p || {} });
 
-  const VERSION = "3.15.0";
+  const VERSION = "3.16.0";
   const SCHEMA = 9;
   const Q = 6;                 // precyzja wewnętrzna ilości
   const EPS = 1e-6;
@@ -521,7 +521,7 @@
       config: Object.assign({ m3_mp: 4, mp_t: 0.33, woodTPerM3: 0.952, t_gj: 8.5, currency: "zł", kmRateDefault: 5, chipRateDefault: 10, wagonMPDefault: 120, maxWagons: 60, companyDomains: ["resinvest.group"], requireApproval: false, allowSelfRegistration: false, mmMode: "two", docNumbering: "wz", factorHistory: [] }, config || {}),
       warehouses: [], users: [], products: [], partners: [], carriers: [], extraTypes: [],
       fleet: { vehicles: [], drivers: [], chippers: [], operators: [] },
-      operations: [], drafts: [], ledger: [], inventory: [], audit: [], seq: {}, rolePerms: {}, plans: [], notices: [], templates: [], yard: [], trains: [], loadPlans: [],
+      operations: [], drafts: [], ledger: [], inventory: [], audit: [], seq: {}, rolePerms: {}, plans: [], notices: [], templates: [], yard: [], trains: [], loadPlans: [], eudrLots: [], eudrDocs: [], eudrDds: [], eudrSuppliers: [], eudrAudits: [], eudrTraining: [], eudrTests: [],
       meta: { lastMonthCheck: null, createdAt: null }
     };
   }
@@ -634,7 +634,7 @@
     // 3.11: szablony operacji — kolekcja opcjonalna (bez zmiany schematu; starsze dane i kopie zapasowe — pusta lista)
     if (!Array.isArray(s.templates)) s.templates = [];
     // 3.15: plan placu, terminarz pociągów i plany załadunku — kolekcje opcjonalne (bez zmiany schematu)
-    for (const k of ["yard", "trains", "loadPlans"]) if (!Array.isArray(s[k])) s[k] = [];
+    for (const k of ["yard", "trains", "loadPlans", "eudrLots", "eudrDocs", "eudrDds", "eudrSuppliers", "eudrAudits", "eudrTraining", "eudrTests"]) if (!Array.isArray(s[k])) s[k] = [];
     // 3.12: historia przeliczników miesięcznych (bez zmiany schematu); rola zamykająca okresy decyduje o przelicznikach
     if (s.config && !Array.isArray(s.config.factorHistory)) s.config.factorHistory = [];
     for (const [role, list] of Object.entries(s.rolePerms || {})) if (Array.isArray(list) && list.includes("inv.close") && !list.includes("factors.edit")) s.rolePerms[role] = list.concat("factors.edit");

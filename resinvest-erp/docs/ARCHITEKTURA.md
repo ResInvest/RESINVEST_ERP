@@ -135,3 +135,8 @@ bez pomijania numerów zajętych; `Dates.isISO` przyjmuje nieistniejące daty (n
 4. **Ekrany** — `views.js` i `form.js` dzielić wg modułów menu (operacje, dokumenty, raporty), jak `planner-view.js`.
 
 Każdy krok osobno, z pełnym zestawem testów; bez zmiany zachowania i bez zmian w danych.
+
+
+## 3.16: moduł EUDR
+
+Silnik `app/src/eudr.js` (+ treści `eudr-content.js`) w tym samym wzorcu co pozostałe warstwy: komendy `eudr.*` w `service.js`, uprawnienia według ról EUDR (sprawdza silnik), 7 kolekcji wierszy w bazie serwera. Serwer: `server/eudr-routes.mjs` (pliki, Centrum testów, złożenie i status DDS) i `server/eudr-traces.mjs` (klient SOAP V4, WS-Security; dane dostępowe wyłącznie z `server.env`). Ekrany: `app/src/eudr-view.js`. Opis: `docs/EUDR.md`.

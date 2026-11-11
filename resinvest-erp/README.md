@@ -51,6 +51,21 @@ Program nie korzysta z bibliotek zewnętrznych pobieranych z sieci (CDN) — wsz
 (dołączony dekoder kodów QR jsQR 1.4.0, licencja Apache-2.0: `app/vendor/jsQR.LICENSE`). Internet jest potrzebny tylko
 serwerowi do wysyłki e-maili (Resend); bez poczty zaproszenia zapisują się jako pliki `.eml`.
 
+## Nowe w 3.16.0
+
+**Moduł EUDR — drewno surowe / TRACES** (rozporządzenie (UE) 2023/1115 zmienione rozporządzeniem (UE) 2025/2650) — menu **EUDR → EUDR — drewno surowe**. Szczegóły: [`docs/EUDR.md`](docs/EUDR.md).
+- **Pulpit EUDR**: partie, dostawcy, kompletne, braki, do weryfikacji, dopuszczone, aktywne DDS, partie z numerem referencyjnym; alerty i ostatnie operacje; kolory: zielony — kompletna i zweryfikowana, żółty — oczekuje, czerwony — braki / niezgodność, szary — archiwum.
+- **Rejestr drewna**: partia z dokumentu przyjęcia (PZ) bez ponownego wpisywania, gatunek (nazwa polska i łacińska), kod CN, m³ / t, okres i miejsce pozyskania, pochodzenie (nadleśnictwo / właściciel, działka, GPS, polygon GIS, klasyfikacja kraju); powiązania z MM, produkcją i WZ, podział, łączenie i przetwarzanie z zachowaniem pochodzenia; partie się archiwizuje, nie kasuje.
+- **Obowiązki zależne od roli firmy w transakcji** (operator / pierwszy podmiot niższego szczebla / handlowiec), kodu CN i daty stosowania (30.12.2026 / 30.06.2027). Brak numeru DDS dostawcy nie blokuje automatycznie dostawy — blokada wydania dotyczy partii, za które firma odpowiada jako operator, po dacie stosowania (tryb „ostrzegaj” w Administracji). Reguły prawne są wersjonowane i zmieniane w Administracji bez przebudowy programu.
+- **Dokumentacja**: 16 rodzajów dokumentów, pliki PDF / JPG / PNG / GeoJSON / XML (typ rozpoznawany po treści, treść aktywna odrzucana), podgląd, pobieranie, zastąpienie pliku nową wersją, sprawdzenie przez kontrolera; pliki na serwerze w folderze skanów z kopią w `backups/skany`.
+- **Należyta staranność**: etap 1 (art. 9), ocena ryzyka (art. 10), ograniczanie ryzyka (art. 11); dopuszczenie partii wyłącznie decyzją Osoby odpowiedzialnej z uzasadnieniem i potwierdzeniem osobistego sprawdzenia — nigdy automatycznie.
+- **EUDR TRACES**: rejestr DDS / numerów referencyjnych i weryfikacyjnych rozdzielony na **ACCEPTANCE** i **PRODUCTION**, przycisk „OTWÓRZ OFICJALNY SYSTEM EUDR TRACES”, zestaw danych JSON / GeoJSON / XML (SubmitDdsRequest V4), kontrolowany proces w 6 krokach; na serwerze firmy — klient SOAP V4 z WS-Security (UsernameToken PasswordDigest, WebServiceClientId), złożenie DDS i odczyt statusu. Dane dostępowe tylko w `server.env` serwera (`EUDR_ACC_*`, `EUDR_PROD_*`).
+- **Tryb pracy**: pomarańczowy pasek „TRYB TESTOWY – DANE NIE MAJĄ MOCY PRAWNEJ” (domyślnie) albo czerwony „TRYB PRODUKCYJNY – OPERACJE MOGĄ WYWOŁYWAĆ SKUTKI PRAWNE”; przełączenie tylko przez Administratora EUDR po wpisaniu PRODUKCJA. Numery testowe i symulowane (SYM-…) nie przechodzą do ewidencji produkcyjnej.
+- **Centrum testów EUDR**: 10 testów (konfiguracja, adres, dane dostępowe, WS-Security, zegar, Echo, GeoJSON, kompletność DDS, rozdzielenie środowisk, odczyt DDS), historia, ponowienie nieudanych, raport PDF. Tryb bez serwera nie udaje połączenia z Komisją Europejską.
+- **Audyt** (13 obszarów, raport PDF; wynik procentowy to wskaźnik wewnętrzny, nie certyfikat), **Szkolenia** (5 modułów, test wiedzy, 4 ćwiczenia na danych fikcyjnych, wewnętrzne potwierdzenie — nie certyfikat Komisji), **Instrukcje** (11), **Raporty** (9, PDF i Excel), **Historia zmian**, **Administracja** (profil firmy, kody CN produktów, reguły, role EUDR: Administrator EUDR, Osoba odpowiedzialna, Magazynier, Kontroler dokumentacji, Podgląd).
+- Dane w bazie serwera (SQLite / PostgreSQL) w 7 nowych kolekcjach wierszy, ta sama transakcja i dziennik (łańcuch SHA-256) co reszta programu. Dane przykładowe i demonstracyjne EUDR są fikcyjne i oznaczone.
+- Testy: `tests/eudr316.test.mjs` (silnik, 14), `tests/eudr-server316.test.mjs` (serwer i klient SOAP na lokalnej atrapie usługi, 4), `tests/e2e316eudr.cjs` (przeglądarka, 30).
+
 ## Nowe w 3.15.0
 
 **Baza danych PostgreSQL (tryb firmowy)**

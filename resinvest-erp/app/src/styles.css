@@ -1651,3 +1651,58 @@ tr.ynext-row td:first-child{box-shadow:inset 4px 0 0 #22C55E} tr.ybest td{backgr
 @media (max-width:640px){.ymap{height:56vh}.ycal-c{min-height:62px}.ycal-t{font-size:10px;padding:1px 3px}.yop-head{grid-template-columns:1fr 1fr}.yop-pct{grid-column:1/-1}.yzoom .btn{padding:6px 10px}}
 
 #y-addinfra{width:auto;min-width:170px} .page-head .actions{align-items:center}
+
+/* ===== 3.16: moduł EUDR — drewno surowe ===== */
+.eu-env{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px;border-radius:var(--r-md);font-size:var(--t-md);color:#fff;margin-bottom:var(--s3)}
+.eu-env-acc{background:#b45309}.eu-env-prod{background:#b91c1c}.eu-env span{opacity:.9;font-size:var(--t-sm)}
+.eu-menu{display:flex;gap:4px;overflow-x:auto;padding:4px;background:var(--surface-3);border-radius:var(--r-md);scrollbar-width:thin}
+.eu-menu button{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:8px 12px;border-radius:7px;font-size:var(--t-sm);font-weight:640;color:var(--text-2)}
+.eu-menu button[aria-pressed="true"]{background:var(--surface);color:var(--text-head);box-shadow:var(--shadow-1)}
+.eu-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:var(--s3)}
+.eu-kpis-sm{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));margin:var(--s3) 0}
+.eu-kpi{cursor:pointer}.eu-k-green{border-left:4px solid var(--ok)}.eu-k-red{border-left:4px solid var(--err)}.eu-k-yellow{border-left:4px solid var(--warn)}
+.eu-dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;flex:none}
+.eu-green{background:var(--ok)}.eu-yellow{background:var(--warn)}.eu-red{background:var(--err)}.eu-grey{background:var(--text-3)}
+.eu-legend{display:flex;gap:var(--s4);flex-wrap:wrap;font-size:var(--t-sm);color:var(--text-2)}
+.eu-cols{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4)}
+.eu-alerts,.eu-recent,.eu-tests{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:420px;overflow:auto}
+.eu-alerts li,.eu-recent li,.eu-tests li{padding:6px 8px;border-radius:var(--r-sm);background:var(--surface-2);font-size:var(--t-sm)}
+.eu-t-OK b{color:var(--ok)}.eu-t-FAIL b{color:var(--err)}.eu-t-SKIP b{color:var(--text-3)}
+.eu-row{display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center;margin:var(--s2) 0}
+.eu-grow{flex:1;min-width:200px;margin:0}
+.eu-form,.eu-grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3)}
+.eu-form .wide,.eu-form .eu-h,.eu-grid2 .wide{grid-column:1/-1}
+.eu-h{margin:var(--s3) 0 0;font-size:var(--t-md);color:var(--text-head)}
+.eu-kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:var(--s3)}
+.eu-kv small{color:var(--text-3)}
+.eu-ob{padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2)}
+.eu-chain,.eu-flow{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch}
+.eu-step{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:var(--r-md);border:1px solid var(--border);min-width:120px;background:var(--surface-2);opacity:.65}
+.eu-step.on{opacity:1;border-color:var(--brand)}
+.eu-arrow{align-self:center;color:var(--text-3)}
+.eu-fbox{padding:6px 10px;border-radius:var(--r-md);background:var(--info-soft);color:var(--info);font-size:var(--t-sm);font-weight:620}
+.eu-ddrow{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--s2)}
+.eu-ddst{padding:8px 10px;border-radius:var(--r-md);border:1px solid var(--border);display:flex;flex-direction:column;gap:2px}
+.eu-ddst.ok{border-color:var(--ok);background:var(--ok-soft)}.eu-ddst.part{border-color:var(--warn);background:var(--warn-soft)}.eu-ddst.bad{border-color:var(--err);background:var(--err-soft)}
+.eu-steps{list-style:none;padding:0;margin:0;display:grid;gap:6px}
+.eu-steps li{display:flex;gap:10px;align-items:center;padding:8px;border-radius:var(--r-md);background:var(--surface-2)}
+.eu-steps li div{flex:1;display:flex;flex-direction:column}.eu-steps li.done{background:var(--ok-soft)}
+.eu-sn{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--surface-3);font-weight:700;font-size:var(--t-sm);flex:none}
+.eu-sim td{background:var(--info-soft)}.eu-void td{opacity:.55;text-decoration:line-through}
+.eu-click{cursor:pointer}.eu-click:hover td{background:var(--surface-2)}
+.eu-portal{font-weight:740}
+.eu-pre{white-space:pre-wrap;font-size:12px;background:var(--surface-2);padding:10px;border-radius:var(--r-md);overflow:auto;max-height:320px}
+.eu-geo{width:84px;height:84px;background:var(--surface-2);border-radius:6px}
+.eu-geo polygon{fill:var(--ok-soft);stroke:var(--ok);stroke-width:1.5}.eu-geo circle{fill:var(--brand)}
+.eu-geo-empty{font-size:var(--t-sm);color:var(--text-3)}
+.eu-prev-img{max-width:100%;max-height:70vh;display:block;margin:auto}.eu-prev-pdf{width:100%;height:70vh;border:0}
+.eu-area,.eu-lesson,.eu-scn{border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px;margin-top:var(--s2)}
+.eu-area summary,.eu-lesson summary{cursor:pointer;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.eu-au-OK{background:var(--ok-soft);color:var(--ok)}.eu-au-PARTIAL{background:var(--warn-soft);color:var(--warn)}.eu-au-NC{background:var(--err-soft);color:var(--err)}
+.eu-st-VERIFIED{background:var(--ok-soft);color:var(--ok)}.eu-st-PENDING{background:var(--warn-soft);color:var(--warn)}.eu-st-NONCONFORM{background:var(--err-soft);color:var(--err)}.eu-st-DRAFT,.eu-st-ARCHIVED{background:var(--surface-3);color:var(--text-2)}
+.eu-bar{height:6px;border-radius:3px;background:var(--surface-3);overflow:hidden;min-width:80px}.eu-bar span{display:block;height:100%;background:var(--brand)}
+.eu-quiz li{margin-bottom:var(--s3)}.eu-quiz label{display:flex;margin-top:4px}
+.eu-acts{display:flex;gap:var(--s2);flex-wrap:wrap;justify-content:flex-end}
+.eu-guide summary,details.card>summary{list-style:none;cursor:pointer}
+@media (max-width:900px){.eu-cols{grid-template-columns:1fr}}
+@media (max-width:640px){.eu-form,.eu-grid2{grid-template-columns:1fr}.eu-kpis{grid-template-columns:1fr 1fr}.eu-acts{justify-content:stretch}.eu-acts .btn{flex:1 1 45%}.eu-env{font-size:var(--t-sm)}}

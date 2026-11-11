@@ -29,6 +29,7 @@ import { SEC_HEADERS, createResponder, readBody, readRaw, cookies, ipOf } from "
 import { createStateViews, sinceOf } from "./http/state-view.mjs";
 import { createWindowLimiter } from "./http/rate-limit.mjs";
 import { envValue, setEnvLine } from "./env-file.mjs";
+import { createEudrRoutes } from "./eudr-routes.mjs";
 
 const [major, minor] = process.versions.node.split(".").map(Number);
 if (major < 22 || (major === 22 && minor < 13)) { console.error(`ResInvest ERP Serwer wymaga Node.js 22.13 lub nowszego (jest ${process.versions.node}).`); process.exit(1); }
@@ -140,6 +141,8 @@ function broadcast(rev, by) {
 /* widok stanu dla użytkownika (izolacja magazynów, pamięć na rewizję, synchronizacja zmianami) — server/http/state-view.mjs */
 const { statePayload } = createStateViews({ store, R, Service, ROWS });
 const metaOf = req => ({ ip: ipOf(req), ua: String(req.headers["user-agent"] || "").slice(0, 200) });
+// 3.16: moduł EUDR — pliki dokumentów i system informacyjny EUDR (TRACES); dane dostępowe wyłącznie z server.env
+const eudrRoutes = createEudrRoutes({ store, R, cfg, env, log, json, readRaw, readBody, broadcast, statePayload: (...a) => statePayload(...a), sinceOf, metaOf, SEC_HEADERS });
 /** Adres programu w linkach e-mail: APP_URL; bez niego — adres wyznaczony przez serwer (nigdy z nagłówka Host). */
 const appUrl = () => {
   if (env.APP_URL) return String(env.APP_URL).replace(/\/+$/, "");
@@ -507,6 +510,7 @@ async function handleApi(req, res, url) {
     clients.add(res); req.on("close", () => clients.delete(res));
     return;
   }
+  if (path.startsWith("/api/eudr/") && await eudrRoutes(req, res, path, method, url, user)) return;
   /* ---- 3.14: skany dokumentów i zdjęcia operacji ---- */
   if (path === "/api/scans" && method === "POST") {
     R.applyRoles(store.state);
@@ -556,6 +560,9 @@ async function handleApi(req, res, url) {
     const b = await readBody(req);
     const cmd = String(b.cmd || ""), args = b.args || {};
     // 3.14: skan dołącza wyłącznie serwer po zapisaniu pliku (/api/scans) — nie z polecenia przeglądarki
+    // 3.16: plik dokumentu EUDR dołącza wyłącznie serwer po zapisaniu (/api/eudr/files); wyniki testów sieciowych zapisuje serwer
+    if (cmd === "eudr.doc.save" && args.file) return json(req, res, 403, { ok: true, res: { ok: false, code: "FORBIDDEN", error: "Pliki dokumentów EUDR wysyła się przez /api/eudr/files" }, today: store.today() });
+    if (cmd === "eudr.tests.record") args.mode = "local";
     if (cmd === "scan.attach") return json(req, res, 403, { ok: true, res: { ok: false, code: "FORBIDDEN", error: t("Skany dodaje się przez wysłanie pliku") }, today: store.today() });
     // nowe konto w trybie FIRMOWYM tylko przez zaproszenie (/api/users/invite) albo z hasłem tymczasowym (/api/users)
     if (cmd === "user.save" && !(args.rec && args.rec.id)) return json(req, res, 403, { ok: true, res: { ok: false, code: "FORBIDDEN", error: t("Nowe konto dodaje się przez zaproszenie e-mail") }, today: store.today() });

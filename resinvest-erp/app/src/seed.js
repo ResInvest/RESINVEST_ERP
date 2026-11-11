@@ -281,6 +281,8 @@
     for (const n of s.notices) if (n.ts.slice(0, 10) < readBefore) { n.read = true; n.readAt = n.ts; }
     s.plans = samplePlans(s);
     sampleYard(s, today);
+    // EUDR: przykładowe partie, dostawcy i ćwiczeniowy wpis DDS — dane fikcyjne, oznaczone
+    if (RIW.Eudr) RIW.Eudr.sample(s, today);
     s.meta.createdAt = new Date().toISOString();
     s.meta.lastMonthCheck = RIW.Dates.ym(today);
     s.meta.sample = true;

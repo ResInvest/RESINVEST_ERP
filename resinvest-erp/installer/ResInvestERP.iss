@@ -40,7 +40,7 @@
 #include AddBackslash(SourcePath) + "build\" + EditionId + "\edition.iss"
 
 #define AppName "ResInvest ERP"
-#define AppVersion "3.15.0"
+#define AppVersion "3.16.0"
 #define AppPublisher "ResInvest Commodities"
 #define AppURL "http://localhost:8080/"
 #define ServerPort "8080"

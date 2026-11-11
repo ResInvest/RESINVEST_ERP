@@ -694,6 +694,8 @@
     { id: "pociagi", label: N_("Terminarz pociągów"), icon: "calendar", perm: "report.view" },
     { id: "zaladunek", label: N_("Symulacja załadunku"), icon: "play", perm: "report.view" },
     { id: "operator", label: N_("Panel operatora"), icon: "phone", perm: "load.run" },
+    { group: N_("EUDR") },
+    { id: "eudr", label: N_("EUDR — drewno surowe"), icon: "shieldCheck", test: () => !!(R.Eudr && R.Eudr.allowed(Store.state, App.user(), "view")) },
     { group: N_("Ewidencja") },
     { id: "stany", label: N_("Stany magazynowe"), icon: "layers" },
     { id: "dokumenty", label: N_("Dokumenty"), icon: "file" },
@@ -977,7 +979,7 @@
       document.body.classList.remove("nav-open");
       const active = HIDDEN_ROUTES[route] ? HIDDEN_ROUTES[route].parent : route;
       // grupa bez żadnej pozycji dostępnej dla roli (np. „Ustawienia” u magazyniera) nie jest pokazywana
-      const visible = NAV.filter(n => !n.perm || this.can(n.perm)).filter((n, i, a) => !n.group || (a[i + 1] && !a[i + 1].group));
+      const visible = NAV.filter(n => (!n.perm || this.can(n.perm)) && (!n.test || n.test())).filter((n, i, a) => !n.group || (a[i + 1] && !a[i + 1].group));
       $("#nav").innerHTML = visible.map(n => n.group ? `<div class="sb-group">${esc(t(n.group))}</div>` :
         `<a class="nav-item" href="#/${n.id}" data-nav="${n.id}" title="${esc(t(n.label))}" ${n.id === active ? 'aria-current="page"' : ""}><span class="ic">${ic(n.icon, 17)}</span><span class="nl">${esc(t(n.label))}</span>${this.navBadge(n.id)}</a>`).join("");
       this.refreshChrome();

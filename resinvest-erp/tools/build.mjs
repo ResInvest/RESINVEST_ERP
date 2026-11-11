@@ -26,7 +26,7 @@ const ASSETS = join(ROOT, "app", "assets", EDITION === "premium" ? "premium" : "
 /** Kolejność ładowania warstw (zależności: i18n + słowniki → silnik → usługa → interfejs). */
 export const DICTS = readdirSync(SRC).filter(f => /^i18n\.d\d+\.js$/.test(f)).sort();
 // intro.js jako pierwszy — buforowanie filmu rusza, zanim przeglądarka przeczyta resztę programu
-export const SCRIPTS = ["intro.js", "i18n.js", ...DICTS, "engine.js", "planner.js", "trade.js", "fleetrep.js", "notify.js", "opening.js", "yard.js", "yardplan.js", "service.js", "seed.js", "pdf.js", "office.js", "auth.js", "core.js", "form.js", "quick.js", "views.js", "dashboard.js", "admin.js", "scans.js", "planner-view.js", "notify-view.js", "opening-view.js", "yard-view.js", "yardplan-view.js", "landing-view.js"];
+export const SCRIPTS = ["intro.js", "i18n.js", ...DICTS, "engine.js", "planner.js", "trade.js", "fleetrep.js", "notify.js", "opening.js", "yard.js", "yardplan.js", "eudr-content.js", "eudr.js", "service.js", "seed.js", "pdf.js", "office.js", "auth.js", "core.js", "form.js", "quick.js", "views.js", "dashboard.js", "admin.js", "scans.js", "planner-view.js", "notify-view.js", "opening-view.js", "yard-view.js", "yardplan-view.js", "landing-view.js", "eudr-view.js"];
 
 const read = f => readFileSync(join(SRC, f), "utf8");
 for (const f of SCRIPTS.concat(["styles.css"])) {
@@ -72,6 +72,15 @@ export function loadConfig() {
     cfg.startup.testAdmin = { email: String(ta.email).trim().toLowerCase(), name: String(ta.name || "Administrator testowy"), password: String(ta.password) };
   }
   cfg.sampleData = raw.sampleData === true;
+  // 3.16: EUDR — adresy oficjalnego systemu EUDR (TRACES) do przycisku „Otwórz oficjalny system” (tylko adresy stron;
+  // dane dostępowe nigdy nie trafiają do programu w przeglądarce)
+  const tr = (raw.eudr && raw.eudr.traces) || {};
+  cfg.eudr = { traces: {} };
+  for (const env of ["ACCEPTANCE", "PRODUCTION"]) {
+    const u = tr[env] && (tr[env].portal || tr[env].base);
+    if (!u || !/^https:\/\/[a-z0-9.-]+\.europa\.eu\//.test(u)) throw new Error(`config/app.config.json: „eudr.traces.${env}” — wymagany adres https systemu Komisji (europa.eu)`);
+    cfg.eudr.traces[env] = { portal: u };
+  }
   cfg.edition = EDITION;
   if (EDITION === "demo" || EDITION === "demo2") {
     // 3.15: wersja demonstracyjna — dane przykładowe, konta demonstracyjne (hasło demo1234), bez konta startowego

@@ -59,7 +59,7 @@ const nowIso = () => new Date().toISOString();
 
 /* ---------------- zapis przyrostowy: kolekcje wierszy ---------------- */
 /** Kolekcje stanu przechowywane wiersz po wierszu (rosną z historią). Pozostałe pola = „rdzeń”. */
-export const ROWS = ["operations", "ledger", "audit", "notices", "plans", "drafts", "inventory", "yard", "trains", "loadPlans"];
+export const ROWS = ["operations", "ledger", "audit", "notices", "plans", "drafts", "inventory", "yard", "trains", "loadPlans", "eudrLots", "eudrDocs", "eudrDds", "eudrSuppliers", "eudrAudits", "eudrTraining", "eudrTests"];
 const ROWSET = new Set(ROWS);
 /** Błąd zapisu do zamrożonego rekordu (komenda zmienia istniejący rekord bez kopii). */
 export const FROZEN_WRITE = /read[- ]only|not extensible|Cannot (?:assign|add|delete|define|redefine)|frozen/i;
@@ -99,7 +99,7 @@ export function loadEnv(dataDir) {
   const files = [join(ROOT, ".env"), join(ROOT, "config", "edition.env"), join(ROOT, "config", "server.env"), dataDir ? join(dataDir, "server.env") : null].filter(Boolean);
   const env = {}, used = [];
   for (const f of files) if (existsSync(f)) { Object.assign(env, parseEnv(readFileSync(f, "utf8"))); used.push(f); }
-  for (const [k, v] of Object.entries(process.env)) if (/^(RESEND_|AGENTMAIL_|EMAIL_|SMTP_|APP_URL|SUPABASE_|COMPANY_DOMAINS$|BACKUP_COPY_TO$|DB_|DATABASE_URL$)/.test(k)) env[k] = v;
+  for (const [k, v] of Object.entries(process.env)) if (/^(RESEND_|AGENTMAIL_|EMAIL_|SMTP_|APP_URL|SUPABASE_|COMPANY_DOMAINS$|BACKUP_COPY_TO$|DB_|DATABASE_URL$|EUDR_)/.test(k)) env[k] = v;
   return { env, files: used };
 }
 

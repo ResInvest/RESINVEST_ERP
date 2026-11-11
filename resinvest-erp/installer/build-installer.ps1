@@ -23,7 +23,7 @@ if ($env:ANDROID_HOME) { node tools/build-android.mjs --skip-html; if ($LASTEXIT
 
 if (-not $SkipTests) {
   Write-Host "== 2/4 Testy jednostkowe i integracyjne"
-  node --test tests/features315.test.mjs tests/server-modules315.test.mjs tests/yardplan315.test.mjs tests/yardplan-server315.test.mjs tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs tests/mail313.test.mjs tests/features314.test.mjs tests/scans314.test.mjs
+  node --test tests/features315.test.mjs tests/server-modules315.test.mjs tests/yardplan315.test.mjs tests/yardplan-server315.test.mjs tests/eudr316.test.mjs tests/eudr-server316.test.mjs tests/engine.test.mjs tests/features34.test.mjs tests/features35.test.mjs tests/features36.test.mjs tests/features38.test.mjs tests/features39.test.mjs tests/features311.test.mjs tests/features312.test.mjs tests/pdf.test.mjs tests/platform.test.mjs tests/server.test.mjs tests/auth.test.mjs tests/mail35.test.mjs tests/mail36.test.mjs tests/reg37.test.mjs tests/smtp.test.mjs tests/update.test.mjs tests/storage.test.mjs tests/editions312.test.mjs tests/mail313.test.mjs tests/features314.test.mjs tests/scans314.test.mjs
   if ($LASTEXITCODE -ne 0) { throw "Testy nie przeszły — instalator nie zostanie zbudowany" }
 }
 
