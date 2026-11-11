@@ -57,7 +57,10 @@ const init = () => { try { sessionStorage.setItem("riw.today", "2026-09-23"); lo
     await page.click("#yd-save"); await page.waitForSelector("#yard-edit", { timeout: 5000 });
     const saved = await page.evaluate(() => ({ y: RIW_DEBUG.store.state.config.yard, st: RIW.Yard.stats(RIW_DEBUG.store.state), a: RIW_DEBUG.store.state.audit.slice(-1)[0], res: document.querySelector("#yard-reserved").textContent }));
     check("Edycja układu: przesunięty narożnik i 1 500 MP pod załadunek zapisane (audyt)", saved.y && saved.y.train[0][0] > 255 && saved.y.reservedMP === 1500 && saved.st.reserved === 1500 && saved.a.entityId === "yard" && n(saved.res) === 1500, { t: saved.y && saved.y.train[0], r: saved.st.reserved });
-    await page.reload(); await page.waitForFunction(() => !!document.querySelector("#yard-card") && !!(window.RIW_DEBUG && RIW_DEBUG.store && RIW_DEBUG.store.state), null, { timeout: 20000 });
+    // przeładowanie: dane z localStorage; sesja (sessionStorage) w pliku lokalnym bywa czyszczona przez Chromium — wtedy ponowne logowanie
+    await page.reload(); await page.waitForFunction(() => !!document.querySelector("#yard-card, #landing"), null, { timeout: 20000 });
+    if (await page.$("#landing")) { await page.click('.land-hero .land-hs[aria-label="Zaloguj się"] >> nth=1'); await page.fill("#lg-login", "magazyn@resinvest.group"); await page.fill("#lg-pass", "demo1234"); await page.click("#lg-submit"); }
+    await page.waitForFunction(() => !!document.querySelector("#yard-card") && !!(window.RIW_DEBUG && RIW_DEBUG.store && RIW_DEBUG.store.state), null, { timeout: 20000 });
     check("Układ placu zachowany po przeładowaniu", await page.evaluate(() => !!(RIW_DEBUG.store.state.config.yard && RIW_DEBUG.store.state.config.yard.reservedMP === 1500)));
     await page.click("#yard-edit"); await page.click("#yd-reset"); await page.click(".modal [data-yes]"); await page.waitForSelector("#yard-edit", { timeout: 5000 });
     check("Przywrócenie układu domyślnego", await page.evaluate(() => RIW_DEBUG.store.state.config.yard === undefined));
