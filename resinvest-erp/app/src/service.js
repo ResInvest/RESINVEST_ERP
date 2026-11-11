@@ -18,6 +18,7 @@
   if (!R.Notify && typeof require === "function") require("./notify.js");
   if (!R.Opening && typeof require === "function") require("./opening.js");
   if (!R.Yard && typeof require === "function") require("./yard.js");
+  if (!R.YardPlan && typeof require === "function") require("./yardplan.js");
   const t = (s, p) => R.I18N.t(s, p);
   const N_ = s => s;
   const str = v => String(v == null ? "" : v).trim();
@@ -97,6 +98,19 @@
     /* ---- 3.15: stany początkowe magazynów (edytor; dokument BO z różnicami) ---- */
     "stock.opening": { perm: "warehouses.edit", run: (s, a, c) => R.Opening.save(s, a, c) },
     "yard.save": { perm: "warehouses.edit", run: (s, a, c) => R.Yard.save(s, a, c) },
+    // 3.15: plan placu (pryzmy, infrastruktura), terminarz pociągów, symulacja i realizacja załadunku
+    "pile.save": { perm: "yard.edit", run: (s, a, c) => R.YardPlan.savePile(s, a, c) },
+    "yardobj.move": { perm: "yard.edit", run: (s, a, c) => R.YardPlan.moveObject(s, a, c) },
+    "yardobj.save": { perm: "yard.edit", run: (s, a, c) => R.YardPlan.saveInfra(s, a, c) },
+    "yardobj.remove": { perm: "yard.edit", run: (s, a, c) => R.YardPlan.removeObject(s, a, c) },
+    "yardobj.template": { perm: "yard.edit", run: (s, a, c) => R.YardPlan.template(s, a, c) },
+    "train.save": { perm: "trains.edit", run: (s, a, c) => R.YardPlan.saveTrain(s, a, c) },
+    "train.remove": { perm: "trains.edit", run: (s, a, c) => R.YardPlan.removeTrain(s, a, c) },
+    "load.save": { perm: "load.run", run: (s, a, c) => R.YardPlan.savePlan(s, a, c) },
+    "load.remove": { perm: "load.run", run: (s, a, c) => R.YardPlan.removePlan(s, a, c) },
+    "load.action": { perm: "report.view", run: (s, a, c) => R.YardPlan.planAction(s, a, c) },
+    "load.record": { perm: "load.run", run: (s, a, c) => R.YardPlan.record(s, a, c) },
+    "load.finish": { perm: "load.run", run: (s, a, c) => R.YardPlan.finish(s, a, c) },
     "scan.attach": { perm: "scans.add", run: (s, a, c) => R.Scans.attach(s, a, c) },
     "scan.remove": { perm: "scans.delete", run: (s, a, c) => R.Scans.remove(s, a, c) },
     /* ---- role, uprawnienia, konfiguracja (administrator) ---- */
@@ -143,6 +157,7 @@
     out.drafts = state.drafts.filter(d => d.userId === u.id || (d.status === "PENDING" && inA(d.whId)));
     out.inventory = state.inventory.filter(p => inA(p.whId));
     out.plans = (state.plans || []).filter(p => inA(p.whId));
+    for (const k of ["yard", "trains", "loadPlans"]) out[k] = (state[k] || []).filter(x => inA(x.whId));
     out.audit = state.audit.filter(a => a.userId === u.id || (a.whId && inA(a.whId) && a.entity !== "user" && a.entity !== "role" && a.entity !== "system"));
     const fl = state.fleet || {};
     out.fleet = Object.fromEntries(Object.entries(fl).map(([k, v]) => [k, Array.isArray(v) ? v.filter(x => !x.whId || inA(x.whId)) : v]));

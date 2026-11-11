@@ -59,7 +59,7 @@ const nowIso = () => new Date().toISOString();
 
 /* ---------------- zapis przyrostowy: kolekcje wierszy ---------------- */
 /** Kolekcje stanu przechowywane wiersz po wierszu (rosną z historią). Pozostałe pola = „rdzeń”. */
-export const ROWS = ["operations", "ledger", "audit", "notices", "plans", "drafts", "inventory"];
+export const ROWS = ["operations", "ledger", "audit", "notices", "plans", "drafts", "inventory", "yard", "trains", "loadPlans"];
 const ROWSET = new Set(ROWS);
 /** Błąd zapisu do zamrożonego rekordu (komenda zmienia istniejący rekord bez kopii). */
 export const FROZEN_WRITE = /read[- ]only|not extensible|Cannot (?:assign|add|delete|define|redefine)|frozen/i;

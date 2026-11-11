@@ -236,13 +236,15 @@
     "settings.edit": N_("Konfiguracja systemu"), "data.backup": N_("Kopia zapasowa"), "data.import": N_("Import kopii"),
     "planner.edit": N_("Planer zakupów — wpisywanie planu dnia"), "notifications.manage": N_("Powiadomienia i poczta — zgody, dziennik wysyłki"),
     "factors.edit": N_("Przeliczniki miesiąca — pozostawienie albo zmiana po zamknięciu okresu"),
-    "scans.add": N_("Skany dokumentów i zdjęcia — dodawanie do operacji"), "scans.delete": N_("Skany dokumentów i zdjęcia — usuwanie")
+    "scans.add": N_("Skany dokumentów i zdjęcia — dodawanie do operacji"), "scans.delete": N_("Skany dokumentów i zdjęcia — usuwanie"),
+    "yard.edit": N_("Plan placu — pryzmy i infrastruktura"), "trains.edit": N_("Terminarz pociągów — planowanie i zatwierdzanie"),
+    "load.run": N_("Załadunek pociągu — symulacja i realizacja")
   };
   const CREATE_PERMS = ["receipts.create", "issues.create", "production.create", "mm.create"];
   const ROLE_DEFAULTS = {
     admin: ["*"],
-    kierownik: [...CREATE_PERMS, "mm.receive", "op.approve", "documents.cancel", "documents.delete", "documents.correct", "inventory.correct", "production.correct", "sales.correct", "purchases.correct", "inv.open", "inv.count", "inv.close", "factors.edit", "fleet.edit", "master.edit", "planner.edit", "report.view", "reports.export", "history.read", "users.read", "scans.add", "scans.delete"],
-    magazynier: [...CREATE_PERMS, "mm.receive", "inv.count", "report.view", "history.read", "scans.add"],
+    kierownik: [...CREATE_PERMS, "mm.receive", "op.approve", "documents.cancel", "documents.delete", "documents.correct", "inventory.correct", "production.correct", "sales.correct", "purchases.correct", "inv.open", "inv.count", "inv.close", "factors.edit", "fleet.edit", "master.edit", "planner.edit", "report.view", "reports.export", "history.read", "users.read", "scans.add", "scans.delete", "yard.edit", "trains.edit", "load.run"],
+    magazynier: [...CREATE_PERMS, "mm.receive", "inv.count", "report.view", "history.read", "scans.add", "yard.edit", "load.run"],
     obserwator: ["report.view", "history.read"],
     audytor: ["report.view", "reports.export", "history.read", "audit.read", "users.read"]
   };
@@ -519,7 +521,7 @@
       config: Object.assign({ m3_mp: 4, mp_t: 0.33, woodTPerM3: 0.952, t_gj: 8.5, currency: "zł", kmRateDefault: 5, chipRateDefault: 10, wagonMPDefault: 120, maxWagons: 60, companyDomains: ["resinvest.group"], requireApproval: false, allowSelfRegistration: false, mmMode: "two", docNumbering: "wz", factorHistory: [] }, config || {}),
       warehouses: [], users: [], products: [], partners: [], carriers: [], extraTypes: [],
       fleet: { vehicles: [], drivers: [], chippers: [], operators: [] },
-      operations: [], drafts: [], ledger: [], inventory: [], audit: [], seq: {}, rolePerms: {}, plans: [], notices: [], templates: [],
+      operations: [], drafts: [], ledger: [], inventory: [], audit: [], seq: {}, rolePerms: {}, plans: [], notices: [], templates: [], yard: [], trains: [], loadPlans: [],
       meta: { lastMonthCheck: null, createdAt: null }
     };
   }
@@ -631,6 +633,8 @@
     if (s.schema !== SCHEMA) return { error: t("Nieobsługiwana wersja schematu: {a} (oczekiwano {b})", { a: from, b: SCHEMA }) };
     // 3.11: szablony operacji — kolekcja opcjonalna (bez zmiany schematu; starsze dane i kopie zapasowe — pusta lista)
     if (!Array.isArray(s.templates)) s.templates = [];
+    // 3.15: plan placu, terminarz pociągów i plany załadunku — kolekcje opcjonalne (bez zmiany schematu)
+    for (const k of ["yard", "trains", "loadPlans"]) if (!Array.isArray(s[k])) s[k] = [];
     // 3.12: historia przeliczników miesięcznych (bez zmiany schematu); rola zamykająca okresy decyduje o przelicznikach
     if (s.config && !Array.isArray(s.config.factorHistory)) s.config.factorHistory = [];
     for (const [role, list] of Object.entries(s.rolePerms || {})) if (Array.isArray(list) && list.includes("inv.close") && !list.includes("factors.edit")) s.rolePerms[role] = list.concat("factors.edit");

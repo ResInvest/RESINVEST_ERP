@@ -26,7 +26,7 @@ const ASSETS = join(ROOT, "app", "assets", EDITION === "premium" ? "premium" : "
 /** Kolejność ładowania warstw (zależności: i18n + słowniki → silnik → usługa → interfejs). */
 export const DICTS = readdirSync(SRC).filter(f => /^i18n\.d\d+\.js$/.test(f)).sort();
 // intro.js jako pierwszy — buforowanie filmu rusza, zanim przeglądarka przeczyta resztę programu
-export const SCRIPTS = ["intro.js", "i18n.js", ...DICTS, "engine.js", "planner.js", "trade.js", "fleetrep.js", "notify.js", "opening.js", "yard.js", "service.js", "seed.js", "pdf.js", "office.js", "auth.js", "core.js", "form.js", "quick.js", "views.js", "dashboard.js", "admin.js", "scans.js", "planner-view.js", "notify-view.js", "opening-view.js", "yard-view.js", "landing-view.js"];
+export const SCRIPTS = ["intro.js", "i18n.js", ...DICTS, "engine.js", "planner.js", "trade.js", "fleetrep.js", "notify.js", "opening.js", "yard.js", "yardplan.js", "service.js", "seed.js", "pdf.js", "office.js", "auth.js", "core.js", "form.js", "quick.js", "views.js", "dashboard.js", "admin.js", "scans.js", "planner-view.js", "notify-view.js", "opening-view.js", "yard-view.js", "yardplan-view.js", "landing-view.js"];
 
 const read = f => readFileSync(join(SRC, f), "utf8");
 for (const f of SCRIPTS.concat(["styles.css"])) {
@@ -112,7 +112,7 @@ put("@@DEFAULT_THEME@@", cfg.defaultTheme);
 const hero = join(ROOT, "app", "assets", "premium", "hero.jpg");
 put("@@HERO@@", EDITION === "premium" && existsSync(hero) ? "data:image/jpeg;base64," + readFileSync(hero).toString("base64") : "");
 const img = f => { const p = join(ROOT, "app", "assets", "demo2", f); return existsSync(p) ? "data:image/jpeg;base64," + readFileSync(p).toString("base64") : ""; };
-put("@@IMG@@", JSON.stringify(EDITION === "demo2" ? { login: img("logowanie.jpg"), start: img("start.jpg"), yard: img("plac-zabrze.jpg") } : {}));
+put("@@IMG@@", JSON.stringify(EDITION === "demo2" ? { login: img("logowanie.jpg"), yard: img("plac-zabrze.jpg") } : {}));
 put("@@BUILT@@", new Date().toISOString().slice(0, 10));
 
 writeFileSync(OUT, html, "utf8");
