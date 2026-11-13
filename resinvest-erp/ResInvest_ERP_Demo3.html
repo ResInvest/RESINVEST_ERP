@@ -1,0 +1,1934 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>ResInvest ERP — wersja demonstracyjna 3</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230c4f32'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='14' font-family='sans-serif' fill='%23fffcf7'%3ER%3C/text%3E%3C/svg%3E">
+<style>
+/* Skala odstępu: --s = 0,25 rem. Stopnie: 1, 2, 3, 4, 6, 8, 12, 16.
+   Skala pisma: --fs = 1 rem. Stopnie: 0,875 / 1 / 1,25 / 1,5 / 2.
+   Kolory: dokładnie pięć zmiennych poniżej. */
+:root {
+  --s: 0.25rem;
+  --fs: 1rem;
+  --ink: #142018;
+  --paper: #f3f1ec;
+  --surface: #fffcf7;
+  --line: #3e4a43;
+  --accent: #0c4f32;
+}
+@font-face {
+  font-family: "ResInvest";
+  src: url("app/assets/fonts/ResInvestDocSans-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "ResInvest";
+  src: url("app/assets/fonts/ResInvestDocSans-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { font-size: 100%; overflow-x: clip; }
+body {
+  margin: 0;
+  overflow-x: clip;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "ResInvest", "Segoe UI", sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+h1, h2, p, ul, ol, fieldset { margin: 0; }
+h1 { font-size: calc(var(--fs) * 1.5); line-height: 1.2; font-weight: 700; }
+h2 { font-size: calc(var(--fs) * 1.25); line-height: 1.2; font-weight: 700; }
+.figure { font-size: calc(var(--fs) * 2); line-height: 1.2; font-weight: 700; }
+.meta, .hint, th, .choice-text, legend span.meta {
+  font-size: calc(var(--fs) * 0.875);
+  line-height: 1.5;
+}
+.meta, .hint, .choice-text { color: var(--line); }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--accent); }
+::placeholder { color: var(--line); opacity: 1; }
+::selection { background: var(--accent); color: var(--surface); }
+:focus {
+  outline: calc(var(--s) * 1) solid var(--ink);
+  outline-offset: calc(var(--s) * -1);
+}
+.skip {
+  position: absolute;
+  left: calc(var(--s) * 4);
+  top: calc(var(--s) * 4);
+  background: var(--accent);
+  color: var(--surface);
+  padding: calc(var(--s) * 2) calc(var(--s) * 4);
+  z-index: 5;
+  transform: translateY(-200%);
+}
+.skip:focus { transform: none; }
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.shell { display: grid; grid-template-columns: calc(var(--s) * 64) minmax(0, 1fr); min-height: 100vh; }
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--ink);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.brand, .userbox { padding: calc(var(--s) * 4); }
+.brand { border-bottom: 1px solid var(--ink); }
+.mark { font-size: calc(var(--fs) * 1.5); font-weight: 700; line-height: 1.2; }
+.nav { list-style: none; padding: calc(var(--s) * 2) 0; margin: 0; }
+.nav a {
+  display: flex;
+  align-items: center;
+  min-height: calc(var(--s) * 12);
+  padding: calc(var(--s) * 2) calc(var(--s) * 4);
+  color: var(--ink);
+  text-decoration: none;
+}
+.nav a:hover { background: var(--paper); text-decoration: underline; }
+.nav a[aria-current="page"] { background: var(--accent); color: var(--surface); font-weight: 700; text-decoration: none; }
+.nav a[aria-current="page"]:hover { background: var(--accent); color: var(--surface); }
+.userbox { margin-top: auto; border-top: 1px solid var(--ink); }
+.userbox p { margin-bottom: calc(var(--s) * 1); }
+.maincol { min-width: 0; }
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--s) * 4);
+  align-items: flex-end;
+  padding: calc(var(--s) * 4);
+  border-bottom: 1px solid var(--ink);
+  background: var(--paper);
+}
+.menu-btn { display: none; }
+.search { position: relative; flex: 1 1 calc(var(--s) * 64); min-width: 0; display: flex; flex-direction: column; gap: calc(var(--s) * 2); }
+.search-pop {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  z-index: 4;
+  max-height: calc(var(--fs) * 16);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.search-hit, .combo-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  color: var(--ink);
+  border: 0;
+  border-bottom: 1px solid var(--ink);
+  min-height: calc(var(--s) * 12);
+  padding: calc(var(--s) * 2) calc(var(--s) * 4);
+  cursor: pointer;
+}
+.search-hit.is-active, .combo-list button.is-active { background: var(--accent); color: var(--surface); }
+main { padding: calc(var(--s) * 8); min-width: 0; max-width: 72rem; }
+.lead { margin: calc(var(--s) * 4) 0 calc(var(--s) * 8); max-width: 40rem; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--s) * 4); margin: calc(var(--s) * 8) 0; }
+.fact { min-width: 0; }
+.login { max-width: 32rem; margin: calc(var(--s) * 12) auto; padding: 0 calc(var(--s) * 4) calc(var(--s) * 8); }
+.stack { display: flex; flex-direction: column; gap: calc(var(--s) * 4); margin-top: calc(var(--s) * 6); }
+.form-col { max-width: 40rem; }
+.field, .block { margin-top: calc(var(--s) * 6); }
+.field label, legend { display: block; font-weight: 700; margin-bottom: calc(var(--s) * 2); }
+fieldset { border: 0; padding: 0; min-inline-size: 0; }
+.ctrl {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: calc(var(--s) * 12);
+  padding: calc(var(--s) * 2) calc(var(--s) * 4);
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+}
+textarea.ctrl { min-height: calc(var(--s) * 16); resize: vertical; }
+.ctrl:disabled {
+  background: var(--paper);
+  color: var(--line);
+  -webkit-text-fill-color: var(--line);
+  opacity: 1;
+}
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--s) * 3);
+  min-height: calc(var(--s) * 12);
+  padding: calc(var(--s) * 2) calc(var(--s) * 4);
+  border: 1px solid var(--ink);
+  background: var(--surface);
+  margin-top: calc(var(--s) * 2);
+  cursor: pointer;
+}
+.choice > span { display: flex; flex-direction: column; gap: calc(var(--s) * 1); min-width: 0; padding-top: calc(var(--s) * 1); }
+.choice input { width: calc(var(--s) * 4); height: calc(var(--s) * 4); margin: 0; flex: 0 0 auto; }
+.choice:has(:checked) { outline: calc(var(--s) * 1) solid var(--accent); outline-offset: calc(var(--s) * -1); }
+.choice b { font-weight: 700; }
+.msg { margin-top: calc(var(--s) * 2); font-weight: 700; }
+.hint { margin-top: calc(var(--s) * 2); }
+.summary { margin-top: calc(var(--s) * 8); padding-top: calc(var(--s) * 4); border-top: 1px solid var(--ink); }
+.summary p { margin-bottom: calc(var(--s) * 2); }
+.actions { display: flex; flex-wrap: wrap; gap: calc(var(--s) * 4); margin-top: calc(var(--s) * 6); }
+.actions .primary, #save-status, #form-errors { flex: 1 1 100%; }
+#save-status:empty { display: none; }
+#form-errors { border: 1px solid var(--ink); padding: calc(var(--s) * 4); margin-top: calc(var(--s) * 4); }
+#form-errors ul { margin: calc(var(--s) * 2) 0 0; padding-left: calc(var(--s) * 4); }
+.btn, .combo-list button {
+  min-height: calc(var(--s) * 12);
+  padding: calc(var(--s) * 2) calc(var(--s) * 4);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  cursor: pointer;
+  text-align: center;
+}
+.btn.primary { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+.btn.block { width: 100%; }
+.btn:hover:not(:disabled), .search-hit:hover { background: var(--ink); color: var(--surface); }
+.btn.primary:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.btn:disabled { background: var(--paper); color: var(--line); border-color: var(--line); opacity: 1; -webkit-text-fill-color: var(--line); cursor: not-allowed; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { padding: calc(var(--s) * 3) calc(var(--s) * 2); text-align: left; vertical-align: top; overflow-wrap: break-word; border-bottom: 1px solid var(--ink); }
+.nowrap { white-space: nowrap; }
+th { font-weight: 700; }
+.is-hit { outline: calc(var(--s) * 1) solid var(--accent); outline-offset: calc(var(--s) * -1); }
+.combo { position: relative; }
+.combo-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  z-index: 4;
+  max-height: calc(var(--fs) * 16);
+  overflow: auto;
+}
+dialog {
+  border: 1px solid var(--ink);
+  background: var(--surface);
+  color: var(--ink);
+  padding: calc(var(--s) * 6);
+  max-width: min(36rem, calc(100% - calc(var(--s) * 8)));
+}
+dialog::backdrop { background: var(--ink); opacity: 0.45; }
+.dlg-actions { display: flex; flex-wrap: wrap; gap: calc(var(--s) * 4); margin-top: calc(var(--s) * 6); }
+.page-status { margin-bottom: calc(var(--s) * 4); font-weight: 700; }
+.run { margin-top: calc(var(--s) * 4); padding-top: calc(var(--s) * 2); }
+@media (min-width: 1101px) {
+  .sidebar { position: sticky; top: 0; height: 100vh; overflow: auto; }
+}
+@media (max-width: 1100px) {
+  .shell { display: block; }
+  .menu-btn { display: inline-flex; align-items: center; justify-content: center; }
+  .sidebar { display: none; }
+  .sidebar.is-open {
+    display: flex;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    z-index: 3;
+    width: 100%;
+    max-height: 100vh;
+    overflow: auto;
+    border-bottom: 1px solid var(--ink);
+    border-right: 0;
+  }
+}
+@media (max-width: 1100px) and (min-width: 768px) {
+  table.wide { table-layout: auto; }
+  table.wide th:nth-child(3),
+  table.wide td:nth-child(3) { display: none; }
+}
+@media (max-width: 767px) {
+  main { padding: calc(var(--s) * 4); }
+  .search { flex-basis: 100%; }
+  .facts { grid-template-columns: 1fr; }
+  .form-col { max-width: none; }
+  table.cards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  table.cards, table.cards tbody, table.cards tr, table.cards td { display: block; width: auto; }
+  table.cards { table-layout: auto; }
+  table.cards tr { border: 1px solid var(--ink); margin-bottom: calc(var(--s) * 4); padding: calc(var(--s) * 2) 0; }
+  table.cards td { border: 0; padding: calc(var(--s) * 2) calc(var(--s) * 4); }
+  table.cards td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: calc(var(--fs) * 0.875);
+    font-weight: 700;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media (forced-colors: active) {
+  :focus-visible { outline: calc(var(--s) * 1) solid CanvasText; }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#tresc">Przejdź do treści</a>
+<p id="boot-error" role="alert"></p>
+<div id="app"></div>
+<script>
+"use strict";
+const LS = "riw.demo3.bundle";
+const PASS = "demo1234";
+const MONTHS = ["stycznia","lutego","marca","kwietnia","maja","czerwca","lipca","sierpnia","września","października","listopada","grudnia"];
+const ROLES = { admin: "Administrator", kierownik: "Kierownik", magazynier: "Magazynier", obserwator: "Obserwator", audytor: "Audytor" };
+const TYPES = { ZAKUP: "Zakup", SPRZEDAZ: "Sprzedaż", PRODUKCJA: "Produkcja", MM: "Przesunięcie MM" };
+const STATUSES = { POSTED: "Zatwierdzona", CORRECTED: "Skorygowana", CANCELLED: "Anulowana", W_DRODZE: "W drodze" };
+const CMDS = { seed: "Dane przykładowe", "op.commit": "Zapis operacji", "mm.receive": "Przyjęcie MM", "backup.restore": "Przywrócenie kopii" };
+const DIFF = [
+  ["", "Brak różnicy"],
+  ["wilgotnosc", "Wilgotność / osiadanie"],
+  ["jakosc", "Jakość surowca"],
+  ["straty", "Straty przy rębaniu"],
+  ["pomiar", "Różnica pomiaru"],
+  ["inna", "Inna przyczyna"]
+];
+const PROD = { lesna: ["Zrębka produkcyjna leśna", "pr_zr_lesna"], inwestycyjna: ["Zrębka produkcyjna inwestycyjna", "pr_zr_inw"] };
+const ROUTES = ["pulpit", "operacja", "operacje", "stany", "dokumenty", "kontrahenci", "kopia"];
+const TITLES = {
+  pulpit: "Pulpit", operacja: "Nowa operacja", operacje: "Rejestr operacji",
+  stany: "Stany magazynowe", dokumenty: "Dokumenty", kontrahenci: "Kontrahenci", kopia: "Kopia i dziennik"
+};
+const USERS = [
+  { id: "u_admin", email: "magazyn@resinvest.group", name: "Mateusz Roesner", role: "admin", whId: "wh_zab", warehouseIds: ["wh_zab", "wh_bra", "wh_rok"] },
+  { id: "u_kier", email: "anna.gorska@resinvest.group", name: "Anna Górska", role: "kierownik", whId: "wh_zab", warehouseIds: ["wh_zab", "wh_bra"] },
+  { id: "u_mag", email: "adrian.wojciechowski@resinvest.group", name: "Adrian Wojciechowski", role: "magazynier", whId: "wh_zab", warehouseIds: ["wh_zab"] },
+  { id: "u_view", email: "beata.nowak@resinvest.group", name: "Beata Nowak", role: "obserwator", whId: "wh_zab", warehouseIds: ["wh_zab"] }
+];
+
+let dbp = null, dbState = null, journal = [], user = null, route = "pulpit";
+let draft = null, touched = new Set(), form = null, persistMode = "indexeddb";
+let searchQuery = "", searchHits = [], highlightId = "", flash = "", saving = false;
+const ui = { ownShown: 1, extShown: 1 };
+let INDEX = [];
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function fold(s) {
+  return String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+}
+function todayISO() {
+  const d = new Date(), z = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate());
+}
+function longDate(iso) {
+  const [y, m, d] = String(iso || "").split("-").map(Number);
+  if (!y || !m || !d) return "—";
+  return d + " " + MONTHS[m - 1] + " " + y;
+}
+function shortDate(iso) {
+  const [y, m, d] = String(iso || "").split("-");
+  return y && m && d ? d + "." + m + "." + y : "—";
+}
+function plQty(n) { return new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 3 }).format(n); }
+function plMoney(n) { return new Intl.NumberFormat("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n) + " zł"; }
+function unitLabel(u) { return u === "m3" ? "m³" : (u || ""); }
+function parseNum(raw) {
+  const s = String(raw ?? "").trim().replace(/\s/g, "").replace(",", ".");
+  if (!s) return { empty: true };
+  if (!/^\d+(\.\d+)?$/.test(s)) return { ok: false };
+  const value = Number(s);
+  return Number.isFinite(value) ? { ok: true, value } : { ok: false };
+}
+function round3(n) { return Math.round(n * 1000) / 1000; }
+function uid(p) { return p + Math.random().toString(36).slice(2, 10); }
+function setPath(obj, path, value) {
+  const parts = path.split(".");
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i], next = parts[i + 1];
+    if (cur[key] == null || typeof cur[key] !== "object") cur[key] = /^\d+$/.test(next) ? [] : {};
+    cur = cur[key];
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+function getPath(obj, path) {
+  return path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+function sha256(str) {
+  const K = new Uint32Array([
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  ]);
+  const bytes = new TextEncoder().encode(str);
+  const bitLen = bytes.length * 8;
+  const withPad = new Uint8Array(((bytes.length + 9 + 63) & ~63));
+  withPad.set(bytes);
+  withPad[bytes.length] = 0x80;
+  const view = new DataView(withPad.buffer);
+  view.setUint32(withPad.length - 8, Math.floor(bitLen / 2 ** 32));
+  view.setUint32(withPad.length - 4, bitLen >>> 0);
+  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  const w = new Uint32Array(64);
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let i = 0; i < withPad.length; i += 64) {
+    for (let t = 0; t < 16; t++) w[t] = view.getUint32(i + t * 4);
+    for (let t = 16; t < 64; t++) {
+      const s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ (w[t - 15] >>> 3);
+      const s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ (w[t - 2] >>> 10);
+      w[t] = (w[t - 16] + s0 + w[t - 7] + s1) >>> 0;
+    }
+    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    for (let t = 0; t < 64; t++) {
+      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + K[t] + w[t]) >>> 0;
+      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + maj) >>> 0;
+      h=g; g=f; f=e; e=(d+t1)>>>0; d=c; c=b; b=a; a=(t1+t2)>>>0;
+    }
+    h0=h0+a>>>0; h1=h1+b>>>0; h2=h2+c>>>0; h3=h3+d>>>0; h4=h4+e>>>0; h5=h5+f>>>0; h6=h6+g>>>0; h7=h7+h>>>0;
+  }
+  return [h0,h1,h2,h3,h4,h5,h6,h7].map(x => x.toString(16).padStart(8, "0")).join("");
+}
+function canonical(v) {
+  if (Array.isArray(v)) return "[" + v.map(canonical).join(",") + "]";
+  if (v && typeof v === "object") return "{" + Object.keys(v).sort().map(k => JSON.stringify(k) + ":" + canonical(v[k])).join(",") + "}";
+  return JSON.stringify(v);
+}
+function freshSeed() {
+  return {
+    rev: 16,
+    config: { m3_mp: 4, mp_t: 0.33, woodTPerM3: 0.952, t_gj: 8.5, kmRate: 5, chipRate: 10, docNumbering: "wz", mmMode: "two" },
+    warehouses: [
+      { id: "wh_zab", code: "ZAB", name: "RiC Zabrze", address: "ul. Gwarecka 16, 41-800 Zabrze" },
+      { id: "wh_bra", code: "BRA", name: "RiC Brąszewice", address: "Brąszewice" },
+      { id: "wh_rok", code: "ROK", name: "RiC Rokitki", address: "Rokitki" }
+    ],
+    products: [
+      { id: "pr_drewno", name: "Drewno opałowe", unit: "m3", cat: "drewno" },
+      { id: "pr_drewno_inw", name: "Drewno z wycinki inwestycyjnej", unit: "m3", cat: "drewno" },
+      { id: "pr_zr_lesna", name: "Zrębka produkcyjna leśna", unit: "MP", cat: "zrebka" },
+      { id: "pr_zr_inw", name: "Zrębka produkcyjna inwestycyjna", unit: "MP", cat: "zrebka" },
+      { id: "pr_zr_tow", name: "Zrębka towar", unit: "MP", cat: "zrebka" },
+      { id: "pr_pks", name: "PKS (łupina palmowa)", unit: "t", cat: "agro" },
+      { id: "pr_lupina", name: "Łupina nerkowca", unit: "t", cat: "agro" }
+    ],
+    partners: [
+      { id: "pa_lander", name: "Lander Agro", role: "supplier", kind: "firma", city: "Gliwice" },
+      { id: "pa_ndl_rr", name: "Nadleśnictwo Rudy Raciborskie", role: "supplier", kind: "nadlesnictwo", city: "Kuźnia Raciborska" },
+      { id: "pa_ndl_ryb", name: "Nadleśnictwo Rybnik", role: "supplier", kind: "nadlesnictwo", city: "Rybnik" },
+      { id: "pa_drwal", name: "Usługi Leśne Drwal sp. z o.o.", role: "supplier", kind: "firma", city: "Gliwice" },
+      { id: "pa_ec_zab", name: "Elektrociepłownia Zabrze S.A.", role: "buyer", kind: "firma", city: "Zabrze" },
+      { id: "pa_ec_kat", name: "EC Katowice — biomasa", role: "buyer", kind: "firma", city: "Katowice" },
+      { id: "pa_ciep_ryb", name: "Ciepłownia Rybnik", role: "buyer", kind: "firma", city: "Rybnik" },
+      { id: "pa_tartak", name: "Tartak Beskid s.c.", role: "both", kind: "firma", city: "Żywiec" },
+      { id: "pa_agro", name: "Biomass Trading B.V.", role: "supplier", kind: "firma", city: "Rotterdam" },
+      { id: "pa_elektrownia", name: "Elektrownia Łaziska", role: "buyer", kind: "firma", city: "Łaziska Górne" }
+    ],
+    operations: [
+      opSeed("op1","2026-08-05","ZAKUP","POSTED","WZ/003/08/2026","wh_zab","pa_lander","pr_drewno",30,"m3",230,"KZR","Adrian Wojciechowski","KW 0142/08/2026"),
+      opSeed("op2","2026-08-12","ZAKUP","POSTED","WZ/004/08/2026","wh_zab","pa_drwal","pr_zr_tow",100,"MP",55,"KZR","Adrian Wojciechowski",""),
+      opSeed("op3","2026-08-20","ZAKUP","POSTED","WZ/005/08/2026","wh_zab","pa_tartak","pr_drewno_inw",25,"m3",180,"KZR","Anna Górska",""),
+      opSeed("op4","2026-09-03","ZAKUP","POSTED","WZ/001/09/2026","wh_zab","pa_lander","pr_drewno",20,"m3",230,"KZR","Adrian Wojciechowski","KW 0217/09/2026"),
+      opSeed("op5","2026-09-08","ZAKUP","POSTED","WZ/002/09/2026","wh_bra","pa_ndl_ryb","pr_drewno",15,"m3",210,"DEKL","Paweł Kaczmarek",""),
+      opSeed("op6","2026-09-10","PRODUKCJA","POSTED","WZ/003/09/2026","wh_bra","","pr_zr_lesna",40,"MP",null,"","Paweł Kaczmarek","","KP 12/09/2026"),
+      opSeed("op7","2026-09-12","SPRZEDAZ","CORRECTED","WZ/004/09/2026","wh_bra","pa_ciep_ryb","pr_zr_lesna",90,"MP",85,"","Paweł Kaczmarek",""),
+      opSeed("op8","2026-09-15","SPRZEDAZ","POSTED","WZ/005/09/2026","wh_zab","pa_elektrownia","pr_zr_lesna",600,"MP",88,"","Anna Górska","KW 0233/09/2026"),
+      opSeed("op9","2026-09-16","MM","POSTED","WZ/006/09/2026","wh_zab","","pr_zr_tow",50,"MP",null,"","Anna Górska","","", "wh_bra"),
+      opSeed("op10","2026-09-17","ZAKUP","CANCELLED","WZ/007/09/2026","wh_bra","pa_agro","pr_lupina",5,"t",610,"KZR","Paweł Kaczmarek",""),
+      opSeed("op11","2026-09-22","PRODUKCJA","POSTED","WZ/008/09/2026","wh_bra","","pr_zr_lesna",20,"MP",null,"","Paweł Kaczmarek","")
+    ],
+    stock: {
+      "wh_zab|pr_drewno": 817, "wh_zab|pr_zr_lesna": 8293, "wh_zab|pr_zr_inw": 120,
+      "wh_zab|pr_zr_tow": 250, "wh_zab|pr_pks": 728, "wh_zab|pr_lupina": 728,
+      "wh_bra|pr_drewno": 30, "wh_bra|pr_zr_lesna": 220, "wh_bra|pr_zr_tow": 50
+    }
+  };
+}
+function opSeed(id, date, type, status, no, whId, partnerId, productId, qty, unit, price, basis, userName, kwit, extDoc, toWhId) {
+  return { id, idemKey: "seed-" + id, date, type, status, no, whId, toWhId: toWhId || "", partnerId, productId, qty, unit, priceUnit: unit, price, basis: basis || "", userName, kwit: kwit || "", extDoc: extDoc || "", lesnictwo: partnerId === "pa_ndl_ryb" ? "Rybnik" : "" };
+}
+function blankRun() { return { vehicleReg: "", driverName: "", kwit: "", kwitM3: "", qty: "", weightT: "", km: "", rate: "" }; }
+function blankExt() { return { reg: "", driver: "", kwit: "", kwitM3: "", qty: "", weightT: "", km: "", rate: "", freight: "" }; }
+function newDraft(whId) {
+  const runs = () => [blankRun(), blankRun(), blankRun(), blankRun()];
+  const ext = () => [blankExt(), blankExt(), blankExt(), blankExt()];
+  return {
+    idemKey: uid("idem_"), type: "ZAKUP", date: todayISO(),
+    purchase: { supplierKind: "firma", supplierId: "", supplierName: "", lesnictwo: "", basis: "KZR", productId: "", qty: "", unit: "m3", priceUnit: "m3", price: "", weightMode: "auto", weightManual: "" },
+    production: { enabled: false, type: "lesna", rawProductId: "", outProductId: "", outQty: "", consumeQty: "", diffReason: "", rawCost: "", ndl: "", lesnictwo: "", kwit: "", investSite: "", sourceDoc: "", chipperName: "", operatorName: "", chipRate: "" },
+    sale: { enabled: false, direct: false, productId: "", qty: "", unit: "MP", buyerId: "", buyerName: "", qtyMP: "", price: "", priceUnit: "MP", weightMode: "auto", weightManual: "" },
+    mm: { toWhId: "", productId: "", qty: "", unit: "MP", weightMode: "auto", weightManual: "" },
+    transport: { mode: "none", place: whName(whId), placeTouched: false, own: { runCount: "1", runs: runs() }, external: { company: "", runCount: "1", runs: ext() }, train: { trainNo: "", carrier: "", docNo: "", loadPlace: "", wagonCount: "1", capacity: "", capUnit: "t", tonMode: "same", sameT: "", wagonT: ["", "", "", "", "", ""], price: "", priceUnit: "t" } },
+    extras: { enabled: false, typeName: "", vehicleName: "", qty: "", rate: "", cost: "", desc: "" },
+    docNos: { WZ: "" }, docNoMode: { WZ: "auto" }, docDate: "", notes: "", extDoc: "",
+    basisTouched: false, unitTouched: false
+  };
+}
+
+function whName(id) { return (dbState.warehouses.find(w => w.id === id) || {}).name || "—"; }
+function productById(id) { return dbState.products.find(p => p.id === id) || null; }
+function partnerById(id) { return dbState.partners.find(p => p.id === id) || null; }
+function partyName(op) {
+  if (op.partnerId) return (partnerById(op.partnerId) || {}).name || "—";
+  if (op.toWhId) return "Do: " + whName(op.toWhId);
+  return "—";
+}
+function stockGet(stock, wh, pid) { return Number(stock[wh + "|" + pid] || 0); }
+function stockAdd(stock, wh, pid, delta) {
+  const next = Object.assign({}, stock);
+  const v = round3((Number(next[wh + "|" + pid]) || 0) + delta);
+  if (Math.abs(v) < 0.0005) delete next[wh + "|" + pid];
+  else next[wh + "|" + pid] = v;
+  return next;
+}
+function convert(qty, from, to, product) {
+  if (from === to) return qty;
+  const wood = product && product.cat === "drewno";
+  const table = { "m3>MP": 4, "MP>m3": 0.25, "MP>t": 0.33, "t>MP": 1 / 0.33 };
+  if (wood) { table["m3>t"] = 0.952; table["t>m3"] = 1 / 0.952; }
+  if (table[from + ">" + to]) return qty * table[from + ">" + to];
+  if (from === "m3" && to === "t") return qty * 4 * 0.33;
+  if (from === "t" && to === "m3") return qty / 0.33 / 4;
+  return null;
+}
+function allowedUnits(p) {
+  if (!p) return ["m3", "MP", "t"];
+  if (p.unit === "t") return ["t"];
+  return ["m3", "MP"];
+}
+function suggestNo(state, date) {
+  const [y, m] = String(date || todayISO()).split("-");
+  let max = 0;
+  for (const op of state.operations) {
+    const hit = String(op.no || "").match(/^WZ\/(\d+)\/(\d{2})\/(\d{4})$/);
+    if (hit && hit[2] === m && hit[3] === y) max = Math.max(max, Number(hit[1]));
+  }
+  return "WZ/" + String(max + 1).padStart(3, "0") + "/" + m + "/" + y;
+}
+function canCreate(u) { return !!u && ["admin", "kierownik", "magazynier"].includes(u.role); }
+function allowedWh(u) {
+  if (!u) return [];
+  if (u.role === "admin") return dbState.warehouses.map(w => w.id);
+  return u.warehouseIds && u.warehouseIds.length ? u.warehouseIds : [u.whId];
+}
+function activeWh() {
+  const list = allowedWh(user);
+  const saved = sessionStorage.getItem("riw.demo3.wh");
+  return saved && list.includes(saved) ? saved : (user ? user.whId : "wh_zab");
+}
+function visibleOps() {
+  const allow = new Set(allowedWh(user));
+  return dbState.operations.filter(op => allow.has(op.whId) || (op.toWhId && allow.has(op.toWhId)));
+}
+function canReceive(op) {
+  return op && op.status === "W_DRODZE" && (user.role === "admin" || allowedWh(user).includes(op.toWhId));
+}
+
+function numMsg(raw, label, example) {
+  const r = parseNum(raw);
+  if (r.empty) return "Do poprawy. Wpisz " + label + ", na przykład " + example + ".";
+  if (!r.ok) return "Do poprawy. Nie rozumiem tej liczby. Wpisz ją cyframi, na przykład " + example + ".";
+  if (!(r.value > 0)) return "Do poprawy. Wpisz " + label + " większą od zera, na przykład " + example + ".";
+  return "";
+}
+function validateDraft(state, d, whId) {
+  const errors = {};
+  const dateWord = d.type === "ZAKUP" ? "datę przyjęcia" : "datę operacji";
+  if (!d.date) errors.date = "Do poprawy. Wybierz " + dateWord + ". Może to być dzisiaj albo wcześniejszy dzień.";
+  else if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date) || d.date > todayISO()) errors.date = "Do poprawy. Wybierz dzisiejszą albo wcześniejszą datę. Przyszły dzień nie przejdzie.";
+  if (d.docDate && (!/^\d{4}-\d{2}-\d{2}$/.test(d.docDate) || d.docDate > todayISO())) errors.docDate = "Do poprawy. Data dokumentu nie może być z przyszłości. Wybierz dzisiaj albo dzień wcześniejszy, albo zostaw puste.";
+  if (d.type !== "PRODUKCJA") {
+    if (d.docNoMode.WZ === "manual") {
+      const no = String(d.docNos.WZ || "").trim();
+      if (!no) errors["docNos.WZ"] = "Do poprawy. Wpisz numer dokumentu, na przykład WZ/12, albo wróć do numeracji automatycznej.";
+      else if (state.operations.some(o => fold(o.no) === fold(no))) errors["docNos.WZ"] = "Do poprawy. Numer " + no + " jest już w rejestrze. Wpisz inny albo wybierz numerację automatyczną.";
+    }
+  }
+  if (d.type === "ZAKUP") validatePurchase(state, d, whId, errors);
+  else if (d.type === "SPRZEDAZ") validateSale(state, d, whId, errors);
+  else if (d.type === "PRODUKCJA") validateStockProd(state, d, whId, errors);
+  else if (d.type === "MM") validateMm(state, d, whId, errors);
+  if (d.extras.enabled) {
+    if (!String(d.extras.typeName || "").trim()) errors["extras.typeName"] = "Do poprawy. Wpisz rodzaj operacji dodatkowej, na przykład załadunek wagonów, albo odznacz tę sekcję.";
+    const c = numMsg(d.extras.cost, "koszt w złotych", "150");
+    if (c) errors["extras.cost"] = c.replace("koszt w złotych", "koszt operacji dodatkowej w złotych");
+  }
+  if (d.type !== "PRODUKCJA") validateTransport(state, d, errors);
+  if (String(d.extDoc || "").trim()) {
+    const hit = state.operations.find(o => o.extDoc && fold(o.extDoc) === fold(d.extDoc));
+    if (hit) errors.extDocWarn = "Uwaga. Ten numer dokumentu zewnętrznego jest już przy " + hit.no + ". Zostaw go, jeśli to ten sam dokument, albo wpisz inny.";
+  }
+  return errors;
+}
+function validatePurchase(state, d, whId, errors) {
+  const p = d.purchase;
+  if (!String(p.supplierName || "").trim()) errors["purchase.supplierName"] = "Do poprawy. Wpisz nazwę dostawcy albo wybierz ją z listy, na przykład Lander Agro.";
+  if (p.supplierKind === "nadlesnictwo" && !String(p.lesnictwo || "").trim()) errors["purchase.lesnictwo"] = "Do poprawy. Wpisz leśnictwo, na przykład Stanica.";
+  if (!["DEKL", "KZR"].includes(p.basis)) errors["purchase.basis"] = "Do poprawy. Wybierz podstawę: Deklaracja albo KZR.";
+  const prod = productById(p.productId);
+  if (!prod) errors["purchase.productId"] = "Do poprawy. Wybierz produkt z listy, na przykład Drewno opałowe.";
+  const qe = numMsg(p.qty, "ilość", "20");
+  if (qe) errors["purchase.qty"] = qe;
+  const pe = numMsg(p.price, "cenę jednostkową w złotych", "230");
+  if (pe) errors["purchase.price"] = pe;
+  if (prod && p.unit && convert(1, p.unit, prod.unit, prod) == null) errors["purchase.unit"] = "Do poprawy. Ta jednostka nie pasuje do produktu. Wybierz " + unitLabel(prod.unit) + ".";
+  if (prod && p.priceUnit && p.unit && convert(1, p.unit, p.priceUnit, prod) == null) errors["purchase.priceUnit"] = "Do poprawy. Jednostka ceny nie pasuje do ilości. Wybierz tę samą jednostkę albo m³ / MP.";
+  if (p.weightMode === "manual") {
+    const w = numMsg(p.weightManual, "wagę z kwitu w tonach", "19,20");
+    if (w) errors["purchase.weightManual"] = w;
+  }
+  if (d.production.enabled) validateChain(state, d, errors);
+  if (d.sale.direct) validateSaleOut(d, errors);
+}
+function validateChain(state, d, errors) {
+  const prod = productById(d.purchase.productId);
+  if (prod && prod.cat !== "drewno") errors["purchase.productId"] = "Do poprawy. Przy produkcji z zakupu wybierz drewno. Zrębka i łupiny nie są surowcem rąbania.";
+  if (d.production.consumeQty) {
+    const c = numMsg(d.production.consumeQty, "zużycie", "20");
+    if (c) errors["production.consumeQty"] = c;
+    const q = parseNum(d.purchase.qty), u = parseNum(d.production.consumeQty);
+    if (q.ok && u.ok && u.value > q.value + 1e-9) errors["production.consumeQty"] = "Do poprawy. Zużycie nie może być większe od zakupu. Wpisz mniejszą ilość albo zostaw puste, żeby zużyć cały zakup.";
+  }
+  if (d.production.outQty && numMsg(d.production.outQty, "ilość produkcji w MP", "80")) errors["production.outQty"] = numMsg(d.production.outQty, "ilość produkcji w MP", "80");
+  const out = producedMp(d);
+  const max = maxOutMp(d);
+  if (out != null && max != null && out + 0.001 < max && !DIFF.find(x => x[0] === d.production.diffReason && x[0])) {
+    errors["production.diffReason"] = "Do poprawy. Wynik jest niższy niż zużycie × 4. Wybierz przyczynę różnicy albo wpisz wyższą ilość produkcji.";
+  }
+  if (d.production.type === "lesna") {
+    if (!String(d.production.ndl || "").trim()) errors["production.ndl"] = "Do poprawy. Wpisz nadleśnictwo, na przykład Rudy Raciborskie.";
+    if (!String(d.production.lesnictwo || "").trim()) errors["production.lesnictwo"] = "Do poprawy. Wpisz leśnictwo, na przykład Stanica.";
+    if (["none", "supplier"].includes(d.transport.mode) && !String(d.production.kwit || "").trim()) errors["production.kwit"] = "Do poprawy. Wpisz numer kwitu wywozowego, na przykład KW 0217/09/2026. Przy kursach transportu wpiszesz go w każdym kursie.";
+  } else if (!String(d.production.investSite || "").trim()) {
+    errors["production.investSite"] = "Do poprawy. Wpisz miejsce wycinki, na przykład obwodnica Gliwic.";
+  }
+  const kw = String(d.production.kwit || "").trim();
+  if (kw && state.operations.some(o => o.kwit && fold(o.kwit) === fold(kw))) {
+    const hit = state.operations.find(o => o.kwit && fold(o.kwit) === fold(kw));
+    errors["production.kwit"] = "Do poprawy. Ten numer kwitu jest już przy " + hit.no + ". Wpisz numer z nowego kwitu.";
+  }
+}
+function validateSaleOut(d, errors) {
+  if (!String(d.sale.buyerName || "").trim()) errors["sale.buyerName"] = "Do poprawy. Wpisz odbiorcę albo wybierz go z listy, na przykład Elektrociepłownia Zabrze.";
+  const price = numMsg(d.sale.price, "cenę sprzedaży", "90");
+  if (price) errors["sale.price"] = price;
+  if (d.sale.qtyMP && numMsg(d.sale.qtyMP, "ilość sprzedaży w MP", "80")) errors["sale.qtyMP"] = numMsg(d.sale.qtyMP, "ilość sprzedaży w MP", "80");
+  const out = producedMp(d), sold = soldMp(d);
+  if (out != null && sold != null && sold > out + 0.001) errors["sale.qtyMP"] = "Do poprawy. Sprzedaż nie może być większa od produkcji (" + plQty(out) + " MP). Wpisz mniejszą ilość albo zostaw puste, żeby sprzedać całość.";
+  if (d.sale.weightMode === "manual" && numMsg(d.sale.weightManual, "tonaż z wagi", "19,20")) errors["sale.weightManual"] = numMsg(d.sale.weightManual, "tonaż z wagi", "19,20");
+}
+function validateSale(state, d, whId, errors) {
+  if (d.sale.direct) {
+    validateChain(state, d, errors);
+    if (!parseNum(d.production.outQty).ok) errors["production.outQty"] = "Do poprawy. Wpisz ilość wyprodukowaną w MP, na przykład 80.";
+    validateSaleOut(d, errors);
+    return;
+  }
+  const prod = productById(d.sale.productId);
+  if (!prod) { errors["sale.productId"] = "Do poprawy. Wybierz towar, który jest na stanie."; return; }
+  const qe = numMsg(d.sale.qty, "ilość", "100");
+  if (qe) errors["sale.qty"] = qe;
+  const pe = numMsg(d.sale.price, "cenę sprzedaży", "90");
+  if (pe) errors["sale.price"] = pe;
+  if (!String(d.sale.buyerName || "").trim()) errors["sale.buyerName"] = "Do poprawy. Wpisz odbiorcę albo wybierz go z listy, na przykład Elektrownia Łaziska.";
+  const q = parseNum(d.sale.qty);
+  if (q.ok) {
+    const need = convert(q.value, d.sale.unit || prod.unit, prod.unit, prod);
+    const have = stockGet(state.stock, whId, prod.id);
+    if (need == null) errors["sale.unit"] = "Do poprawy. Wybierz jednostkę " + unitLabel(prod.unit) + ".";
+    else if (need > have + 0.001) errors["sale.qty"] = "Do poprawy. Na stanie jest " + plQty(have) + " " + unitLabel(prod.unit) + ". Wpisz mniejszą ilość albo wybierz inny towar.";
+  }
+  if (d.sale.weightMode === "manual" && numMsg(d.sale.weightManual, "tonaż z wagi", "19,20")) errors["sale.weightManual"] = numMsg(d.sale.weightManual, "tonaż z wagi", "19,20");
+}
+function validateStockProd(state, d, whId, errors) {
+  const raw = productById(d.production.rawProductId);
+  const out = productById(d.production.outProductId);
+  if (!raw) errors["production.rawProductId"] = "Do poprawy. Wybierz surowiec, który jest na stanie.";
+  if (!out) errors["production.outProductId"] = "Do poprawy. Wybierz produkt wyjściowy, na przykład zrębkę produkcyjną leśną.";
+  const qe = numMsg(d.production.outQty, "ilość produkcji", "80");
+  if (qe) errors["production.outQty"] = qe;
+  const q = parseNum(d.production.outQty);
+  if (raw && q.ok) {
+    const consume = raw.unit === "m3" ? q.value / 4 : q.value;
+    if (consume > stockGet(state.stock, whId, raw.id) + 0.001) errors["production.outQty"] = "Do poprawy. Surowca starczy na mniej. Na stanie jest " + plQty(stockGet(state.stock, whId, raw.id)) + " " + unitLabel(raw.unit) + ". Wpisz mniejszą produkcję.";
+  }
+}
+function validateMm(state, d, whId, errors) {
+  if (!d.mm.toWhId) errors["mm.toWhId"] = "Do poprawy. Wybierz magazyn docelowy, inny niż źródłowy.";
+  else if (d.mm.toWhId === whId) errors["mm.toWhId"] = "Do poprawy. Magazyn docelowy musi być inny niż źródłowy. Wybierz drugi plac.";
+  const prod = productById(d.mm.productId);
+  if (!prod) errors["mm.productId"] = "Do poprawy. Wybierz towar, który jest na stanie źródła.";
+  const qe = numMsg(d.mm.qty, "ilość", "50");
+  if (qe) errors["mm.qty"] = qe;
+  const q = parseNum(d.mm.qty);
+  if (prod && q.ok) {
+    const need = convert(q.value, d.mm.unit || prod.unit, prod.unit, prod);
+    const have = stockGet(state.stock, whId, prod.id);
+    if (need == null) errors["mm.unit"] = "Do poprawy. Wybierz jednostkę " + unitLabel(prod.unit) + ".";
+    else if (need > have + 0.001) errors["mm.qty"] = "Do poprawy. Na stanie źródła jest " + plQty(have) + " " + unitLabel(prod.unit) + ". Wpisz mniejszą ilość.";
+  }
+  if (d.mm.weightMode === "manual" && numMsg(d.mm.weightManual, "tonaż z kwitu wagowego", "16,40")) errors["mm.weightManual"] = numMsg(d.mm.weightManual, "tonaż z kwitu wagowego", "16,40");
+}
+function validateTransport(state, d, errors) {
+  if (!String(d.transport.place || "").trim()) errors["transport.place"] = "Do poprawy. Wpisz miejsce dostawy, na przykład RiC Zabrze.";
+  const mode = d.transport.mode;
+  if (mode === "supplier" && d.type !== "ZAKUP") errors["transport.mode"] = "Do poprawy. Transport w cenie zakupu jest tylko przy zakupie. Wybierz inny rodzaj.";
+  if (mode === "own" || mode === "mixed") checkRuns(d.transport.own, "transport.own", false, errors);
+  if (mode === "external" || mode === "mixed") {
+    if (!String(d.transport.external.company || "").trim()) errors["transport.external.company"] = "Do poprawy. Wpisz nazwę firmy transportowej, na przykład ESI Logistics.";
+    checkRuns(d.transport.external, "transport.external", true, errors);
+  }
+  if (mode === "train") {
+    const n = parseNum(d.transport.train.wagonCount);
+    if (!n.ok || n.value < 1 || n.value > 60 || !Number.isInteger(n.value)) errors["transport.train.wagonCount"] = "Do poprawy. Wpisz liczbę wagonów od 1 do 60, na przykład 20.";
+    if (d.transport.train.tonMode === "each") {
+      const count = n.ok ? Math.min(6, n.value) : 0;
+      for (let i = 0; i < count; i++) {
+        const m = numMsg(d.transport.train.wagonT[i], "tonaż wagonu " + (i + 1), "58,4");
+        if (m) errors["transport.train.wagonT." + i] = m;
+      }
+      if (n.ok && n.value > 6) errors["transport.train.wagonCount"] = "Do poprawy. W tej wersji demonstracyjnej wpiszesz tonaż pierwszych 6 wagonów. Wpisz 6 albo wybierz jeden tonaż dla wszystkich.";
+    } else if (numMsg(d.transport.train.sameT, "tonaż jednego wagonu", "60")) errors["transport.train.sameT"] = numMsg(d.transport.train.sameT, "tonaż jednego wagonu", "60");
+    if (numMsg(d.transport.train.price, "cenę frachtu", "25")) errors["transport.train.price"] = numMsg(d.transport.train.price, "cenę frachtu", "25");
+  }
+}
+function checkRuns(group, prefix, external, errors) {
+  const n = parseNum(group.runCount);
+  if (!n.ok || n.value < 1 || n.value > 4 || !Number.isInteger(n.value)) {
+    errors[prefix + ".runCount"] = "Do poprawy. Wpisz liczbę kursów od 1 do 4. W programie firmowym limit kursów jest wyższy.";
+    return;
+  }
+  for (let i = 0; i < n.value; i++) {
+    const r = group.runs[i] || {};
+    const base = prefix + ".runs." + i + ".";
+    if (external) {
+      if (!String(r.reg || "").trim()) errors[base + "reg"] = "Do poprawy. Wpisz numer rejestracyjny, na przykład ESI 18734.";
+    } else {
+      if (!String(r.vehicleReg || "").trim()) errors[base + "vehicleReg"] = "Do poprawy. Wpisz numer rejestracyjny, na przykład WGM 12345.";
+      if (!String(r.driverName || "").trim()) errors[base + "driverName"] = "Do poprawy. Wpisz imię i nazwisko kierowcy.";
+    }
+    const km = parseNum(r.km), freight = parseNum(r.freight);
+    if (external && freight.ok && freight.value > 0) { /* fracht zastępuje km */ }
+    else if (!km.ok || !(km.value > 0)) errors[base + "km"] = external
+      ? "Do poprawy. Wpisz kilometry, na przykład 80, albo fracht kursu w złotych."
+      : "Do poprawy. Wpisz kilometry tego kursu, na przykład 45.";
+  }
+}
+function producedMp(d) {
+  if (d.production.outQty) { const r = parseNum(d.production.outQty); return r.ok ? r.value : null; }
+  const src = d.type === "ZAKUP" ? parseNum(d.production.consumeQty || d.purchase.qty) : parseNum(d.production.outQty);
+  if (!src.ok) return null;
+  const unit = d.type === "ZAKUP" ? (d.purchase.unit || "m3") : "m3";
+  if (unit === "m3") return src.value * 4;
+  if (unit === "MP") return src.value;
+  return null;
+}
+function maxOutMp(d) {
+  const src = parseNum(d.production.consumeQty || d.purchase.qty);
+  if (!src.ok) return null;
+  return (d.purchase.unit || "m3") === "m3" ? src.value * 4 : src.value;
+}
+function soldMp(d) {
+  if (!d.sale.qtyMP) return producedMp(d);
+  const r = parseNum(d.sale.qtyMP);
+  return r.ok ? r.value : null;
+}
+function massOf(qty, unit, product, manual) {
+  const m = parseNum(manual);
+  if (m.ok) return m.value;
+  const t = convert(qty, unit, "t", product);
+  return t == null ? null : t;
+}
+
+function planCommit(state, d, usr, whId) {
+  const existing = state.operations.find(o => o.idemKey && o.idemKey === d.idemKey);
+  if (existing) return { ok: true, op: existing, state, idempotent: true };
+  const errors = validateDraft(state, d, whId);
+  const hard = Object.keys(errors).filter(k => !k.endsWith("Warn"));
+  if (hard.length) return { ok: false, errors };
+  const next = structuredClone(state);
+  next.rev = state.rev + 1;
+  let partnerId = "";
+  if (d.type === "ZAKUP") partnerId = ensurePartner(next, d.purchase.supplierName, "supplier", d.purchase.supplierKind);
+  if (d.type === "SPRZEDAZ" || d.sale.direct) partnerId = ensurePartner(next, d.sale.buyerName, "buyer", "firma");
+  const no = d.type === "PRODUKCJA" || d.docNoMode.WZ !== "manual" ? suggestNo(next, d.date) : String(d.docNos.WZ).trim();
+  const op = {
+    id: uid("op_"), idemKey: d.idemKey, date: d.date, type: d.type, status: d.type === "MM" ? "W_DRODZE" : "POSTED",
+    no, whId, toWhId: d.type === "MM" ? d.mm.toWhId : "", partnerId, productId: "", qty: 0, unit: "",
+    priceUnit: "", price: null, basis: d.purchase.basis || "", userName: usr.name, kwit: d.production.kwit || "",
+    extDoc: String(d.extDoc || "").trim(), lesnictwo: d.purchase.lesnictwo || d.production.lesnictwo || "", notes: d.notes || ""
+  };
+  if (d.type === "ZAKUP") applyPurchase(next, d, whId, op);
+  else if (d.type === "SPRZEDAZ") applySale(next, d, whId, op);
+  else if (d.type === "PRODUKCJA") applyStockProd(next, d, whId, op);
+  else applyMm(next, d, whId, op);
+  if (op._error) return { ok: false, errors: { date: op._error } };
+  delete op._error;
+  next.operations.push(op);
+  return { ok: true, op, state: next };
+}
+function ensurePartner(state, name, role, kind) {
+  const f = fold(name);
+  let p = state.partners.find(x => fold(x.name) === f);
+  if (!p) {
+    p = { id: uid("pa_"), name: String(name).trim(), role, kind: kind || "firma", city: "" };
+    state.partners.push(p);
+  }
+  return p.id;
+}
+function applyPurchase(state, d, whId, op) {
+  const prod = productById(d.purchase.productId);
+  const qty = parseNum(d.purchase.qty).value;
+  const stockQty = convert(qty, d.purchase.unit, prod.unit, prod);
+  op.productId = prod.id; op.qty = qty; op.unit = d.purchase.unit; op.priceUnit = d.purchase.priceUnit || d.purchase.unit;
+  op.price = parseNum(d.purchase.price).value;
+  let stock = stockAdd(state.stock, whId, prod.id, stockQty);
+  if (d.production.enabled) {
+    const consume = parseNum(d.production.consumeQty || d.purchase.qty).value;
+    const consumeStock = convert(consume, d.purchase.unit, prod.unit, prod);
+    const outId = PROD[d.production.type][1];
+    const outQty = producedMp(d) || 0;
+    stock = stockAdd(stock, whId, prod.id, -consumeStock);
+    if (!d.sale.direct) stock = stockAdd(stock, whId, outId, outQty);
+    op.kwit = d.production.kwit || op.kwit;
+    if (d.sale.direct) { op.type = "ZAKUP"; op.productId = outId; op.qty = soldMp(d) || outQty; op.unit = "MP"; op.price = parseNum(d.sale.price).value; }
+  }
+  if (stockGet(stock, whId, prod.id) < -0.001) { op._error = "Do poprawy. Po tej operacji stan surowca spadłby poniżej zera. Zmniejsz zużycie."; return; }
+  state.stock = stock;
+}
+function applySale(state, d, whId, op) {
+  if (d.sale.direct) {
+    const raw = productById(d.production.rawProductId) || productById("pr_drewno");
+    const outId = (productById(d.production.outProductId) || {}).id || PROD[d.production.type][1];
+    const outQty = producedMp(d) || parseNum(d.production.outQty).value || 0;
+    op.productId = outId; op.qty = soldMp(d) || outQty; op.unit = "MP"; op.price = parseNum(d.sale.price).value; op.priceUnit = d.sale.priceUnit || "MP";
+    if (raw) {
+      const consume = raw.unit === "m3" ? op.qty / 4 : op.qty;
+      if (consume > stockGet(state.stock, whId, raw.id) + 0.001 && d.production.rawProductId) {
+        op._error = "Do poprawy. Brakuje surowca na tę produkcję. Wpisz mniejszą ilość."; return;
+      }
+      if (d.production.rawProductId) state.stock = stockAdd(state.stock, whId, raw.id, -consume);
+    }
+    return;
+  }
+  const prod = productById(d.sale.productId);
+  const qty = parseNum(d.sale.qty).value;
+  const need = convert(qty, d.sale.unit || prod.unit, prod.unit, prod);
+  op.productId = prod.id; op.qty = qty; op.unit = d.sale.unit || prod.unit; op.price = parseNum(d.sale.price).value; op.priceUnit = op.unit;
+  state.stock = stockAdd(state.stock, whId, prod.id, -need);
+}
+function applyStockProd(state, d, whId, op) {
+  const raw = productById(d.production.rawProductId);
+  const out = productById(d.production.outProductId);
+  const outQty = parseNum(d.production.outQty).value;
+  const consume = raw.unit === "m3" && out.unit === "MP" ? outQty / 4 : outQty;
+  op.productId = out.id; op.qty = outQty; op.unit = out.unit;
+  let stock = stockAdd(state.stock, whId, raw.id, -consume);
+  stock = stockAdd(stock, whId, out.id, outQty);
+  state.stock = stock;
+}
+function applyMm(state, d, whId, op) {
+  const prod = productById(d.mm.productId);
+  const qty = parseNum(d.mm.qty).value;
+  const need = convert(qty, d.mm.unit || prod.unit, prod.unit, prod);
+  op.productId = prod.id; op.qty = qty; op.unit = d.mm.unit || prod.unit; op.stockQty = need; op.toWhId = d.mm.toWhId;
+  state.stock = stockAdd(state.stock, whId, prod.id, -need);
+}
+
+function buildIndex(state) {
+  const rows = [];
+  for (const p of state.partners) rows.push({ id: p.id, route: "kontrahenci", title: p.name, meta: (p.role === "buyer" ? "Odbiorca" : p.role === "both" ? "Dostawca i odbiorca" : "Dostawca") + (p.city ? " · " + p.city : ""), hay: fold(p.name + " " + p.city + " " + p.role) });
+  for (const p of state.products) rows.push({ id: p.id, route: "stany", title: p.name, meta: "Produkt · " + unitLabel(p.unit), hay: fold(p.name + " " + p.unit) });
+  for (const op of state.operations) rows.push({ id: op.id, route: "operacje", title: op.no, meta: TYPES[op.type] + " · " + shortDate(op.date), hay: fold([op.no, op.kwit, op.extDoc, partyName(op), (productById(op.productId) || {}).name, TYPES[op.type], op.userName, whName(op.whId)].join(" ")) });
+  return rows;
+}
+function rebuildIndex() { INDEX = buildIndex(dbState); }
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("riw.demo3", 1);
+    req.onupgradeneeded = () => { if (!req.result.objectStoreNames.contains("bundle")) req.result.createObjectStore("bundle"); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbGet(db) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("bundle", "readonly");
+    const rq = tx.objectStore("bundle").get("current");
+    rq.onsuccess = () => resolve(rq.result || null);
+    rq.onerror = () => reject(rq.error);
+  });
+}
+function idbPut(db, bundle) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("bundle", "readwrite");
+    tx.objectStore("bundle").put(bundle, "current");
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error("Transakcja przerwana"));
+  });
+}
+function validBundle(b) { return !!(b && b.state && Array.isArray(b.state.operations) && Array.isArray(b.journal) && typeof b.state.rev === "number"); }
+async function persist(next, nextJournal) {
+  const bundle = { state: next, journal: nextJournal };
+  let idbOk = false;
+  if (dbp) { try { await idbPut(dbp, bundle); idbOk = true; } catch (e) { idbOk = false; } }
+  try { localStorage.setItem(LS, JSON.stringify(bundle)); }
+  catch (e) { if (!idbOk) throw e; }
+  persistMode = idbOk ? "indexeddb" : "localstorage";
+}
+async function makeEntry(next, cmd, who) {
+  const prev = journal.length ? journal[journal.length - 1].hash : "GENESIS";
+  const snapshot = structuredClone(next);
+  const hash = sha256(prev + "\n" + canonical({ rev: snapshot.rev, n: snapshot.operations.length, stock: snapshot.stock }));
+  return { seq: next.rev, ts: new Date().toISOString(), cmd, user: who, hash, prev, snapshot };
+}
+const Store = {
+  async exec(cmd, args) {
+    if (cmd === "op.commit") {
+      const built = planCommit(dbState, args.draft, user, activeWh());
+      if (!built.ok) return built;
+      if (built.idempotent) return { ok: true, op: built.op };
+      const entry = await makeEntry(built.state, "op.commit", user.name);
+      const nextJournal = journal.concat(entry);
+      await persist(built.state, nextJournal);
+      dbState = built.state; journal = nextJournal; rebuildIndex();
+      return { ok: true, op: built.op };
+    }
+    if (cmd === "mm.receive") {
+      const op = dbState.operations.find(o => o.id === args.opId);
+      if (!op || op.status !== "W_DRODZE") return { ok: false, error: "To przesunięcie nie czeka na przyjęcie. Odśwież rejestr." };
+      if (!canReceive(op)) return { ok: false, error: "Przyjęcie wykonuje osoba magazynu docelowego. Przełącz magazyn na " + whName(op.toWhId) + "." };
+      const next = structuredClone(dbState);
+      next.rev = dbState.rev + 1;
+      const row = next.operations.find(o => o.id === op.id);
+      const qty = row.stockQty != null ? row.stockQty : row.qty;
+      next.stock = stockAdd(next.stock, row.toWhId, row.productId, qty);
+      row.status = "POSTED";
+      const entry = await makeEntry(next, "mm.receive", user.name);
+      const nextJournal = journal.concat(entry);
+      await persist(next, nextJournal);
+      dbState = next; journal = nextJournal; rebuildIndex();
+      return { ok: true };
+    }
+    if (cmd === "backup.restore") {
+      const next = structuredClone(args.state);
+      const hist = Array.isArray(args.journal) && args.journal.length ? args.journal : journal;
+      const entry = await makeEntry(next, "backup.restore", user.name);
+      const nextJournal = hist.concat(entry);
+      entry.snapshot = structuredClone(next);
+      await persist(next, nextJournal);
+      dbState = next; journal = nextJournal; rebuildIndex();
+      return { ok: true };
+    }
+    return { ok: false, error: "Nieznane polecenie." };
+  }
+};
+
+function loginHTML() {
+  return `<main class="login" id="tresc"><h1 id="naglowek">ResInvest ERP</h1>
+    <p class="lead">Wersja demonstracyjna 3. Obrót i magazynowanie biomasy na placach w Zabrzu, Brąszewicach i Rokitkach. Hasło demonstracyjne: demo1234.</p>
+    <form id="login-form" novalidate><div class="stack">
+      <div class="field"><label for="login-email">Adres e-mail</label><input class="ctrl" id="login-email" name="email" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" required></div>
+      <div class="field"><label for="login-password">Hasło</label><input class="ctrl" id="login-password" name="password" type="password" autocomplete="current-password" required></div>
+      <p id="login-error" class="msg" role="alert" hidden></p>
+      <button class="btn primary block" id="login-submit" type="submit">Zaloguj się</button>
+    </div></form>
+    <h2 class="block">Konta przykładowe</h2>
+    <div class="stack">
+      ${USERS.map(u => `<button class="btn" type="button" data-act="fill" data-email="${esc(u.email)}">${esc(u.name)} · ${esc(ROLES[u.role])}</button>`).join("")}
+    </div>
+    <p class="hint block">Konto Beaty Nowak pokazuje program bez prawa zapisu. Dane zostają w tej przeglądarce i nie mieszają się z programem firmowym.</p></main>`;
+}
+function shell(content) {
+  const whs = allowedWh(user);
+  const whControl = whs.length > 1
+    ? `<label for="wh-select">Magazyn pracy</label><select class="ctrl" id="wh-select">${whs.map(id => `<option value="${esc(id)}" ${id === activeWh() ? "selected" : ""}>${esc(whName(id))}</option>`).join("")}</select>`
+    : `<p>${esc(whName(activeWh()))}</p>`;
+  return `<div class="shell"><aside class="sidebar" id="sidebar" aria-label="Nawigacja"><div class="brand"><p class="mark">RiC</p><p>ResInvest ERP</p><p class="meta">Wersja demonstracyjna 3</p></div>
+    <ul class="nav">${ROUTES.map(id => `<li><a href="#${id}" ${route === id ? 'aria-current="page"' : ""}>${esc(TITLES[id])}</a></li>`).join("")}</ul>
+    <div class="userbox"><p><b>${esc(user.name)}</b></p><p class="meta">${esc(ROLES[user.role])}</p><div class="field">${whControl}</div><button class="btn block" type="button" data-act="logout" style="margin-top:calc(var(--s) * 4)">Wyloguj</button><p class="meta" style="margin-top:calc(var(--s) * 4)">Rewizja ${esc(dbState.rev)} · zapis w przeglądarce</p></div></aside>
+    <div class="maincol"><div class="top"><button class="btn menu-btn" type="button" id="menu-btn" aria-expanded="false" aria-controls="sidebar">Menu</button>
+      <div class="search" role="search"><label for="q">Szukaj</label><input class="ctrl" id="q" type="text" role="searchbox" autocomplete="off" placeholder="Nazwa lub numer" aria-controls="search-pop" aria-expanded="false" value="${esc(searchQuery)}"><div id="search-pop" class="search-pop" role="listbox" hidden></div></div></div>
+    <main id="tresc">${flash ? `<p class="page-status" role="status">${esc(flash)}</p>` : ""}${content}</main></div></div>`;
+}
+function table(headers, rows, wide) {
+  const head = "<thead><tr>" + headers.map(h => `<th>${esc(h)}</th>`).join("") + "</tr></thead>";
+  const body = rows.map(r => `<tr id="row-${esc(r.id)}" data-hay="${esc(r.hay)}" ${r.hit || ""}>${r.cells.map((c, i) => `<td data-label="${esc(headers[i])}">${c}</td>`).join("")}</tr>`).join("");
+  return `<table class="cards${wide ? " wide" : ""}">${head}<tbody>${body}</tbody></table><p class="empty-filter block" hidden>Nic nie pasuje do wyszukiwania. Skróć frazę albo wyczyść pole „Szukaj”.</p>`;
+}
+function pagePulpit() {
+  const wh = activeWh();
+  const lines = dbState.products.map(p => ({ p, q: stockGet(dbState.stock, wh, p.id) })).filter(x => x.q > 0).sort((a, b) => b.q - a.q);
+  const hero = lines[0];
+  const facts = lines.slice(1, 4);
+  const ops = visibleOps().slice().sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 5);
+  const heroHtml = hero
+    ? `<p class="meta">Największy stan na placu</p><p class="figure">${esc(plQty(hero.q))} ${esc(unitLabel(hero.p.unit))}</p><p>${esc(hero.p.name)}</p>`
+    : `<p class="figure">Brak towaru</p><p>Na tym placu nie ma stanu. Wpisz zakup albo przełącz magazyn.</p>`;
+  return `<h1 id="naglowek">Pulpit</h1><p class="lead">${esc(longDate(todayISO()))} · ${esc(whName(wh))}. Pięć ostatnich operacji jest niżej. Zapis nowej operacji zostaje w tej przeglądarce.</p>
+    ${heroHtml}
+    <div class="facts">${facts.map(f => `<div class="fact"><p class="meta">${esc(f.p.name)}</p><p><b>${esc(plQty(f.q))} ${esc(unitLabel(f.p.unit))}</b></p></div>`).join("") || `<p>Pozostałe towary pojawią się tutaj, gdy będzie ich więcej niż jeden.</p>`}</div>
+    <h2 id="ops-h">Ostatnie operacje</h2>
+    ${opsTable(ops)}
+    <p class="block"><a href="#operacje">Cały rejestr operacji</a></p>`;
+}
+function opsTable(ops) {
+  return table(["Data", "Dokument", "Rodzaj", "Strona", "Ilość", "Status"], ops.map(op => ({
+    id: op.id,
+    hay: fold([op.no, op.date, TYPES[op.type], partyName(op), (productById(op.productId) || {}).name, whName(op.whId), STATUSES[op.status]].join(" ")),
+    cells: [
+      esc(shortDate(op.date)),
+      `<b class="nowrap">${esc(op.no)}</b><br><span class="meta">${esc(whName(op.whId))}</span>`,
+      esc(TYPES[op.type] || op.type),
+      esc(partyName(op)),
+      op.qty ? esc(plQty(op.qty) + " " + unitLabel(op.unit)) : "—",
+      esc(STATUSES[op.status] || op.status) + (canReceive(op) ? `<br><button class="btn" type="button" data-act="receive" data-id="${esc(op.id)}">Przyjmij MM</button>` : "")
+    ]
+  })), true);
+}
+function pageOps() {
+  const ops = visibleOps().slice().sort((a, b) => a.date < b.date ? 1 : -1);
+  return `<h1 id="naglowek">Rejestr operacji</h1><p class="lead">Zakupy, sprzedaż, produkcja i przesunięcia MM. Wąski ekran pokazuje te same dane jako karty.</p>${opsTable(ops)}`;
+}
+function pageDocs() {
+  const ops = visibleOps().slice().sort((a, b) => a.date < b.date ? 1 : -1);
+  return `<h1 id="naglowek">Dokumenty</h1><p class="lead">Jedna seria numerów WZ, tak jak w programie firmowym. Korekta i anulowanie zostają w historii.</p>` + table(
+    ["Numer", "Data", "Rodzaj", "Magazyn", "Status"],
+    ops.map(op => ({
+      id: op.id,
+      hay: fold(op.no + " " + op.type + " " + whName(op.whId)),
+      cells: [`<b class="nowrap">${esc(op.no)}</b>`, esc(shortDate(op.date)), esc(TYPES[op.type] || ""), esc(whName(op.whId)), esc(STATUSES[op.status] || "") + (canReceive(op) ? `<br><button class="btn" type="button" data-act="receive" data-id="${esc(op.id)}">Przyjmij MM</button>` : "")]
+    })),
+    true
+  );
+}
+function pageStock() {
+  const blocks = allowedWh(user).map(id => {
+    const rows = dbState.products.map(p => ({ p, q: stockGet(dbState.stock, id, p.id) })).filter(x => x.q > 0);
+    const inner = rows.length ? table(["Produkt", "Ilość", "Jednostka"], rows.map(r => ({
+      id: r.p.id + "-" + id, hay: fold(r.p.name + " " + whName(id)),
+      cells: [esc(r.p.name), esc(plQty(r.q)), esc(unitLabel(r.p.unit))]
+    }))) : `<p>Brak towaru na placu.</p>`;
+    return `<h2 class="block">${esc(whName(id))}</h2>${inner}`;
+  }).join("");
+  return `<h1 id="naglowek">Stany magazynowe</h1><p class="lead">Stan liczony z ksiąg przykładowych. Nowy zapis dolicza się od razu, a cofnięcie rewizji wraca do poprzednich liczb.</p>${blocks}`;
+}
+function pagePartners() {
+  const role = r => r === "buyer" ? "Odbiorca" : r === "both" ? "Dostawca i odbiorca" : "Dostawca";
+  return `<h1 id="naglowek">Kontrahenci</h1><p class="lead">Wyszukiwarka u góry zawęża tę listę i podpowiada dokumenty. Indeks ma ${INDEX.length} pozycji.</p>` + table(
+    ["Nazwa", "Rola", "Miejscowość"],
+    dbState.partners.map(p => ({ id: p.id, hay: fold(p.name + " " + p.city + " " + role(p.role)), cells: [esc(p.name), esc(role(p.role)), esc(p.city || "—")] }))
+  );
+}
+function pageBackup() {
+  const last = journal[journal.length - 1];
+  const engine = persistMode === "indexeddb" ? "IndexedDB, jedna transakcja na rewizję. Obok leży lustrzana kopia w pamięci przeglądarki." : "Pamięć przeglądarki jednym wpisem. IndexedDB odrzuciło transakcję, więc program użył kopii lustrzanej.";
+  return `<h1 id="naglowek">Kopia i dziennik</h1><p class="lead">${esc(engine)} Każdy skrót obejmuje skrót poprzedni. Przerwany zapis nie zostawia połowy operacji.</p>
+    <div class="facts"><div class="fact"><p class="meta">Rewizja</p><p><b>${esc(dbState.rev)}</b></p></div><div class="fact"><p class="meta">Wpisy dziennika</p><p><b>${journal.length}</b></p></div><div class="fact"><p class="meta">Ostatni skrót</p><p><b>${esc((last && last.hash || "").slice(0, 12))}</b></p></div></div>
+    <div class="actions"><button class="btn primary" type="button" data-act="export">Eksportuj kopię JSON</button><button class="btn" type="button" data-act="undo" ${journal.length < 2 ? "disabled" : ""}>Cofnij ostatni zapis</button></div>
+    <div class="field"><label for="import-file">Wczytaj kopię z pliku</label><input class="ctrl" id="import-file" type="file" accept="application/json,.json"></div>
+    <h2 class="block">Dziennik</h2>` + table(["Rewizja", "Czas", "Zdarzenie", "Kto", "Skrót"], journal.slice().reverse().map(e => ({
+      id: "j" + e.seq, hay: fold(String(e.seq) + " " + e.cmd + " " + e.user),
+      cells: [esc(e.seq), esc(new Date(e.ts).toLocaleString("pl-PL", { dateStyle: "short", timeStyle: "short" })), esc(CMDS[e.cmd] || e.cmd), esc(e.user), esc((e.hash || "").slice(0, 12)) + (e.seq === dbState.rev ? "" : `<br><button class="btn" type="button" data-act="restore-seq" data-seq="${esc(e.seq)}">Wróć do tej rewizji</button>`)]
+    })));
+}
+function field(key, label, control, req, help) {
+  const found = /id="([^"]+)"/.exec(control);
+  const id = found ? found[1] : ("f-" + key.replace(/\./g, "-"));
+  return `<div class="field" data-field="${esc(key)}"><label for="${id}">${esc(label)}${req ? ' <span aria-hidden="true">*</span><span class="vh"> wymagane</span>' : ""}</label>${control}${help ? `<p class="hint" id="hint-${id}">${help}</p>` : ""}</div>`;
+}
+function textCtl(key, value, o = {}) {
+  const id = o.id || ("f-" + key.replace(/\./g, "-"));
+  return `<input class="ctrl" id="${id}" data-bind="${esc(key)}" ${o.struct ? 'data-struct="1"' : ""} type="${o.type || "text"}" ${o.mode ? `inputmode="${o.mode}"` : ""} value="${esc(value ?? "")}" ${o.disabled ? "disabled" : ""} ${o.placeholder ? `placeholder="${esc(o.placeholder)}"` : ""} ${o.max ? `max="${esc(o.max)}"` : ""} ${o.list ? `list="${esc(o.list)}"` : ""} autocomplete="off" ${o.spell === false ? 'spellcheck="false"' : ""}>`;
+}
+function selCtl(key, value, options, struct) {
+  const id = "f-" + key.replace(/\./g, "-");
+  return `<select class="ctrl" id="${id}" data-bind="${esc(key)}" ${struct ? 'data-struct="1"' : ""}>${options.map(o => `<option value="${esc(o[0])}" ${String(o[0]) === String(value) ? "selected" : ""}>${esc(o[1])}</option>`).join("")}</select>`;
+}
+function choice(name, value, current, label, text) {
+  const id = "f-" + name.replace(/\./g, "-") + "-" + value;
+  return `<label class="choice" for="${id}"><input type="radio" name="${esc(name)}" id="${id}" data-bind="${esc(name)}" data-struct="1" value="${esc(value)}" ${current === value ? "checked" : ""}><span><b>${esc(label)}</b><span class="choice-text">${esc(text)}</span></span></label>`;
+}
+function check(key, on, label, text, suffix) {
+  const id = "f-" + key.replace(/\./g, "-") + (suffix || "");
+  return `<label class="choice" for="${id}"><input type="checkbox" id="${id}" data-bind="${esc(key)}" data-struct="1" ${on ? "checked" : ""}><span><b>${esc(label)}</b><span class="choice-text">${esc(text)}</span></span></label>`;
+}
+function combo(key, value, kind, idOverride) {
+  const id = idOverride || ("f-" + key.replace(/\./g, "-"));
+  return `<div class="combo"><input class="ctrl" id="${id}" data-bind="${esc(key)}" data-combo="${esc(kind)}" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="list-${id}" value="${esc(value || "")}" autocomplete="off"><ul class="combo-list" id="list-${id}" role="listbox" hidden></ul></div>`;
+}
+function docNoBlock() {
+  const sug = suggestNo(dbState, draft.date || todayISO());
+  return `<div id="docno-mount"><div data-show="not-prod">${field("docNoMode.WZ", "Numeracja WZ", selCtl("docNoMode.WZ", draft.docNoMode.WZ, [["auto", "Automatycznie — " + sug], ["manual", "Ręcznie — wpisz numer"]], true), true, "Jedna seria dla zakupu, sprzedaży, produkcji i MM.")}${field("docNos.WZ", "Nr WZ (ręcznie)", textCtl("docNos.WZ", draft.docNos.WZ, { placeholder: "WZ/12" }), true, "Podpowiedź: " + esc(sug))}<div data-show="manual-no"></div>${field("docDate", "Data dokumentu", textCtl("docDate", draft.docDate, { type: "date", max: todayISO() }), false, "Zostaw puste, jeśli data dokumentu jest taka sama jak data operacji.")}</div></div>`;
+}
+function runBlock(prefix, run, i, external) {
+  const k = f => prefix + ".runs." + i + "." + f;
+  const title = `<h2 class="run">Kurs ${i + 1}</h2>`;
+  const body = external
+    ? field(k("reg"), "Nr rejestracyjny", textCtl(k("reg"), run.reg, { placeholder: "ESI 18734" }), true)
+      + field(k("driver"), "Kierowca", textCtl(k("driver"), run.driver, { placeholder: "Imię i nazwisko" }), false)
+    : field(k("vehicleReg"), "Pojazd floty własnej", textCtl(k("vehicleReg"), run.vehicleReg, { placeholder: "WGM 12345" }), true)
+      + field(k("driverName"), "Kierowca", textCtl(k("driverName"), run.driverName, { placeholder: "Imię i nazwisko" }), true);
+  return `<div data-run="${esc(prefix)}" data-i="${i}">${title}${body}
+    ${field(k("kwit"), "Nr kwitu", textCtl(k("kwit"), run.kwit, { placeholder: "KW 0217/09/2026" }), false)}
+    <div class="kwit-m3">${field(k("kwitM3"), "m³ z kwitu", textCtl(k("kwitM3"), run.kwitM3, { mode: "decimal", placeholder: "25" }), false)}</div>
+    ${field(k("qty"), "Ilość w kursie", textCtl(k("qty"), run.qty, { mode: "decimal", placeholder: "20" }), false)}
+    ${field(k("weightT"), "Waga rzeczywista (t)", textCtl(k("weightT"), run.weightT, { mode: "decimal", placeholder: "13,4" }), false)}
+    ${field(k("km"), "Kilometry", textCtl(k("km"), run.km, { mode: "decimal", placeholder: "45" }), true)}
+    ${field(k("rate"), "Stawka (zł/km)", textCtl(k("rate"), run.rate, { mode: "decimal", placeholder: "5" }), false)}
+    ${external ? field(k("freight"), "Fracht kursu (zł)", textCtl(k("freight"), run.freight, { mode: "decimal", placeholder: "z faktury, opcjonalnie" }), false) : ""}
+  </div>`;
+}
+function formHTML() {
+  const d = draft, wh = activeWh();
+  const products = dbState.products.map(p => [p.id, p.name + " (" + unitLabel(p.unit) + ")"]);
+  const whOpts = dbState.warehouses.filter(w => w.id !== wh).map(w => [w.id, w.name]);
+  const purchase = `<section id="sec-zakup" class="block"><h2>Zakup</h2><p class="hint">Najpierw zakres, potem dostawca, produkt, ilość i cena.</p>
+    ${check("production.enabled", d.production.enabled, "Produkcja z automatycznym zużyciem", "Zużycie zakupionego drewna i przyjęcie zrębki w tej samej operacji.")}
+    ${check("sale.direct", d.sale.direct, "Sprzedaż bezpośrednia z lasu, bez magazynowania", "Zrębka z tej produkcji idzie do odbiorcy i nie zwiększa stanu. Włącza produkcję.")}
+    <fieldset class="field" data-field="purchase.supplierKind"><legend>Dostawca — wybierz grupę <span aria-hidden="true">*</span></legend>
+      ${choice("purchase.supplierKind", "firma", d.purchase.supplierKind, "Firma branży drzewnej", "Tartaki, zakłady i firmy leśne. Podstawa domyślnie: KZR.")}
+      ${choice("purchase.supplierKind", "nadlesnictwo", d.purchase.supplierKind, "Nadleśnictwo", "Lasy Państwowe. Podstawa domyślnie: Deklaracja. Dodatkowo: leśnictwo.")}
+    </fieldset>
+    ${field("purchase.supplierName", d.purchase.supplierKind === "nadlesnictwo" ? "Nadleśnictwo" : "Dostawca (firma)", combo("purchase.supplierName", d.purchase.supplierName, "supplier"), true, d.purchase.supplierKind === "nadlesnictwo" ? "Wpisz lub wybierz, na przykład Nadleśnictwo Rybnik." : "Wpisz lub wybierz, na przykład Lander Agro.")}
+    <div id="lesnictwo-wrap">${field("purchase.lesnictwo", "Leśnictwo", textCtl("purchase.lesnictwo", d.purchase.lesnictwo, { placeholder: "Stanica", list: "dl-lesn" }), true)}${`<datalist id="dl-lesn"><option value="Stanica"><option value="Kuźnia Raciborska"><option value="Żory"></datalist>`}</div>
+    ${field("purchase.basis", "Podstawa", selCtl("purchase.basis", d.purchase.basis, [["DEKL", "Deklaracja"], ["KZR", "KZR"]], true), true)}
+    ${field("purchase.productId", "Produkt / surowiec", selCtl("purchase.productId", d.purchase.productId, [["", "Wybierz produkt"]].concat(products), true), true)}
+    ${field("purchase.qty", "Ilość", textCtl("purchase.qty", d.purchase.qty, { mode: "decimal", placeholder: "20" }), true, "Możesz wkleić liczbę z Excela, także z przecinkiem i spacją.")}
+    ${field("purchase.unit", "Jednostka ilości", selCtl("purchase.unit", d.purchase.unit, [["m3", "m³"], ["MP", "MP"], ["t", "t"]], true), true)}
+    ${field("purchase.priceUnit", "Jednostka zakupu (cena za)", selCtl("purchase.priceUnit", d.purchase.priceUnit, [["m3", "m³"], ["MP", "MP"], ["t", "t"]], true), true)}
+    ${field("purchase.price", "Cena jednostkowa (zł)", textCtl("purchase.price", d.purchase.price, { mode: "decimal", placeholder: "230" }), true)}
+    ${field("purchase.cost", "Koszt całkowity zakupu", textCtl("purchase.cost", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+    ${field("purchase.weightMode", "Masa", selCtl("purchase.weightMode", d.purchase.weightMode, [["auto", "Orientacyjna (przelicznik)"], ["manual", "Ręczna — waga rzeczywista"]], true), true)}
+    <div id="pw-manual">${field("purchase.weightManual", "Waga rzeczywista (t)", textCtl("purchase.weightManual", d.purchase.weightManual, { mode: "decimal", placeholder: "19,20" }), true)}</div>
+    <div id="pw-auto">${field("purchase.weightAuto", "Masa i energia (orientacyjnie)", textCtl("purchase.weightAuto", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}</div>
+    <div id="docno-anchor-ZAKUP"></div></section>`;
+  const sale = `<section id="sec-sprzedaz" class="block" hidden><h2>Sprzedaż</h2>
+    ${check("sale.direct", d.sale.direct, "Sprzedaż bezpośrednia po produkcji", "Las, produkcja, odbiorca. Towar nie schodzi ze stanu magazynu.", "-sprzedaz")}
+    <div id="sale-stock">
+      ${field("sale.productId", "Towar z magazynu", selCtl("sale.productId", d.sale.productId, [["", "Wybierz towar"]].concat(products), true), true)}
+      ${field("sale.onStock", "Stan dostępny", textCtl("sale.onStock", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+      ${field("sale.after", "Stan po WZ", textCtl("sale.after", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+      ${field("sale.qty", "Ilość", textCtl("sale.qty", d.sale.qty, { mode: "decimal", placeholder: "100" }), true)}
+      ${field("sale.unit", "Jednostka", selCtl("sale.unit", d.sale.unit, [["MP", "MP"], ["m3", "m³"], ["t", "t"]], true), true)}
+      ${field("sale.price", "Cena sprzedaży (zł)", textCtl("sale.price", d.sale.price, { mode: "decimal", placeholder: "90" }), true)}
+      ${field("sale.revenue", "Wartość sprzedaży", textCtl("sale.revenue", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+      ${field("sale.buyerName", "Kupujący / odbiorca", combo("sale.buyerName", d.sale.buyerName, "buyer"), true)}
+      ${field("sale.weightMode", "Tonaż", selCtl("sale.weightMode", d.sale.weightMode, [["auto", "Automatyczny / przelicznik firmowy"], ["manual", "Ręczny — z wagi rzeczywistej"]], true), true)}
+      <div id="sw-manual">${field("sale.weightManual", "Tonaż z wagi (t)", textCtl("sale.weightManual", d.sale.weightManual, { mode: "decimal", placeholder: "20,35" }), true)}</div>
+      <div id="sw-auto">${field("sale.weightAuto", "Tonaż wyliczony", textCtl("sale.weightAuto", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}</div>
+      ${field("sale.tonLine", "Ilość, tonaż, źródło", textCtl("sale.tonLine", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+    </div><div id="docno-anchor-SPRZEDAZ"></div></section>`;
+  const mm = `<section id="sec-mm" class="block" hidden><h2>Przesunięcie międzymagazynowe</h2><p class="hint">Po zatwierdzeniu towar schodzi ze źródła i czeka na przyjęcie. Stan celu urośnie dopiero po przycisku „Przyjmij MM”.</p>
+    ${field("mm.from", "Magazyn źródłowy", textCtl("mm.from", whName(wh), { disabled: true }), true, "To pole wynika z magazynu pracy. Nie wpisujesz go tutaj.")}
+    ${field("mm.toWhId", "Magazyn docelowy", selCtl("mm.toWhId", d.mm.toWhId, [["", "Wybierz magazyn"]].concat(whOpts), true), true)}
+    ${field("mm.productId", "Towar", selCtl("mm.productId", d.mm.productId, [["", "Wybierz towar"]].concat(products), true), true)}
+    ${field("mm.qty", "Ilość", textCtl("mm.qty", d.mm.qty, { mode: "decimal", placeholder: "50" }), true)}
+    ${field("mm.unit", "Jednostka", selCtl("mm.unit", d.mm.unit, [["MP", "MP"], ["m3", "m³"], ["t", "t"]], true), true)}
+    ${field("mm.weightMode", "Tonaż", selCtl("mm.weightMode", d.mm.weightMode, [["auto", "Automatyczny (przelicznik)"], ["manual", "Ręczny — z kwitu wagowego"]], true), true)}
+    <div id="mw-manual">${field("mm.weightManual", "Tonaż z wagi (t)", textCtl("mm.weightManual", d.mm.weightManual, { mode: "decimal", placeholder: "16,40" }), true)}</div>
+    <div id="mw-auto">${field("mm.weightAuto", "Tonaż wyliczony", textCtl("mm.weightAuto", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}</div>
+    ${field("mm.srcBal", "Źródło: stan przed i po", textCtl("mm.srcBal", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+    ${field("mm.dstBal", "Cel: stan teraz i po przyjęciu", textCtl("mm.dstBal", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+    <div id="docno-anchor-MM"></div></section>`;
+  const prod = `<div id="production-mount" class="block" hidden><h2 id="prod-title">Produkcja</h2>
+    <div id="prod-stock">
+      ${field("production.rawProductId", "Surowiec (ze stanu)", selCtl("production.rawProductId", d.production.rawProductId, [["", "Wybierz surowiec"]].concat(products), true), true)}
+      ${field("production.stock", "Stan surowca", textCtl("production.stock", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+      ${field("production.outProductId", "Produkt wyjściowy", selCtl("production.outProductId", d.production.outProductId, [["", "Wybierz produkt"]].concat(products), true), true)}
+      ${field("production.outQty", "Ilość produkcji", textCtl("production.outQty", d.production.outQty, { mode: "decimal", placeholder: "80" }), true)}
+      ${field("production.consume", "Zużycie surowca — auto", textCtl("production.consume", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+      ${field("production.after", "Stan surowca po produkcji", textCtl("production.after", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+    </div>
+    <div id="prod-chain">
+      ${field("production.type", "Rodzaj produkcji", selCtl("production.type", d.production.type, [["lesna", PROD.lesna[0]], ["inwestycyjna", PROD.inwestycyjna[0]]], true), true)}
+      ${field("production.consumeQty", "Zużycie surowca", textCtl("production.consumeQty", d.production.consumeQty, { mode: "decimal", placeholder: "cały zakup" }), false)}
+      ${field("production.outQty", "Wyprodukowano (MP)", textCtl("production.outQty", d.production.outQty, { id: "f-production-outQty-chain", mode: "decimal", placeholder: "auto: zużycie × 4" }), false)}
+      ${field("production.diffReason", "Przyczyna różnicy", selCtl("production.diffReason", d.production.diffReason, DIFF, true), false)}
+      <div id="prod-lesna">
+        ${field("production.ndl", "Nadleśnictwo", textCtl("production.ndl", d.production.ndl, { placeholder: "Rudy Raciborskie", list: "dl-ndl" }), true)}
+        ${field("production.lesnictwo", "Leśnictwo", textCtl("production.lesnictwo", d.production.lesnictwo, { placeholder: "Stanica" }), true)}
+        ${field("production.kwit", "Nr kwitu wywozowego", textCtl("production.kwit", d.production.kwit, { placeholder: "KW 0217/09/2026" }), true, "Przy transporcie własnym lub zewnętrznym kwit wpiszesz w każdym kursie.")}
+        <datalist id="dl-ndl"><option value="Rudy Raciborskie"><option value="Rybnik"><option value="Katowice"></datalist>
+      </div>
+      <div id="prod-inw">
+        ${field("production.investSite", "Miejsce wycinki / inwestycja", textCtl("production.investSite", d.production.investSite, { placeholder: "Obwodnica Gliwic" }), true)}
+        ${field("production.sourceDoc", "Nr dokumentu źródłowego", textCtl("production.sourceDoc", d.production.sourceDoc, { placeholder: "Protokół wycinki 17/2026" }), false)}
+      </div>
+    </div>
+    ${field("production.chipRate", "Cena za rąbanie (zł/MP)", textCtl("production.chipRate", d.production.chipRate, { mode: "decimal", placeholder: "10" }), false)}
+    ${field("production.chipCost", "Koszt rąbania", textCtl("production.chipCost", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+    ${field("production.chipperName", "Rębak", textCtl("production.chipperName", d.production.chipperName, { placeholder: "opcjonalnie" }), false)}
+    ${field("production.operatorName", "Operator rębaka", textCtl("production.operatorName", d.production.operatorName, { placeholder: "opcjonalnie" }), false)}
+  </div>`;
+  const saleOut = `<div id="sale-out" class="block" hidden><h2>Odbiorca i cena</h2>
+    ${field("sale.buyerName", "Odbiorca", combo("sale.buyerName", d.sale.buyerName, "buyer", "f-sale-buyer-out"), true)}
+    ${field("sale.qtyMP", "Ilość sprzedaży (MP)", textCtl("sale.qtyMP", d.sale.qtyMP, { mode: "decimal", placeholder: "cała produkcja" }), false)}
+    ${field("sale.weightOut", "Masa i energia", textCtl("sale.weightOut", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+    ${field("sale.price", "Cena sprzedaży (zł)", textCtl("sale.price", d.sale.price, { id: "f-sale-price-out", mode: "decimal", placeholder: "90" }), true)}
+    ${field("sale.priceUnit", "Cena za", selCtl("sale.priceUnit", d.sale.priceUnit, [["MP", "MP"], ["t", "t (tonę)"]], true), false)}
+    ${field("sale.revenueOut", "Przychód ze sprzedaży", textCtl("sale.revenueOut", "", { disabled: true }), false, "To pole liczy program. Nie wpisujesz go.")}
+  </div>`;
+  return `<div class="form-col"><h1 id="naglowek">Nowa operacja</h1>
+    <p class="lead">Pola z gwiazdką są wymagane. Komunikat pojawi się po opuszczeniu pola, nie w trakcie pisania. Enter przechodzi dalej, Shift+Enter cofa, Ctrl+S zapisuje.</p>
+    ${canCreate(user) ? "" : `<p class="msg">Rola ${esc(ROLES[user.role])} nie zapisuje operacji. Możesz obejrzeć układ formularza. Żeby wpisać dokument, zaloguj się jako magazynier albo kierownik.</p>`}
+    <form id="op-form" novalidate autocomplete="off">
+      <fieldset data-field="type"><legend>Rodzaj operacji <span aria-hidden="true">*</span><span class="vh"> wymagane</span></legend>
+        ${choice("type", "ZAKUP", d.type, "Zakup", "Dostawca, potem magazyn. Produkcja i sprzedaż z lasu są dodatkiem.")}
+        ${choice("type", "SPRZEDAZ", d.type, "Sprzedaż", "Magazyn, potem odbiorca. Albo sprzedaż prosto po produkcji.")}
+        ${choice("type", "PRODUKCJA", d.type, "Produkcja na magazynie", "Surowiec ze stanu na produkt. Bez transportu.")}
+        ${choice("type", "MM", d.type, "Przesunięcie MM", "Z tego placu na inny plac firmy.")}
+      </fieldset>
+      ${field("date", d.type === "ZAKUP" ? "Data przyjęcia" : "Data operacji", textCtl("date", d.date, { type: "date", max: todayISO(), struct: true }), true)}
+      ${field("wh", "Magazyn", textCtl("wh", whName(wh), { disabled: true }), false, "Magazyn wynika z konta. Jeśli masz kilka placów, przełączysz go w menu. Tego pola nie edytujesz.")}
+      ${purchase}${sale}${mm}${prod}${saleOut}
+      <section class="block" id="sec-extras"><h2>Operacja dodatkowa</h2>
+        ${check("extras.enabled", d.extras.enabled, "Dodaj operację dodatkową", "Rodzaj, opcjonalnie pojazd, koszt i opis. Pozycja zostaje przy tej operacji.")}
+        <div id="extras-fields">
+          ${field("extras.typeName", "Rodzaj operacji", textCtl("extras.typeName", d.extras.typeName, { placeholder: "Załadunek wagonów" }), true)}
+          ${field("extras.vehicleName", "Pojazd", textCtl("extras.vehicleName", d.extras.vehicleName, { placeholder: "opcjonalnie" }), false)}
+          ${field("extras.qty", "Ilość", textCtl("extras.qty", d.extras.qty, { mode: "decimal", placeholder: "opcjonalnie" }), false)}
+          ${field("extras.rate", "Stawka (zł)", textCtl("extras.rate", d.extras.rate, { mode: "decimal", placeholder: "opcjonalnie" }), false)}
+          ${field("extras.cost", "Koszt (zł)", textCtl("extras.cost", d.extras.cost, { mode: "decimal", placeholder: "150" }), true)}
+          ${field("extras.desc", "Opis", textCtl("extras.desc", d.extras.desc, { placeholder: "Holowanie rębaka z drogi leśnej" }), false)}
+        </div>
+      </section>
+      <section class="block" id="sec-transport"><h2>Miejsce i transport</h2><p class="hint">Transport nie zmienia stanu magazynu. To osobny koszt.</p>
+        ${field("transport.place", "Miejsce transportu / dostawy", textCtl("transport.place", d.transport.place, { placeholder: "RiC Zabrze" }), true)}
+        <fieldset class="field" data-field="transport.mode"><legend>Rodzaj transportu</legend>
+          ${choice("transport.mode", "none", d.transport.mode, "Bez osobnych kursów", "Stan i tak się zmieni. Kursów nie ewidencjonujesz.")}
+          ${choice("transport.mode", "own", d.transport.mode, "Transport własny", "Pojazdy firmy. Koszt to kilometry razy stawka.")}
+          ${choice("transport.mode", "external", d.transport.mode, "Transport zewnętrzny", "Firma przewozowa, kilometry albo fracht.")}
+          ${choice("transport.mode", "mixed", d.transport.mode, "Własny i zewnętrzny", "Część kursów flotą, część firmą.")}
+          ${choice("transport.mode", "train", d.transport.mode, "Pociąg", "Wagony, tonaż i fracht kolejowy.")}
+          ${choice("transport.mode", "supplier", d.transport.mode, "Transport w cenie zakupu", "Dostawca przywozi towar. Bez kursów i bez kosztu transportu.")}
+        </fieldset>
+        <div id="tr-own">${field("transport.own.runCount", "Liczba kursów własnych", textCtl("transport.own.runCount", d.transport.own.runCount, { mode: "numeric", struct: true, placeholder: "1" }), true)}
+          ${d.transport.own.runs.map((r, i) => runBlock("transport.own", r, i, false)).join("")}</div>
+        <div id="tr-ext">${field("transport.external.company", "Firma transportowa", textCtl("transport.external.company", d.transport.external.company, { placeholder: "ESI Logistics" }), true)}
+          ${field("transport.external.runCount", "Liczba kursów zewnętrznych", textCtl("transport.external.runCount", d.transport.external.runCount, { mode: "numeric", struct: true, placeholder: "1" }), true)}
+          ${d.transport.external.runs.map((r, i) => runBlock("transport.external", r, i, true)).join("")}</div>
+        <div id="tr-train">
+          ${field("transport.train.trainNo", "Nr składu", textCtl("transport.train.trainNo", d.transport.train.trainNo, { placeholder: "RC 50931" }), false)}
+          ${field("transport.train.carrier", "Przewoźnik kolejowy", textCtl("transport.train.carrier", d.transport.train.carrier, { placeholder: "PKP Cargo" }), false)}
+          ${field("transport.train.docNo", "Nr dokumentu przewozowego", textCtl("transport.train.docNo", d.transport.train.docNo, { placeholder: "CIM 5093/09" }), false)}
+          ${field("transport.train.loadPlace", "Miejsce załadunku", textCtl("transport.train.loadPlace", d.transport.train.loadPlace, { placeholder: "Bocznica Gliwice" }), false)}
+          ${field("transport.train.wagonCount", "Liczba wagonów", textCtl("transport.train.wagonCount", d.transport.train.wagonCount, { mode: "numeric", struct: true, placeholder: "20" }), true)}
+          ${field("transport.train.capacity", "Ładowność wagonu", textCtl("transport.train.capacity", d.transport.train.capacity, { mode: "decimal" }), false)}
+          ${field("transport.train.capUnit", "Jednostka ładowności", selCtl("transport.train.capUnit", d.transport.train.capUnit, [["t", "tony (t)"], ["MP", "MP"]], true), false)}
+          <fieldset data-field="transport.train.tonMode"><legend>Tonaż wagonów</legend>
+            ${choice("transport.train.tonMode", "same", d.transport.train.tonMode, "Taki sam dla wszystkich", "Jedna wartość razy liczba wagonów.")}
+            ${choice("transport.train.tonMode", "each", d.transport.train.tonMode, "Osobno dla każdego wagonu", "Wpisz tonaż pierwszych wagonów. Program je zsumuje.")}
+          </fieldset>
+          <div id="ton-same">${field("transport.train.sameT", "Tonaż jednego wagonu", textCtl("transport.train.sameT", d.transport.train.sameT, { mode: "decimal", placeholder: "60" }), true)}</div>
+          <div id="ton-each">${d.transport.train.wagonT.map((v, i) => `<div data-wagon="${i}">${field("transport.train.wagonT." + i, "Wagon " + (i + 1) + " — tonaż (t)", textCtl("transport.train.wagonT." + i, v, { mode: "decimal", placeholder: "58,4" }), true)}</div>`).join("")}</div>
+          ${field("transport.train.price", "Cena frachtu", textCtl("transport.train.price", d.transport.train.price, { mode: "decimal", placeholder: "25" }), true)}
+          ${field("transport.train.priceUnit", "Cena za", selCtl("transport.train.priceUnit", d.transport.train.priceUnit, [["t", "t (tonę)"], ["MP", "MP"], ["m3", "m³"]], true), false)}
+        </div>
+        <p id="tr-supplier" class="hint">Transport zapewnia dostawca. Koszt jest w cenie zakupu, bez dokumentu przewozu.</p>
+      </section>
+      <section class="block"><h2>Uwagi i dokument zewnętrzny</h2>
+        ${field("extDoc", "Nr dokumentu zewnętrznego", textCtl("extDoc", d.extDoc, { placeholder: "FV 123/09/2026 albo kwit wagowy" }), false)}
+        ${field("notes", "Uwagi do operacji", `<textarea class="ctrl" id="f-notes" data-bind="notes">${esc(d.notes || "")}</textarea>`, false)}
+      </section>
+      ${docNoBlock()}
+      <div class="summary" id="summary" aria-live="polite"><p id="sum-1"></p><p id="sum-2"></p><p id="sum-3"></p></div>
+      <div id="form-errors" hidden></div>
+      <div class="actions" id="save-box"><p id="save-status" role="status"></p>
+        <button class="btn primary" id="f-save" type="submit">Zapisz operację</button>
+        <button class="btn" id="f-repeat" type="button" data-act="repeat">Powtórz ostatnią dostawę</button>
+        <button class="btn" id="f-clear" type="button" data-act="clear">Wyczyść formularz</button>
+      </div>
+    </form></div>`;
+}
+
+function page() {
+  if (route === "pulpit") return pagePulpit();
+  if (route === "operacja") { if (!draft) draft = newDraft(activeWh()); return formHTML(); }
+  if (route === "operacje") return pageOps();
+  if (route === "stany") return pageStock();
+  if (route === "dokumenty") return pageDocs();
+  if (route === "kontrahenci") return pagePartners();
+  return pageBackup();
+}
+function paint() {
+  const app = document.getElementById("app");
+  const banner = flash;
+  if (!user) {
+    app.innerHTML = loginHTML();
+    document.title = "Logowanie — ResInvest ERP";
+    const h = document.getElementById("naglowek");
+    if (h) { h.tabIndex = -1; h.focus(); }
+    return;
+  }
+  if (!ROUTES.includes(route)) route = "pulpit";
+  app.innerHTML = shell(page());
+  document.title = TITLES[route] + " — ResInvest ERP";
+  form = document.getElementById("op-form");
+  if (form) { syncVisibility(true); updateComputed(); if (!canCreate(user)) lockForm(); }
+  const hit = highlightId && document.getElementById("row-" + highlightId);
+  const h = document.getElementById("naglowek");
+  if (h) h.tabIndex = -1;
+  if (hit) { hit.classList.add("is-hit"); hit.tabIndex = -1; hit.focus(); }
+  else if (h) h.focus();
+  filterTables();
+  const q = document.getElementById("q");
+  if (q && searchQuery) renderSearch();
+  flash = "";
+  if (!banner) { /* nic do pokazania */ }
+}
+
+function writeBind(el) {
+  if (!el || !el.dataset || !el.dataset.bind || el.disabled) return;
+  const key = el.dataset.bind;
+  if (el.type === "checkbox") setPath(draft, key, el.checked);
+  else if (el.type === "radio") { if (!el.checked) return; setPath(draft, key, el.value); }
+  else setPath(draft, key, el.value);
+  if (key === "transport.place") draft.transport.placeTouched = true;
+  if (key === "purchase.basis") draft.basisTouched = true;
+  if (key === "purchase.unit" || key === "purchase.priceUnit") draft.unitTouched = true;
+  if (key === "purchase.supplierKind" && !draft.basisTouched) draft.purchase.basis = el.value === "nadlesnictwo" ? "DEKL" : "KZR";
+  if (key === "sale.direct" && el.checked) { draft.production.enabled = true; draft.sale.enabled = true; }
+  if (key === "sale.direct" && !el.checked) draft.sale.enabled = false;
+  if (key === "production.enabled" && el.checked === false) { draft.sale.direct = false; draft.sale.enabled = false; }
+  if (key === "purchase.productId" && !draft.unitTouched) {
+    const p = productById(el.value);
+    if (p) { draft.purchase.unit = p.unit; draft.purchase.priceUnit = p.unit; }
+  }
+  if (key === "transport.own.runCount") { const n = intRange(el.value, 1, 4); if (n) ui.ownShown = n; }
+  if (key === "transport.external.runCount") { const n = intRange(el.value, 1, 4); if (n) ui.extShown = n; }
+}
+function intRange(raw, a, b) {
+  const n = Number(String(raw).trim());
+  return Number.isInteger(n) && n >= a && n <= b ? n : 0;
+}
+function readAll() {
+  if (!form) return;
+  form.querySelectorAll("[data-bind]").forEach(el => {
+    if (el.closest("[hidden]")) return;
+    writeBind(el);
+  });
+}
+function pushDraft() {
+  if (!form) return;
+  form.querySelectorAll("[data-bind]").forEach(el => {
+    if (el === document.activeElement) return;
+    const v = getPath(draft, el.dataset.bind);
+    if (el.type === "checkbox") el.checked = !!v;
+    else if (el.type === "radio") el.checked = el.value === v;
+    else if (v != null && el.type !== "file") el.value = v;
+  });
+}
+function hide(id, on) { const el = document.getElementById(id); if (el) el.hidden = !on; }
+function syncVisibility(push) {
+  if (!form || !draft) return;
+  const t = draft.type;
+  hide("sec-zakup", t === "ZAKUP");
+  hide("sec-sprzedaz", t === "SPRZEDAZ");
+  hide("sec-mm", t === "MM");
+  hide("sec-transport", t !== "PRODUKCJA");
+  const chain = (t === "ZAKUP" && draft.production.enabled) || (t === "SPRZEDAZ" && draft.sale.direct);
+  const stock = t === "PRODUKCJA";
+  hide("production-mount", chain || stock);
+  hide("prod-chain", chain);
+  hide("prod-stock", stock);
+  hide("prod-lesna", draft.production.type !== "inwestycyjna");
+  hide("prod-inw", draft.production.type === "inwestycyjna");
+  hide("sale-out", !!draft.sale.direct && (t === "ZAKUP" || t === "SPRZEDAZ"));
+  hide("sale-stock", t === "SPRZEDAZ" && !draft.sale.direct);
+  hide("lesnictwo-wrap", t === "ZAKUP" && draft.purchase.supplierKind === "nadlesnictwo");
+  hide("pw-manual", draft.purchase.weightMode === "manual");
+  hide("pw-auto", draft.purchase.weightMode !== "manual");
+  hide("sw-manual", draft.sale.weightMode === "manual");
+  hide("sw-auto", draft.sale.weightMode !== "manual");
+  hide("mw-manual", draft.mm.weightMode === "manual");
+  hide("mw-auto", draft.mm.weightMode !== "manual");
+  hide("extras-fields", !!draft.extras.enabled);
+  const manual = draft.docNoMode.WZ === "manual" && t !== "PRODUKCJA";
+  const mount = document.getElementById("docno-mount");
+  const anchor = document.getElementById("docno-anchor-" + (t === "SPRZEDAZ" ? "SPRZEDAZ" : t === "MM" ? "MM" : "ZAKUP"));
+  if (mount && anchor && mount.parentElement !== anchor) anchor.appendChild(mount);
+  if (mount) mount.hidden = t === "PRODUKCJA";
+  form.querySelectorAll('[data-field="docNos.WZ"]').forEach(el => { el.hidden = !manual; });
+  const mode = t === "ZAKUP" ? draft.transport.mode : (draft.transport.mode === "supplier" ? "none" : draft.transport.mode);
+  hide("tr-own", mode === "own" || mode === "mixed");
+  hide("tr-ext", mode === "external" || mode === "mixed");
+  hide("tr-train", mode === "train");
+  hide("tr-supplier", mode === "supplier");
+  const sup = form.querySelector("#f-transport-mode-supplier");
+  if (sup) sup.closest(".choice").hidden = t !== "ZAKUP";
+  form.querySelectorAll("[data-run='transport.own']").forEach(el => { el.hidden = Number(el.dataset.i) >= ui.ownShown; });
+  form.querySelectorAll("[data-run='transport.external']").forEach(el => { el.hidden = Number(el.dataset.i) >= ui.extShown; });
+  const wagons = intRange(draft.transport.train.wagonCount, 1, 6) || 0;
+  form.querySelectorAll("[data-wagon]").forEach(el => { el.hidden = draft.transport.train.tonMode !== "each" || Number(el.dataset.wagon) >= wagons; });
+  hide("ton-same", draft.transport.train.tonMode !== "each");
+  hide("ton-each", draft.transport.train.tonMode === "each");
+  const wood = (productById(draft.purchase.productId) || {}).cat === "drewno" || (chain && draft.production.type === "lesna");
+  form.querySelectorAll(".kwit-m3").forEach(el => { el.hidden = !wood; });
+  const dateLbl = form.querySelector('[data-field="date"] label');
+  if (dateLbl && dateLbl.firstChild && dateLbl.firstChild.nodeType === 3) dateLbl.firstChild.nodeValue = t === "ZAKUP" ? "Data przyjęcia " : "Data operacji ";
+  const supLbl = form.querySelector('[data-field="purchase.supplierName"] label');
+  if (supLbl && supLbl.firstChild && supLbl.firstChild.nodeType === 3) supLbl.firstChild.nodeValue = draft.purchase.supplierKind === "nadlesnictwo" ? "Nadleśnictwo " : "Dostawca (firma) ";
+  const prodTitle = document.getElementById("prod-title");
+  if (prodTitle) prodTitle.textContent = stock ? "Produkcja na magazynie" : (draft.sale.direct && t === "SPRZEDAZ" ? "Produkcja w lesie" : "Produkcja z automatycznym zużyciem");
+  if (push) pushDraft();
+  const units = allowedUnits(productById(draft.purchase.productId));
+  const unitSel = document.getElementById("f-purchase-unit");
+  const priceSel = document.getElementById("f-purchase-priceUnit");
+  if (unitSel && priceSel) {
+    const opts = units.map(u => `<option value="${u}">${esc(unitLabel(u))}</option>`).join("");
+    if (unitSel.dataset.opts !== units.join()) { unitSel.innerHTML = opts; priceSel.innerHTML = opts; unitSel.dataset.opts = units.join(); }
+    if (document.activeElement !== unitSel) unitSel.value = draft.purchase.unit;
+    if (document.activeElement !== priceSel) priceSel.value = draft.purchase.priceUnit;
+  }
+}
+function costNow() {
+  const p = draft.purchase, prod = productById(p.productId);
+  const q = parseNum(p.qty), price = parseNum(p.price);
+  if (!q.ok || !price.ok || !prod) return null;
+  const qty = convert(q.value, p.unit, p.priceUnit || p.unit, prod);
+  return qty == null ? null : Math.round(qty * price.value * 100) / 100;
+}
+function updateComputed() {
+  if (!form || !draft) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = val; };
+  const cost = costNow();
+  set("f-purchase-cost", cost == null ? "—" : plMoney(cost));
+  const prod = productById(draft.purchase.productId);
+  const q = parseNum(draft.purchase.qty);
+  let mass = "—";
+  if (draft.purchase.weightMode === "manual") {
+    const m = parseNum(draft.purchase.weightManual);
+    if (m.ok) mass = plQty(m.value) + " t · " + plQty(m.value * dbState.config.t_gj) + " GJ";
+  } else if (q.ok && prod) {
+    const t = massOf(q.value, draft.purchase.unit, prod, "");
+    if (t != null) mass = plQty(t) + " t · " + plQty(t * dbState.config.t_gj) + " GJ";
+  }
+  set("f-purchase-weightAuto", mass);
+  const no = draft.docNoMode.WZ === "manual" && String(draft.docNos.WZ || "").trim() ? String(draft.docNos.WZ).trim() : suggestNo(dbState, draft.date || todayISO());
+  const s1 = document.getElementById("sum-1"), s2 = document.getElementById("sum-2"), s3 = document.getElementById("sum-3");
+  if (s1) s1.textContent = draft.type === "ZAKUP" ? "Koszt zakupu: " + (cost == null ? "uzupełnij ilość i cenę" : plMoney(cost)) : "Dokument powstanie po zapisie.";
+  if (s2) s2.textContent = draft.type === "ZAKUP" ? "Masa orientacyjna: " + mass : "";
+  if (s3) s3.textContent = draft.type === "PRODUKCJA" ? "Numer nada program z serii WZ." : "Dokument: " + no;
+  const sp = productById(draft.sale.productId);
+  if (sp && draft.type === "SPRZEDAZ" && !draft.sale.direct) {
+    const have = stockGet(dbState.stock, activeWh(), sp.id);
+    set("f-sale-onStock", plQty(have) + " " + unitLabel(sp.unit));
+    const sq = parseNum(draft.sale.qty);
+    const need = sq.ok ? convert(sq.value, draft.sale.unit || sp.unit, sp.unit, sp) : null;
+    set("f-sale-after", need == null ? "—" : plQty(round3(have - need)) + " " + unitLabel(sp.unit));
+    const price = parseNum(draft.sale.price);
+    set("f-sale-revenue", sq.ok && price.ok ? plMoney(sq.value * price.value) : "—");
+  }
+  const mp = productById(draft.mm.productId);
+  if (mp && draft.type === "MM") {
+    const have = stockGet(dbState.stock, activeWh(), mp.id);
+    const mq = parseNum(draft.mm.qty);
+    const need = mq.ok ? convert(mq.value, draft.mm.unit || mp.unit, mp.unit, mp) : null;
+    set("f-mm-srcBal", need == null ? plQty(have) + " " + unitLabel(mp.unit) : plQty(have) + " → " + plQty(round3(have - need)) + " " + unitLabel(mp.unit));
+    const dest = draft.mm.toWhId ? stockGet(dbState.stock, draft.mm.toWhId, mp.id) : 0;
+    set("f-mm-dstBal", !draft.mm.toWhId || need == null ? "—" : plQty(dest) + " → " + plQty(round3(dest + need)) + " " + unitLabel(mp.unit));
+  }
+  const outMp = producedMp(draft);
+  const rate = parseNum(draft.production.chipRate);
+  const chip = outMp != null ? outMp * (rate.ok ? rate.value : dbState.config.chipRate) : null;
+  set("f-production-chipCost", chip == null ? "—" : plMoney(chip));
+}
+function applyFieldNote(key) {
+  const errors = validateDraft(dbState, draft, activeWh());
+  const err = errors[key] || "";
+  if (err) setNote(key, err, "error");
+  else if (key === "extDoc" && errors.extDocWarn) setNote(key, errors.extDocWarn, "info");
+  else {
+    const el = fieldEl(key);
+    const raw = el && "value" in el ? el.value : "";
+    const numish = el && el.getAttribute("inputmode") === "decimal";
+    const parsed = numish ? parseNum(raw) : null;
+    if (parsed && parsed.ok) setNote(key, "Odczytano: " + plQty(parsed.value) + ".", "info");
+    else setNote(key, "", "");
+  }
+}
+function visibleOf(list) {
+  return [...list].find(el => !el.closest("[hidden]")) || list[0] || null;
+}
+function fieldEl(key) {
+  if (!form) return null;
+  return visibleOf([...form.querySelectorAll("[data-bind]")].filter(el => el.dataset.bind === key));
+}
+function setNote(key, text, kind) {
+  const field = form && visibleOf([...form.querySelectorAll("[data-field]")].filter(el => el.dataset.field === key));
+  if (!field) return;
+  let note = field.querySelector(":scope > .msg, :scope > .hint.dynamic");
+  const input = field.querySelector("[data-bind]");
+  if (!text) {
+    field.classList.remove("is-error");
+    if (input) input.removeAttribute("aria-invalid");
+    if (note) note.remove();
+    return;
+  }
+  if (!note) {
+    note = document.createElement("p");
+    field.appendChild(note);
+  }
+  note.className = kind === "error" ? "msg" : "hint dynamic";
+  note.textContent = text;
+  if (kind === "error") {
+    field.classList.add("is-error");
+    if (input) input.setAttribute("aria-invalid", "true");
+  } else field.classList.remove("is-error");
+  if (input) input.setAttribute("aria-describedby", note.id || (note.id = "note-" + key.replace(/\./g, "-")));
+}
+function showErrorSummary(errors) {
+  const box = document.getElementById("form-errors");
+  if (!box) return;
+  const keys = Object.keys(errors).filter(k => !k.endsWith("Warn"));
+  if (!keys.length) { box.hidden = true; box.innerHTML = ""; return; }
+  box.hidden = false;
+  box.innerHTML = `<p>Popraw pola poniżej. Zacznij od pierwszego.</p><ul>${keys.map(k => `<li><button type="button" class="btn" data-focus="${esc(k)}">${esc(errors[k])}</button></li>`).join("")}</ul>`;
+}
+async function save(ev) {
+  if (ev) ev.preventDefault();
+  if (saving || !form || !canCreate(user)) return;
+  readAll();
+  const errors = validateDraft(dbState, draft, activeWh());
+  const hard = Object.keys(errors).filter(k => !k.endsWith("Warn"));
+  hard.forEach(k => touched.add(k));
+  hard.forEach(k => setNote(k, errors[k], "error"));
+  showErrorSummary(errors);
+  if (hard.length) {
+    const el = fieldEl(hard[0]);
+    if (el) el.focus();
+    return;
+  }
+  saving = true;
+  const controls = [...form.querySelectorAll("input, select, textarea, button")];
+  controls.forEach(el => { el.dataset.wasDisabled = el.disabled ? "1" : ""; el.disabled = true; });
+  form.classList.add("is-loading");
+  form.setAttribute("aria-busy", "true");
+  const status = document.getElementById("save-status");
+  const btn = document.getElementById("f-save");
+  if (btn) btn.textContent = "Zapisywanie operacji…";
+  if (status) status.textContent = "Trwa zapis operacji. Poczekaj, aż pojawi się numer dokumentu.";
+  try {
+    if (window.__demo && window.__demo.hold) await window.__demo.hold;
+    else await new Promise(r => setTimeout(r, 450));
+    const res = await Store.exec("op.commit", { draft });
+    if (!res.ok) {
+      unlockForm(controls);
+      if (res.errors) { Object.keys(res.errors).forEach(k => setNote(k, res.errors[k], "error")); showErrorSummary(res.errors); }
+      if (status) status.textContent = res.error || "Nie udało się zapisać. Popraw pola i spróbuj jeszcze raz.";
+      return;
+    }
+    draft = null; touched = new Set();
+    flash = "Zapisano dokument " + res.op.no + ". Stan magazynu został zaktualizowany.";
+    route = "operacja";
+    if (location.hash !== "#operacja") location.hash = "operacja";
+    else paint();
+  } catch (err) {
+    unlockForm(controls);
+    if (status) status.textContent = "Nie udało się zapisać. Sprawdź, czy przeglądarka pozwala tej stronie trzymać dane, i spróbuj jeszcze raz.";
+  } finally { saving = false; }
+}
+function unlockForm(controls) {
+  if (!form) return;
+  form.classList.remove("is-loading");
+  form.removeAttribute("aria-busy");
+  (controls || []).forEach(el => { if (el.dataset.wasDisabled !== "1") el.disabled = false; delete el.dataset.wasDisabled; });
+  const btn = document.getElementById("f-save");
+  if (btn) btn.textContent = "Zapisz operację";
+  syncVisibility(false);
+}
+function lockForm() {
+  form.querySelectorAll("input, select, textarea, button").forEach(el => { el.disabled = true; });
+}
+function focusables() {
+  return [...form.querySelectorAll("input, select, textarea, button")].filter(el => !el.disabled && !el.hidden && !el.closest("[hidden]"));
+}
+function onFormKey(e) {
+  if (e.key !== "Enter" || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.target.tagName === "TEXTAREA") return;
+  if (e.target.getAttribute("aria-expanded") === "true") return;
+  e.preventDefault();
+  const list = focusables();
+  const i = list.indexOf(e.target);
+  const dest = e.shiftKey ? list[i - 1] : list[i + 1];
+  if (dest) dest.focus();
+  else if (!e.shiftKey) save();
+}
+function onFormBlur(e) {
+  if (!draft || !e.target.dataset || !e.target.dataset.bind) return;
+  if (e.target.closest(".combo") && e.relatedTarget && e.target.closest(".combo").contains(e.relatedTarget)) return;
+  writeBind(e.target);
+  touched.add(e.target.dataset.bind);
+  if (!touched.has(e.target.dataset.bind)) return;
+  syncVisibility(e.target.dataset.struct === "1");
+  applyFieldNote(e.target.dataset.bind);
+  updateComputed();
+}
+function onFormChange(e) {
+  if (!draft || !e.target.dataset || !e.target.dataset.bind) return;
+  writeBind(e.target);
+  touched.add(e.target.dataset.bind);
+  syncVisibility(true);
+  applyFieldNote(e.target.dataset.bind);
+  updateComputed();
+}
+function comboItems(kind, query) {
+  const q = fold(query);
+  const list = kind === "buyer"
+    ? dbState.partners.filter(p => ["buyer", "both"].includes(p.role))
+    : dbState.partners.filter(p => ["supplier", "both"].includes(p.role) && (draft.purchase.supplierKind === "nadlesnictwo" ? p.kind === "nadlesnictwo" : p.kind !== "nadlesnictwo"));
+  return list.filter(p => !q || fold(p.name).includes(q) || fold(p.city).includes(q)).slice(0, 8);
+}
+function refreshCombo(input) {
+  const list = document.getElementById(input.getAttribute("aria-controls"));
+  if (!list) return;
+  const items = comboItems(input.dataset.combo, input.value);
+  list.innerHTML = items.map((p, i) => `<li><button type="button" tabindex="-1" role="option" id="${list.id}-${i}" data-name="${esc(p.name)}" data-id="${esc(p.id)}" data-combo-for="${esc(input.id)}">${esc(p.city ? p.name + " — " + p.city : p.name)}</button></li>`).join("");
+  const show = items.length > 0 && document.activeElement === input;
+  list.hidden = !show;
+  input.setAttribute("aria-expanded", show ? "true" : "false");
+}
+function renderSearch() {
+  const pop = document.getElementById("search-pop");
+  const q = document.getElementById("q");
+  if (!pop || !q) return;
+  const query = searchQuery.trim();
+  if (!query) { pop.hidden = true; q.setAttribute("aria-expanded", "false"); searchHits = []; return; }
+  const t0 = performance.now();
+  const parts = fold(query).split(" ").filter(Boolean);
+  searchHits = INDEX.filter(r => parts.every(p => r.hay.includes(p))).slice(0, 8);
+  const ms = performance.now() - t0;
+  pop.innerHTML = searchHits.map((h, i) => `<button type="button" tabindex="-1" class="search-hit" role="option" data-act="hit" data-i="${i}"><b>${esc(h.title)}</b><br><span>${esc(h.meta)}</span></button>`).join("")
+    + `<p class="meta" style="padding:calc(var(--s) * 2) calc(var(--s) * 4)">${searchHits.length ? searchHits.length + " z indeksu " + INDEX.length : "Brak pozycji. Spróbuj krótszej frazy."} · ${ms < 0.1 ? "poniżej 0,1" : ms.toFixed(1).replace(".", ",")} ms</p>`;
+  pop.hidden = false;
+  q.setAttribute("aria-expanded", "true");
+  filterTables();
+}
+function filterTables() {
+  const n = fold(searchQuery);
+  const rows = document.querySelectorAll("tr[data-hay]");
+  let shown = 0;
+  rows.forEach(row => {
+    const ok = !n || row.dataset.hay.includes(n);
+    row.hidden = !ok;
+    if (ok) shown += 1;
+  });
+  document.querySelectorAll(".empty-filter").forEach(empty => {
+    const table = empty.previousElementSibling;
+    const own = table ? [...table.querySelectorAll("tr[data-hay]")] : [];
+    const alive = own.filter(r => !r.hidden).length;
+    empty.hidden = !(n && own.length && alive === 0);
+  });
+}
+function goHit(i) {
+  const hit = searchHits[i];
+  if (!hit) return;
+  highlightId = hit.id;
+  searchQuery = "";
+  const pop = document.getElementById("search-pop");
+  if (pop) pop.hidden = true;
+  if (location.hash === "#" + hit.route) paint();
+  else location.hash = hit.route;
+}
+function doLogin() {
+  const email = document.getElementById("login-email").value.trim().toLowerCase();
+  const password = document.getElementById("login-password").value;
+  const box = document.getElementById("login-error");
+  const show = msg => { box.hidden = false; box.textContent = msg; };
+  if (!email.includes("@")) { show("Wpisz służbowy adres e-mail, na przykład adrian.wojciechowski@resinvest.group."); document.getElementById("login-email").focus(); return; }
+  const found = USERS.find(u => u.email === email);
+  if (!found) { show("Nie ma takiego konta w danych przykładowych. Wybierz konto z listy albo popraw adres."); return; }
+  if (password !== PASS) { show("Hasło nie pasuje. W wersji demonstracyjnej wpisz demo1234."); document.getElementById("login-password").focus(); return; }
+  user = found;
+  sessionStorage.setItem("riw.demo3.user", user.id);
+  const next = ROUTES.includes(route) ? route : "pulpit";
+  if (location.hash !== "#" + next) location.hash = next;
+  else paint();
+}
+function ask(title, text, ok, cancel) {
+  return new Promise(resolve => {
+    const dlg = document.createElement("dialog");
+    dlg.innerHTML = `<h2 id="dlg-title">${esc(title)}</h2><p class="block">${esc(text)}</p><div class="dlg-actions"><button class="btn" type="button" data-no autofocus>${esc(cancel)}</button><button class="btn primary" type="button" data-ok>${esc(ok)}</button></div>`;
+    dlg.setAttribute("aria-labelledby", "dlg-title");
+    document.body.appendChild(dlg);
+    let done = false;
+    const finish = v => { if (done) return; done = true; dlg.close(); dlg.remove(); resolve(v); };
+    dlg.querySelector("[data-ok]").onclick = () => finish(true);
+    dlg.querySelector("[data-no]").onclick = () => finish(false);
+    dlg.addEventListener("cancel", ev => { ev.preventDefault(); finish(false); });
+    dlg.showModal();
+  });
+}
+async function undoLast() {
+  if (journal.length < 2) return;
+  const ok = await ask("Cofnąć ostatni zapis?", "Stan wróci do poprzedniej rewizji. Żeby zachować obecne dane, najpierw wyeksportuj kopię.", "Cofnij zapis", "Zostaw jak jest");
+  if (!ok) return;
+  const nextJournal = journal.slice(0, -1);
+  const snap = structuredClone(nextJournal[nextJournal.length - 1].snapshot);
+  await persist(snap, nextJournal);
+  dbState = snap; journal = nextJournal; rebuildIndex();
+  flash = "Przywrócono rewizję " + snap.rev + ".";
+  paint();
+}
+async function restoreSeq(seq) {
+  const i = journal.findIndex(e => String(e.seq) === String(seq));
+  if (i < 0) return;
+  const ok = await ask("Wrócić do rewizji " + seq + "?", "Późniejsze zapisy znikną z dziennika w tej przeglądarce. Eksport kopii robi to wcześniej, jeśli chcesz je zachować.", "Wróć do rewizji", "Zostaw jak jest");
+  if (!ok) return;
+  const nextJournal = journal.slice(0, i + 1);
+  const snap = structuredClone(nextJournal[nextJournal.length - 1].snapshot);
+  await persist(snap, nextJournal);
+  dbState = snap; journal = nextJournal; rebuildIndex();
+  flash = "Przywrócono rewizję " + snap.rev + ".";
+  paint();
+}
+function exportCopy() {
+  const payload = { format: "resinvest-erp-demo3", exportedAt: new Date().toISOString(), rev: dbState.rev, state: dbState, journal };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+  a.download = "ResInvest_ERP_Demo3_kopia.json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+async function importFile(input) {
+  const file = input.files && input.files[0];
+  input.value = "";
+  if (!file) return;
+  let data;
+  try { data = JSON.parse(await file.text()); }
+  catch (e) { flash = "Nie udało się odczytać pliku. Wybierz plik JSON wyeksportowany z tej wersji."; paint(); return; }
+  if (!data || data.format !== "resinvest-erp-demo3" || !data.state || !Array.isArray(data.state.operations)) {
+    flash = "Ten plik nie jest kopią wersji demonstracyjnej 3. Użyj pliku z przycisku „Eksportuj kopię JSON”.";
+    paint(); return;
+  }
+  const ok = await ask("Wczytać tę kopię?", "Zastąpi dane w tej przeglądarce. Rewizja pliku: " + data.state.rev + ".", "Wczytaj kopię", "Anuluj");
+  if (!ok) return;
+  const res = await Store.exec("backup.restore", { state: data.state, journal: data.journal });
+  flash = res.ok ? "Wczytano kopię. Rewizja: " + dbState.rev + "." : "Nie udało się wczytać kopii.";
+  paint();
+}
+function repeatLast() {
+  const wh = activeWh();
+  const prev = dbState.operations.filter(o => o.type === "ZAKUP" && o.status === "POSTED" && o.whId === wh).sort((a, b) => a.date < b.date ? 1 : -1)[0];
+  if (!prev) { flash = "W tym magazynie nie ma jeszcze zatwierdzonego zakupu do powtórzenia."; paint(); return; }
+  const partner = partnerById(prev.partnerId);
+  const d = newDraft(wh);
+  d.purchase.supplierId = prev.partnerId || "";
+  d.purchase.supplierName = partner ? partner.name : "";
+  d.purchase.supplierKind = partner && partner.kind === "nadlesnictwo" ? "nadlesnictwo" : "firma";
+  d.purchase.basis = prev.basis || (d.purchase.supplierKind === "nadlesnictwo" ? "DEKL" : "KZR");
+  d.purchase.productId = prev.productId;
+  d.purchase.unit = prev.unit || "m3";
+  d.purchase.priceUnit = prev.priceUnit || d.purchase.unit;
+  d.purchase.price = prev.price == null ? "" : String(prev.price).replace(".", ",");
+  d.purchase.lesnictwo = prev.lesnictwo || "";
+  d.basisTouched = true; d.unitTouched = true;
+  draft = d; touched = new Set(); ui.ownShown = 1; ui.extShown = 1;
+  flash = "Wpisano dostawcę, produkt, jednostkę i cenę z ostatniej dostawy. Uzupełnij ilość.";
+  paint();
+  document.getElementById("f-purchase-qty")?.focus();
+}
+function clearForm() { draft = newDraft(activeWh()); touched = new Set(); flash = ""; ui.ownShown = 1; ui.extShown = 1; paint(); }
+
+document.body.addEventListener("click", async e => {
+  const act = e.target.closest("[data-act]");
+  if (act) {
+    const name = act.dataset.act;
+    if (name === "fill") {
+      document.getElementById("login-email").value = act.dataset.email;
+      document.getElementById("login-password").value = PASS;
+      document.getElementById("login-submit").focus();
+    } else if (name === "logout") {
+      user = null; draft = null; sessionStorage.removeItem("riw.demo3.user"); flash = ""; paint();
+    } else if (name === "repeat") repeatLast();
+    else if (name === "clear") clearForm();
+    else if (name === "export") exportCopy();
+    else if (name === "undo") undoLast();
+    else if (name === "restore-seq") restoreSeq(act.dataset.seq);
+    else if (name === "receive") {
+      const res = await Store.exec("mm.receive", { opId: act.dataset.id });
+      flash = res.ok ? "Przyjęto przesunięcie. Stan magazynu docelowego jest zaktualizowany." : (res.error || "Nie udało się przyjąć MM.");
+      paint();
+    } else if (name === "hit") goHit(Number(act.dataset.i));
+  }
+  const jump = e.target.closest("[data-focus]");
+  if (jump) { e.preventDefault(); fieldEl(jump.dataset.focus)?.focus(); }
+  if (e.target.id === "menu-btn") {
+    const sb = document.getElementById("sidebar");
+    const open = sb.classList.toggle("is-open");
+    e.target.setAttribute("aria-expanded", open ? "true" : "false");
+    e.target.textContent = open ? "Zamknij" : "Menu";
+    if (open) sb.querySelector("a")?.focus();
+  }
+  const opt = e.target.closest("[data-combo-for]");
+  if (opt) {
+    const input = document.getElementById(opt.dataset.comboFor);
+    if (input) {
+      input.value = opt.dataset.name;
+      writeBind(input);
+      if (input.dataset.combo === "supplier") draft.purchase.supplierId = opt.dataset.id;
+      if (input.dataset.combo === "buyer") draft.sale.buyerId = opt.dataset.id;
+      document.getElementById(input.getAttribute("aria-controls")).hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      input.focus();
+    }
+  }
+});
+document.body.addEventListener("mousedown", e => {
+  if (e.target.closest("[data-combo-for]")) e.preventDefault();
+});
+document.body.addEventListener("submit", e => {
+  if (e.target.id === "login-form") { e.preventDefault(); doLogin(); }
+  if (e.target.id === "op-form") { e.preventDefault(); save(); }
+});
+document.body.addEventListener("input", e => {
+  if (e.target.id === "q") { searchQuery = e.target.value; renderSearch(); return; }
+  if (!e.target.closest || !e.target.closest("#op-form") || !e.target.dataset.bind) return;
+  writeBind(e.target);
+  if (e.target.dataset.combo) refreshCombo(e.target);
+  updateComputed();
+});
+document.body.addEventListener("focusin", e => {
+  if (e.target.dataset && e.target.dataset.combo) refreshCombo(e.target);
+});
+document.body.addEventListener("focusout", e => {
+  if (e.target.id === "q" && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest("#search-pop"))) {
+    const pop = document.getElementById("search-pop");
+    if (pop) pop.hidden = true;
+    e.target.setAttribute("aria-expanded", "false");
+  }
+  if (e.target.dataset && e.target.dataset.combo && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest(".combo"))) {
+    const list = document.getElementById(e.target.getAttribute("aria-controls"));
+    if (list) list.hidden = true;
+    e.target.setAttribute("aria-expanded", "false");
+  }
+  if (e.target.closest && e.target.closest("#op-form")) onFormBlur(e);
+});
+document.body.addEventListener("change", e => {
+  if (e.target.id === "wh-select") {
+    if (form) readAll();
+    sessionStorage.setItem("riw.demo3.wh", e.target.value);
+    if (draft && !draft.transport.placeTouched) draft.transport.place = whName(e.target.value);
+    paint();
+    return;
+  }
+  if (e.target.id === "import-file") { importFile(e.target); return; }
+  if (e.target.closest && e.target.closest("#op-form")) onFormChange(e);
+});
+document.body.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" && user && route === "operacja" && canCreate(user)) {
+    e.preventDefault(); save();
+  }
+  if (e.key === "Escape") {
+    const sb = document.getElementById("sidebar");
+    const btn = document.getElementById("menu-btn");
+    if (sb && sb.classList.contains("is-open")) { sb.classList.remove("is-open"); if (btn) { btn.setAttribute("aria-expanded", "false"); btn.textContent = "Menu"; btn.focus(); } }
+    const pop = document.getElementById("search-pop");
+    if (pop) pop.hidden = true;
+  }
+  if (e.target.id === "q") {
+    const opts = [...document.querySelectorAll("#search-pop .search-hit")];
+    let i = opts.findIndex(o => o.classList.contains("is-active"));
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      i = e.key === "ArrowDown" ? Math.min(opts.length - 1, i + 1) : Math.max(0, i - 1);
+      opts.forEach(o => o.classList.remove("is-active"));
+      if (opts[i]) { opts[i].classList.add("is-active"); opts[i].setAttribute("aria-selected", "true"); }
+    } else if (e.key === "Enter" && i >= 0) { e.preventDefault(); goHit(i); }
+  }
+  if (e.target.closest && e.target.closest("#op-form")) onFormKey(e);
+  if (e.target.dataset && e.target.dataset.combo && (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter")) {
+    const list = document.getElementById(e.target.getAttribute("aria-controls"));
+    const opts = list ? [...list.querySelectorAll("[role=option]")] : [];
+    if (!opts.length || list.hidden) return;
+    let i = opts.findIndex(o => o.classList.contains("is-active"));
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault(); e.stopPropagation();
+      i = e.key === "ArrowDown" ? Math.min(opts.length - 1, i + 1) : Math.max(0, i - 1);
+      opts.forEach(o => o.classList.remove("is-active"));
+      if (opts[i]) opts[i].classList.add("is-active");
+    } else if (e.key === "Enter" && i >= 0) {
+      e.preventDefault(); e.stopPropagation();
+      opts[i].click();
+    }
+  }
+});
+window.addEventListener("hashchange", () => {
+  route = (location.hash || "#pulpit").replace("#", "") || "pulpit";
+  const sb = document.getElementById("sidebar");
+  if (sb) sb.classList.remove("is-open");
+  paint();
+});
+
+async function init() {
+  try { dbp = await openDb(); } catch (e) { dbp = null; persistMode = "localstorage"; }
+  let fromIdb = null, fromLs = null;
+  if (dbp) { try { fromIdb = await idbGet(dbp); } catch (e) { fromIdb = null; } }
+  try { fromLs = JSON.parse(localStorage.getItem(LS) || "null"); } catch (e) { fromLs = null; }
+  const a = validBundle(fromIdb) ? fromIdb : null;
+  const b = validBundle(fromLs) ? fromLs : null;
+  const pick = !a ? b : !b ? a : (a.state.rev >= b.state.rev ? a : b);
+  if (pick) { dbState = pick.state; journal = pick.journal; persistMode = a && pick === a ? "indexeddb" : persistMode; }
+  else {
+    dbState = freshSeed();
+    const snapshot = structuredClone(dbState);
+    const hash = sha256("GENESIS\n" + canonical({ rev: snapshot.rev, n: snapshot.operations.length, stock: snapshot.stock }));
+    journal = [{ seq: 16, ts: "2026-09-22T12:00:00.000Z", cmd: "seed", user: "Dane przykładowe", hash, prev: "GENESIS", snapshot }];
+    await persist(dbState, journal);
+  }
+  rebuildIndex();
+  const saved = sessionStorage.getItem("riw.demo3.user");
+  user = USERS.find(u => u.id === saved) || null;
+  route = (location.hash || "#pulpit").replace("#", "") || "pulpit";
+  window.__demo = {
+    hold: null,
+    get state() { return dbState; },
+    get ready() { return true; },
+    plan(d, wh) { return planCommit(dbState, d || draft, user, wh || activeWh()); }
+  };
+  paint();
+}
+init().catch(err => {
+  const el = document.getElementById("boot-error");
+  if (el) el.textContent = "Nie udało się otworzyć danych wersji demonstracyjnej. Odśwież stronę. Jeśli komunikat wróci, wyczyść dane tej witryny w przeglądarce.";
+  console.error(err);
+});
+</script>
+<noscript><p>Włącz JavaScript. Wersja demonstracyjna zapisuje dane w przeglądarce i bez niego nie działa.</p></noscript>
+</body>
+</html>
