@@ -61,6 +61,10 @@ a { color: var(--accent); }
   outline: calc(var(--s) * 1) solid var(--ink);
   outline-offset: calc(var(--s) * -1);
 }
+.btn.primary:focus,
+.nav a[aria-current="page"]:focus {
+  outline-color: var(--surface);
+}
 .skip {
   position: absolute;
   left: calc(var(--s) * 4);
