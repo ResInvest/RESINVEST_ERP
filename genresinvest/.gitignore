@@ -1,6 +1,6 @@
 data/
 build/
-dist/
+/dist/
 installer/Output/
 __pycache__/
 *.pyc

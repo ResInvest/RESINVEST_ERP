@@ -44,6 +44,7 @@ Licencjobiorca:  ResInvest Commodities
    * python-docx — MIT. reportlab — BSD. openpyxl — MIT.
    * Czcionki Liberation Sans (osadzane w PDF) — SIL Open Font License 1.1
      (pełny tekst: app/assets/fonts/LICENSE-LiberationFonts.txt).
+   * Wersja HTML (standalone/): jsPDF (MIT), fflate (MIT) — teksty licencji w standalone/vendor/.
    * Narzędzia budowy i testów (nie są częścią działającego programu): PyInstaller (GPL z wyjątkiem
      dla budowanych programów), Inno Setup (licencja Inno Setup), pytest (MIT), Playwright (Apache-2.0).
    * Papier firmowy (app/assets/letterhead.docx, header.jpg) i logo są własnością

@@ -27,6 +27,13 @@ Wybierz kontrahenta ▸ usługę ▸ cenę z listy (lub dopisz nową)  →  Podg
 | **Wieloużytkowość** | Konta z rolami: Administrator, Użytkownik, Podgląd; hasła PBKDF2, blokada po 5 nieudanych logowaniach, wymuszona zmiana hasła startowego. |
 | **Responsywność** | Komputer, tablet, telefon (tabele jako karty, przyklejony pasek akcji); tryb ciemny. |
 
+## Wersja HTML — jeden plik, zlecenia **i zamówienia**
+
+[`standalone/dist/GenResInvest.html`](standalone/dist/GenResInvest.html) — program w jednym pliku: otwierasz dwuklikiem,
+działa bez instalacji i bez internetu. Zawiera generator zleceń **oraz generator zamówień** (wzór „Zamówienie DRENO”),
+podgląd dokumentu na żywo, PDF/DOCX na papierze firmowym, rejestry, raporty, historię i kopie zapasowe.
+Szczegóły: [standalone/README.md](standalone/README.md).
+
 ## Instalacja (Windows 10/11)
 
 1. Uruchom `GenResInvest-1.0.0-setup.exe` (jak go zbudować — niżej).
