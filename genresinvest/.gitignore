@@ -1,0 +1,9 @@
+data/
+build/
+dist/
+installer/Output/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.env

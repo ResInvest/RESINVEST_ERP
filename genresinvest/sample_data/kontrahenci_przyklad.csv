@@ -1,0 +1,3 @@
+nazwa;ulica;kod_pocztowy;miejscowosc;kraj;nip;telefon;email;osoba_kontaktowa;uwagi;aktywny
+TRANS-POL Sp. z o.o.;ul. Długa 5;41-500;Chorzów;PL;5260250995;+48 600 100 200;biuro@example.com;Jan Kowalski;Przykładowy wiersz;tak
+Przewozy Śląsk;ul. Krótka 12;44-100;Gliwice;PL;7740001454;+48 601 200 300;;;;tak

@@ -1,0 +1,55 @@
+{
+  "_opis": "Dane startowe GenResInvest — kartoteki odczytane z dostarczonych wzorów zleceń (13.11.2026). Wczytywane automatycznie przy pierwszym uruchomieniu (pusta baza).",
+  "contractors": [
+    {
+      "name": "FHU AGRO-TRANS",
+      "street": "ul. Bytomska 17",
+      "postal_code": "42-674",
+      "city": "Karchowice",
+      "country": "PL",
+      "nip": "6452037772",
+      "phone": "+48 606 403 090"
+    },
+    {
+      "name": "FHU RAGO Ewa Golasz",
+      "street": "ul. Miarki 14",
+      "postal_code": "44-178",
+      "city": "Przyszowice",
+      "country": "PL",
+      "nip": "9691165664",
+      "phone": "+48 535 994 500"
+    },
+    {
+      "name": "VASCO Andrzej Słociński",
+      "street": "Al. Roździeńskiego 188",
+      "postal_code": "40-203",
+      "city": "Katowice",
+      "country": "PL",
+      "nip": "6460007202",
+      "phone": "+48 530 679 282"
+    },
+    {
+      "name": "SmartTrans Kazimierz Broda",
+      "street": "ul. 1-go Maja 134/16",
+      "postal_code": "40-237",
+      "city": "Katowice",
+      "country": "PL",
+      "nip": null,
+      "phone": "+48 503 352 341",
+      "notes": "Uzupełnij NIP. We wzorze zlecenia wpisano NIP 6460007202, który należy do VASCO Andrzej Słociński."
+    }
+  ],
+  "services": [
+    {
+      "short_description": "Przewóz PKS (Łupina ziarna palmowego) za pomocą auta typu wywrotka.",
+      "detailed_description": "Transport PKS (Łupina ziarna palmowego) za pomocą auta typu wywrotka",
+      "cargo_type": "PKS (Łupina ziarna palmowego)"
+    }
+  ],
+  "prices": [
+    { "route": "Zabrze - Chorzów", "net_amount": "900.00", "unit": "zł/fracht" }
+  ],
+  "handlers": [
+    { "full_name": "Marcin Kwiatkowski", "phone": "539 508 380" }
+  ]
+}
