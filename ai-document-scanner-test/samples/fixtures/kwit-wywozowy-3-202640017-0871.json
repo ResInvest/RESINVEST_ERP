@@ -1,0 +1,126 @@
+{
+ "_opis": "Fixture providera MOCK — wynik symulowany dla przykładowego obrazu (dokument fikcyjny). Pewności są przykładowe; ramki = rzeczywiste położenie tekstu.",
+ "file": "kwit-wywozowy-3-202640017-0871.png",
+ "sha256": "c6754e29d64f9203105124d1982c7e3875faf893d125c613b27f1ab98a170869",
+ "raw": {
+  "docType": {
+   "value": "KWIT_WYWOZOWY",
+   "confidence": 0.95,
+   "evidence": "Tytuł „Kwit wywozowy”, pola nadleśnictwo / leśnictwo."
+  },
+  "fields": {
+   "docNumber": {
+    "value": "3/202640017/0871",
+    "confidence": 0.97,
+    "bbox": [
+     0.4264,
+     0.0887,
+     0.6108,
+     0.1094
+    ]
+   },
+   "docDate": {
+    "value": "01/10/2026",
+    "confidence": 0.96,
+    "bbox": [
+     0.3923,
+     0.1902,
+     0.5059,
+     0.2104
+    ]
+   },
+   "time": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "supplier": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "recipient": {
+    "value": "RESINVEST COMMODITIES PL S.A.",
+    "confidence": 0.92,
+    "bbox": [
+     0.3926,
+     0.1676,
+     0.7119,
+     0.1893
+    ]
+   },
+   "product": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "quantity": {
+    "value": "31,20 m3",
+    "confidence": 0.96,
+    "bbox": [
+     0.2408,
+     0.4073,
+     0.3006,
+     0.4271
+    ]
+   },
+   "grossWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "tareWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "netWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "vehicleReg": {
+    "value": "SGL 4T821",
+    "confidence": 0.9,
+    "bbox": [
+     0.3913,
+     0.258,
+     0.4989,
+     0.2782
+    ]
+   },
+   "trailerReg": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "driver": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "forestDistrict": {
+    "value": "PGL LP NADLEŚNICTWO RUDY RACIBORSKIE",
+    "confidence": 0.97,
+    "bbox": [
+     0.3933,
+     0.1224,
+     0.8072,
+     0.1448
+    ]
+   },
+   "forestRange": {
+    "value": "KUŹNIA",
+    "confidence": 0.93,
+    "bbox": [
+     0.393,
+     0.145,
+     0.4696,
+     0.1649
+    ]
+   }
+  },
+  "rawText": "Kwit wywozowy\nnr 3/202640017/0871\nNadleśnictwo: PGL LP NADLEŚNICTWO RUDY RACIBORSKIE\nNazwa leśnictwa: KUŹNIA\nKlient: RESINVEST COMMODITIES PL S.A.\nData wystawienia: 01/10/2026 07:40:12\nPozycja planu: 202640017\nPrzewoźnik: Przewoźnik odbiorcy\nNr rej. pojazdu: SGL 4T821\nWydano dnia: 01/10/2026 r.\nLpArtykułDługośćIlośćMasa[m3]\n1S2AP2,40131,20\nMasy [m3] i ilości łączne wg artykułów\nS2AP / 31,20 / 1\nWydający dokumentOdbierający",
+  "notes": null
+ }
+}

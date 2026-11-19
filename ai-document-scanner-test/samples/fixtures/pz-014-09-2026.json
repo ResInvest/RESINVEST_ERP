@@ -1,0 +1,126 @@
+{
+ "_opis": "Fixture providera MOCK — wynik symulowany dla przykładowego obrazu (dokument fikcyjny). Pewności są przykładowe; ramki = rzeczywiste położenie tekstu.",
+ "file": "pz-014-09-2026.png",
+ "sha256": "26d96ac4600c095008b55ecf285377bd77898dd5993f026fade0c0c78747e2f1",
+ "raw": {
+  "docType": {
+   "value": "PZ",
+   "confidence": 0.97,
+   "evidence": "Nagłówek „PZ — PRZYJĘCIE ZEWNĘTRZNE”."
+  },
+  "fields": {
+   "docNumber": {
+    "value": "PZ/014/09/2026",
+    "confidence": 0.98,
+    "bbox": [
+     0.1397,
+     0.0951,
+     0.3027,
+     0.1147
+    ]
+   },
+   "docDate": {
+    "value": "28.09.2026",
+    "confidence": 0.97,
+    "bbox": [
+     0.3783,
+     0.0963,
+     0.4865,
+     0.1156
+    ]
+   },
+   "time": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "supplier": {
+    "value": "Usługi Leśne Drwal sp. z o.o.",
+    "confidence": 0.95,
+    "bbox": [
+     0.1323,
+     0.1527,
+     0.4536,
+     0.1748
+    ]
+   },
+   "recipient": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "product": {
+    "value": "Drewno opałowe",
+    "confidence": 0.96,
+    "bbox": [
+     0.1829,
+     0.2493,
+     0.351,
+     0.2706
+    ]
+   },
+   "quantity": {
+    "value": "24,50 m3",
+    "confidence": 0.97,
+    "bbox": [
+     0.7216,
+     0.252,
+     0.8298,
+     0.273
+    ]
+   },
+   "grossWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "tareWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "netWeight": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "vehicleReg": {
+    "value": "SGL 7Z412",
+    "confidence": 0.93,
+    "bbox": [
+     0.2027,
+     0.3361,
+     0.3142,
+     0.3571
+    ]
+   },
+   "trailerReg": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "driver": {
+    "value": "Zbigniew Kos",
+    "confidence": 0.88,
+    "bbox": [
+     0.2307,
+     0.3522,
+     0.3657,
+     0.3733
+    ]
+   },
+   "forestDistrict": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   },
+   "forestRange": {
+    "value": null,
+    "confidence": null,
+    "bbox": null
+   }
+  },
+  "rawText": "PZ — PRZYJĘCIE ZEWNĘTRZNE\nNr PZ/014/09/2026  ·  Data: 28.09.2026\nDostawcaUsługi Leśne Drwal sp. z o.o.ul. Leśna 3, 44-100 Gliwice\nMagazyn przyjmującyRiC ZabrzeResInvest Commodities\nLp.TowarJ.m.Ilość\n1Drewno opałowem324,50 m3\nDostawa\nPrzewoźnik: Transport Kowalski\nNr rej.: SGL 7Z412    Naczepa: —\nKierowca: Zbigniew Kos\nPrzyjąłDostawca",
+  "notes": null
+ }
+}

@@ -1,0 +1,6 @@
+/* Dodatki programu próbnego (pozostałe style: public/styles.css) */
+.progress { width: min(260px, 70%); height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+.frow.manual input { border-style: dashed; }
+.frow.manual .conf .val { font-size: 11px; color: var(--muted); }
